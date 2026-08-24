@@ -568,3 +568,57 @@ to 0.9867%. The report remains downstream evaluation evidence only.
 Version/affected component: `gate4_reevaluation_v2.0.0`,
 `data/model_benchmark_v1/gate4_reevaluation_v2_report.json`,
 `backend/scripts/run_gate4_reevaluation_v2.py`.
+
+## D-030 — Explanation authority and append-only history
+
+Decision: Gate 6 explanations are optional, validated annotations of stored
+deterministic decisions, never decision inputs or action authority.
+
+Date: 2026-08-24
+
+Context: Operators need concise explanations, but an LLM must not change
+probabilities, costs, scores, constraints, selected actions, or execution.
+
+Chosen approach: Build an allowlisted context from persisted
+`RecoveryCase`, `Decision`, and `DecisionCandidate` records. Validate strict
+structured output, require the recommendation to equal the stored selected
+action, and persist one immutable explanation row per explicit request.
+Repeated requests remain in append-only history; latest lookup orders by
+`generated_at DESC, id DESC`.
+
+Alternatives considered: Let the LLM recalculate scores; overwrite the latest
+explanation; persist raw provider responses and errors.
+
+Why this approach: It preserves deterministic financial behavior and makes
+every explanation reproducible and auditable without duplicating Gate 4 logic.
+
+Trade-offs: Explanations may fall back to templates, and qualitative text is
+less expressive because unvalidated numeric and monetary claims are rejected.
+
+Version/affected component: `chimera_explanation_v1.0.0`,
+`explanation_v1.0.0`, `explanations` table, intelligence service.
+
+## D-031 — OpenAI-compatible provider boundary
+
+Decision: Use an optional OpenAI-compatible HTTP provider without a vendor SDK.
+
+Date: 2026-08-24
+
+Context: Gate 6 requires at least one optional provider while keeping the
+application runnable and testable without a paid API or external key.
+
+Chosen approach: Configure provider name, base URL, model, API key, and
+timeout through server-side environment variables. Use mocked providers in
+tests and deterministic fallback when the provider is absent or fails.
+
+Alternatives considered: Require an OpenAI SDK; call an LLM during every
+decision; expose provider credentials to the frontend.
+
+Why this approach: It keeps the dependency surface small and supports
+OpenAI-compatible deployments while preserving the provider abstraction.
+
+Trade-offs: Provider response compatibility remains an operational concern;
+the adapter supports the chat-completions JSON response shape only.
+
+Version/affected component: `backend/chimera_intelligence/provider.py`,
+`.env.example`.

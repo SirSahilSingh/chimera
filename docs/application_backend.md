@@ -23,4 +23,4 @@ The versioned API is under `/api/v1`; `/health` and `/api/v1/health` expose data
 
 ## Gate 5 limitations
 
-This foundation does not add authentication, frontend views, real provider calls, webhook ingestion, LLM/voice integrations, or recovery-outcome reconciliation. The API case contract currently has no historical-payment table, so an application-created case is evaluated with an empty observable history; this is explicit rather than inferred hidden data. PostgreSQL migrations are supplied, while SQLite is used only for tests.
+This Gate 5 foundation does not add authentication, frontend views, real payment-provider calls, webhook ingestion, voice integrations, or recovery-outcome reconciliation. Gate 6 adds the optional explanation provider and append-only explanation records described in `docs/intelligence.md`. The API case contract currently has no historical-payment table, so an application-created case is evaluated with an empty observable history; this is explicit rather than inferred hidden data. PostgreSQL migrations are supplied, while SQLite is used only for tests.

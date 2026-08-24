@@ -32,6 +32,8 @@ The LLM is not on the primary decision path and is not called for every event. I
 
 The deterministic path must complete when the LLM is unavailable. Any LLM action request is a proposal routed through the same policy engine; the LLM cannot execute a financial or outreach action directly. LLM self-reported confidence is not trusted for safety.
 
+For Gate 6 explanations, the stored `Decision` and `DecisionCandidate` rows are the source of truth. The backend builds an allowlisted intelligence context, calls an optional server-side provider, validates structured output, and persists an append-only explanation record. Provider failures use deterministic fallback text. The explanation layer cannot modify a decision or execution.
+
 ## Local-first implementation gates
 
 1. Gate 0: document decisions and freeze the simulator specification.

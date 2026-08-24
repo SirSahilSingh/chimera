@@ -41,6 +41,7 @@ class RecoveryCase(Base):
     decisions: Mapped[list[Decision]] = relationship(back_populates="recovery_case", cascade="all, delete-orphan")
     executions: Mapped[list[ActionExecution]] = relationship(back_populates="recovery_case", cascade="all, delete-orphan")
     audit_logs: Mapped[list[AuditLog]] = relationship(back_populates="recovery_case", cascade="all, delete-orphan")
+    explanations: Mapped[list[Explanation]] = relationship(back_populates="recovery_case")
 
 
 class Decision(Base):
@@ -65,6 +66,7 @@ class Decision(Base):
     recovery_case: Mapped[RecoveryCase] = relationship(back_populates="decisions")
     candidates: Mapped[list[DecisionCandidate]] = relationship(back_populates="decision", cascade="all, delete-orphan")
     executions: Mapped[list[ActionExecution]] = relationship(back_populates="decision")
+    explanations: Mapped[list[Explanation]] = relationship(back_populates="decision")
 
 
 class DecisionCandidate(Base):
@@ -125,3 +127,24 @@ class AuditLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
 
     recovery_case: Mapped[RecoveryCase | None] = relationship(back_populates="audit_logs")
+
+
+class Explanation(Base):
+    __tablename__ = "explanations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    decision_id: Mapped[str] = mapped_column(ForeignKey("decisions.id"), nullable=False, index=True)
+    recovery_case_id: Mapped[str] = mapped_column(ForeignKey("recovery_cases.id"), nullable=False, index=True)
+    explanation_source: Mapped[str] = mapped_column(String(16), nullable=False)
+    provider: Mapped[str] = mapped_column(String(64), nullable=False)
+    model_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    prompt_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    explanation_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    input_context_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    output_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False, index=True)
+    fallback_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    structured_explanation: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+
+    recovery_case: Mapped[RecoveryCase] = relationship(back_populates="explanations")
+    decision: Mapped[Decision] = relationship(back_populates="explanations")

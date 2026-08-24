@@ -10,9 +10,11 @@ from backend.app.core.database import session_dependency
 from backend.app.domain import DomainError
 from backend.app.schemas import CaseCreate, DecisionResponse, ExecutionResponse, HealthResponse, PaginatedCases, RecoveryCaseResponse
 from backend.app.services.case_service import CaseService
+from backend.app.services.intelligence_service import IntelligenceService
+from backend.chimera_intelligence.schemas import ExplanationResponse
 
 
-def build_router(*, session_factory, service_factory, health_factory) -> APIRouter:
+def build_router(*, session_factory, service_factory, health_factory, intelligence_service_factory) -> APIRouter:
     router = APIRouter()
 
     def db() -> Session:
@@ -20,6 +22,9 @@ def build_router(*, session_factory, service_factory, health_factory) -> APIRout
 
     def service(session: Session = Depends(db)) -> CaseService:
         return service_factory(session)
+
+    def intelligence_service(session: Session = Depends(db)) -> IntelligenceService:
+        return intelligence_service_factory(session)
 
     def as_case(case) -> RecoveryCaseResponse:
         decisions = sorted(case.decisions, key=lambda item: item.created_at, reverse=True)
@@ -99,6 +104,27 @@ def build_router(*, session_factory, service_factory, health_factory) -> APIRout
     def get_decision(decision_id: str, case_service: CaseService = Depends(service)):
         try:
             return DecisionResponse.model_validate(case_service.get_decision(decision_id))
+        except DomainError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @router.post("/decisions/{decision_id}/explain", response_model=ExplanationResponse, status_code=201)
+    def explain(decision_id: str, explanation_service: IntelligenceService = Depends(intelligence_service)):
+        try:
+            return explanation_service.explain(decision_id)
+        except DomainError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @router.get("/decisions/{decision_id}/explanation", response_model=ExplanationResponse)
+    def latest_explanation(decision_id: str, explanation_service: IntelligenceService = Depends(intelligence_service)):
+        try:
+            return explanation_service.latest(decision_id)
+        except DomainError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @router.get("/decisions/{decision_id}/explanations", response_model=list[ExplanationResponse])
+    def explanation_history(decision_id: str, explanation_service: IntelligenceService = Depends(intelligence_service)):
+        try:
+            return explanation_service.history(decision_id)
         except DomainError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
