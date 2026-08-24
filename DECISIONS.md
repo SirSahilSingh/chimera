@@ -415,3 +415,57 @@ Why this approach: It preserves the strict split boundary and provides enough re
 Trade-offs: These results are development benchmarks only and must not be presented as final unseen-seed performance.
 
 Version/affected component: Gate 2 Arena report and baseline policies.
+
+## D-024 — Gate 3 observable feature schema
+
+Decision: Train the recovery model on an explicit 44-feature schema built only from `PaymentFailureEvent` observables.
+
+Date: 2026-08-24
+
+Context: The model must estimate action-conditioned recovery without hidden-state or temporal leakage.
+
+Chosen approach: Include scaled integer-paise amount, historical ratios, contact counts, time encodings, incident flag, observable payment/failure metadata, language/preferences, prior channel/response, contact-window eligibility, and candidate-action one-hot features. Exclude customer identifiers, synthetic PII, hidden segment/environment, simulator probabilities, outcomes, and future records. Reject any source timestamp after the decision timestamp.
+
+Alternatives considered: Pass every event field to the model; expose simulator truth for stronger synthetic metrics; infer features from serialized truth records.
+
+Why this approach: The feature contract is inspectable, reproducible, and enforceable at inference as well as training.
+
+Trade-offs: Some available event fields are intentionally omitted, and the model cannot use latent variables that would be available only inside the simulator.
+
+Version/affected component: `features_v1.0.0`, `backend/chimera_model/features.py`.
+
+## D-025 — Gate 3 Logistic Regression and calibration
+
+Decision: Use deterministic Logistic Regression as the first recovery model and Platt scaling on validation logits for calibration.
+
+Date: 2026-08-24
+
+Context: Gate 3 prioritizes interpretability, reproducibility, and probability calibration over maximum synthetic performance.
+
+Chosen approach: Fit full-batch L2-regularized Logistic Regression on 35,000 training action rows using NumPy linear algebra. Fit Platt scaling once on 10,500 validation rows. Evaluate the untouched 10,500-row holdout and record per-action metrics.
+
+Alternatives considered: XGBoost, neural models, repeated holdout tuning, isotonic calibration, and scikit-learn as a runtime dependency.
+
+Why this approach: It keeps the model transparent and dependency-light while producing action-conditioned probabilities and a self-contained JSON artifact.
+
+Trade-offs: The model may underfit nonlinear interactions; calibration improved validation Brier score only slightly from 0.208800 to 0.208767.
+
+Version/affected component: `recovery_model_v1.0.0`, `MODEL_CARD.md`, `data/model_v1/`.
+
+## D-026 — Gate 3 model experiment split manifest
+
+Decision: Use fixed disjoint seed lists and 500 events per seed for the first model experiment.
+
+Date: 2026-08-24
+
+Context: Model fitting, calibration, and holdout evaluation must not consume Arena seeds or exact events across splits.
+
+Chosen approach: Training seeds 100000, 110000, ..., 190000; validation seeds 200000, 210000, 220000; holdout seeds 300000, 310000, 320000. Generate seven action rows per event and persist the manifest and report with the simulator hash.
+
+Alternatives considered: Use all seeds in each range; reuse the Gate 2 development Arena; randomly split action rows after generation.
+
+Why this approach: The manifest is easy to reproduce and audit, and split validation is enforced before generation.
+
+Trade-offs: The experiment is representative of the frozen synthetic distribution only; it is not evidence of production generalization.
+
+Version/affected component: Gate 3 dataset pipeline, `data/model_v1/dataset_manifest.json`.

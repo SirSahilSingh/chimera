@@ -1,0 +1,54 @@
+{
+  "holdout": {
+    "event_count": 1500,
+    "events_per_seed": 500,
+    "feature_count": 44,
+    "negative_count": 6238,
+    "positive_count": 4262,
+    "positive_rate": 0.4059047619047619,
+    "row_count": 10500,
+    "seeds": [
+      300000,
+      310000,
+      320000
+    ],
+    "split": "holdout"
+  },
+  "training": {
+    "event_count": 5000,
+    "events_per_seed": 500,
+    "feature_count": 44,
+    "negative_count": 21114,
+    "positive_count": 13886,
+    "positive_rate": 0.3967428571428571,
+    "row_count": 35000,
+    "seeds": [
+      100000,
+      110000,
+      120000,
+      130000,
+      140000,
+      150000,
+      160000,
+      170000,
+      180000,
+      190000
+    ],
+    "split": "training"
+  },
+  "validation": {
+    "event_count": 1500,
+    "events_per_seed": 500,
+    "feature_count": 44,
+    "negative_count": 6356,
+    "positive_count": 4144,
+    "positive_rate": 0.39466666666666667,
+    "row_count": 10500,
+    "seeds": [
+      200000,
+      210000,
+      220000
+    ],
+    "split": "validation"
+  }
+}
