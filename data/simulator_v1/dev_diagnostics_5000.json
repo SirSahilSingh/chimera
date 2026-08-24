@@ -1,0 +1,2300 @@
+{
+  "action_cost_distribution_paise": {
+    "DO_NOTHING": {
+      "max": 0,
+      "mean": 0,
+      "min": 0
+    },
+    "ESCALATE": {
+      "max": 5000,
+      "mean": 5000,
+      "min": 5000
+    },
+    "PAYMENT_LINK": {
+      "max": 100,
+      "mean": 100,
+      "min": 100
+    },
+    "RETRY_LATER": {
+      "max": 500,
+      "mean": 500,
+      "min": 500
+    },
+    "RETRY_NOW": {
+      "max": 500,
+      "mean": 500,
+      "min": 500
+    },
+    "SEND_MESSAGE": {
+      "max": 200,
+      "mean": 200,
+      "min": 200
+    },
+    "VOICE_RECOVERY": {
+      "max": 2500,
+      "mean": 2500,
+      "min": 2500
+    }
+  },
+  "batch_metadata": {
+    "config_hash": "cb3153ea4cf9451b724f06e0a9702ab363ccc92d4ebed898b96629e4c6dbe70b",
+    "count_per_seed": 1000,
+    "seeds": [
+      400000,
+      410000,
+      420000,
+      430000,
+      440000
+    ],
+    "split": "arena_development"
+  },
+  "best_action_distribution": {
+    "actions": {
+      "DO_NOTHING": {
+        "count": 0,
+        "share_percent": 0.0
+      },
+      "ESCALATE": {
+        "count": 1205,
+        "share_percent": 24.1
+      },
+      "PAYMENT_LINK": {
+        "count": 1599,
+        "share_percent": 31.98
+      },
+      "RETRY_LATER": {
+        "count": 850,
+        "share_percent": 17.0
+      },
+      "RETRY_NOW": {
+        "count": 0,
+        "share_percent": 0.0
+      },
+      "SEND_MESSAGE": {
+        "count": 202,
+        "share_percent": 4.04
+      },
+      "VOICE_RECOVERY": {
+        "count": 1144,
+        "share_percent": 22.88
+      }
+    },
+    "exact_tie_event_count": 69,
+    "exact_tie_frequency_percent": 1.38,
+    "near_tie_event_count": 290,
+    "near_tie_frequency_percent": 5.8,
+    "near_tie_threshold": 0.01,
+    "tie_threshold": 1e-12
+  },
+  "customer_segment_x_action": {
+    "EXPIRED_METHOD_TENDENCY": {
+      "actions": {
+        "DO_NOTHING": {
+          "event_count": 1312,
+          "mean_probability": 0.2,
+          "realized_recovery_rate_percent": 21.875
+        },
+        "ESCALATE": {
+          "event_count": 1312,
+          "mean_probability": 0.26185975609756096,
+          "realized_recovery_rate_percent": 26.448170731707318
+        },
+        "PAYMENT_LINK": {
+          "event_count": 1312,
+          "mean_probability": 0.6103658536585366,
+          "realized_recovery_rate_percent": 58.53658536585366
+        },
+        "RETRY_LATER": {
+          "event_count": 1312,
+          "mean_probability": 0.10395579268292683,
+          "realized_recovery_rate_percent": 11.814024390243903
+        },
+        "RETRY_NOW": {
+          "event_count": 1312,
+          "mean_probability": 0.028239329268292684,
+          "realized_recovery_rate_percent": 2.8963414634146343
+        },
+        "SEND_MESSAGE": {
+          "event_count": 1312,
+          "mean_probability": 0.35003048780487805,
+          "realized_recovery_rate_percent": 33.99390243902439
+        },
+        "VOICE_RECOVERY": {
+          "event_count": 1312,
+          "mean_probability": 0.33644054878048785,
+          "realized_recovery_rate_percent": 33.61280487804878
+        }
+      },
+      "event_count": 1312,
+      "exact_tie_event_count": 0,
+      "exact_tie_frequency_percent": 0.0,
+      "highest_probability_action": [
+        "PAYMENT_LINK"
+      ],
+      "near_tie_event_count": 0,
+      "near_tie_frequency_percent": 0.0
+    },
+    "LOW_ENGAGEMENT": {
+      "actions": {
+        "DO_NOTHING": {
+          "event_count": 968,
+          "mean_probability": 0.1,
+          "realized_recovery_rate_percent": 9.400826446280991
+        },
+        "ESCALATE": {
+          "event_count": 968,
+          "mean_probability": 0.17852272727272728,
+          "realized_recovery_rate_percent": 17.665289256198346
+        },
+        "PAYMENT_LINK": {
+          "event_count": 968,
+          "mean_probability": 0.14840909090909093,
+          "realized_recovery_rate_percent": 14.979338842975206
+        },
+        "RETRY_LATER": {
+          "event_count": 968,
+          "mean_probability": 0.09670454545454546,
+          "realized_recovery_rate_percent": 9.917355371900827
+        },
+        "RETRY_NOW": {
+          "event_count": 968,
+          "mean_probability": 0.01678719008264463,
+          "realized_recovery_rate_percent": 1.0330578512396693
+        },
+        "SEND_MESSAGE": {
+          "event_count": 968,
+          "mean_probability": 0.08200413223140497,
+          "realized_recovery_rate_percent": 9.400826446280991
+        },
+        "VOICE_RECOVERY": {
+          "event_count": 968,
+          "mean_probability": 0.05923553719008264,
+          "realized_recovery_rate_percent": 5.8884297520661155
+        }
+      },
+      "event_count": 968,
+      "exact_tie_event_count": 0,
+      "exact_tie_frequency_percent": 0.0,
+      "highest_probability_action": [
+        "ESCALATE"
+      ],
+      "near_tie_event_count": 29,
+      "near_tie_frequency_percent": 2.9958677685950414
+    },
+    "NATURAL_PAYER": {
+      "actions": {
+        "DO_NOTHING": {
+          "event_count": 1536,
+          "mean_probability": 0.7,
+          "realized_recovery_rate_percent": 69.59635416666667
+        },
+        "ESCALATE": {
+          "event_count": 1536,
+          "mean_probability": 0.7219140625,
+          "realized_recovery_rate_percent": 72.39583333333333
+        },
+        "PAYMENT_LINK": {
+          "event_count": 1536,
+          "mean_probability": 0.6994010416666666,
+          "realized_recovery_rate_percent": 69.46614583333333
+        },
+        "RETRY_LATER": {
+          "event_count": 1536,
+          "mean_probability": 0.70548828125,
+          "realized_recovery_rate_percent": 69.3359375
+        },
+        "RETRY_NOW": {
+          "event_count": 1536,
+          "mean_probability": 0.5548502604166666,
+          "realized_recovery_rate_percent": 56.770833333333336
+        },
+        "SEND_MESSAGE": {
+          "event_count": 1536,
+          "mean_probability": 0.7002408854166666,
+          "realized_recovery_rate_percent": 69.79166666666667
+        },
+        "VOICE_RECOVERY": {
+          "event_count": 1536,
+          "mean_probability": 0.6857356770833333,
+          "realized_recovery_rate_percent": 67.3828125
+        }
+      },
+      "event_count": 1536,
+      "exact_tie_event_count": 69,
+      "exact_tie_frequency_percent": 4.4921875,
+      "highest_probability_action": [
+        "ESCALATE"
+      ],
+      "near_tie_event_count": 261,
+      "near_tie_frequency_percent": 16.9921875
+    },
+    "TEMPORARY_LIQUIDITY": {
+      "actions": {
+        "DO_NOTHING": {
+          "event_count": 1184,
+          "mean_probability": 0.3,
+          "realized_recovery_rate_percent": 31.16554054054054
+        },
+        "ESCALATE": {
+          "event_count": 1184,
+          "mean_probability": 0.43057432432432435,
+          "realized_recovery_rate_percent": 43.41216216216216
+        },
+        "PAYMENT_LINK": {
+          "event_count": 1184,
+          "mean_probability": 0.3963006756756757,
+          "realized_recovery_rate_percent": 39.527027027027025
+        },
+        "RETRY_LATER": {
+          "event_count": 1184,
+          "mean_probability": 0.5026773648648648,
+          "realized_recovery_rate_percent": 48.817567567567565
+        },
+        "RETRY_NOW": {
+          "event_count": 1184,
+          "mean_probability": 0.27584459459459454,
+          "realized_recovery_rate_percent": 27.449324324324323
+        },
+        "SEND_MESSAGE": {
+          "event_count": 1184,
+          "mean_probability": 0.453597972972973,
+          "realized_recovery_rate_percent": 44.08783783783784
+        },
+        "VOICE_RECOVERY": {
+          "event_count": 1184,
+          "mean_probability": 0.5475506756756757,
+          "realized_recovery_rate_percent": 54.307432432432435
+        }
+      },
+      "event_count": 1184,
+      "exact_tie_event_count": 0,
+      "exact_tie_frequency_percent": 0.0,
+      "highest_probability_action": [
+        "VOICE_RECOVERY"
+      ],
+      "near_tie_event_count": 0,
+      "near_tie_frequency_percent": 0.0
+    }
+  },
+  "environment_distribution": {
+    "GATEWAY_DEGRADATION": {
+      "count": 497,
+      "share": 0.0994
+    },
+    "ISSUER_NETWORK_DEGRADATION": {
+      "count": 264,
+      "share": 0.0528
+    },
+    "NORMAL": {
+      "count": 4239,
+      "share": 0.8478
+    }
+  },
+  "environment_x_action_internal": {
+    "GATEWAY_DEGRADATION": {
+      "actions": {
+        "DO_NOTHING": {
+          "event_count": 497,
+          "mean_probability": 0.3674044265593561,
+          "realized_recovery_rate_percent": 35.412474849094565
+        },
+        "ESCALATE": {
+          "event_count": 497,
+          "mean_probability": 0.45321931589537223,
+          "realized_recovery_rate_percent": 41.4486921529175
+        },
+        "PAYMENT_LINK": {
+          "event_count": 497,
+          "mean_probability": 0.4851106639839034,
+          "realized_recovery_rate_percent": 44.06438631790744
+        },
+        "RETRY_LATER": {
+          "event_count": 497,
+          "mean_probability": 0.5906438631790745,
+          "realized_recovery_rate_percent": 60.76458752515091
+        },
+        "RETRY_NOW": {
+          "event_count": 497,
+          "mean_probability": 0.1890543259557344,
+          "realized_recovery_rate_percent": 17.303822937625753
+        },
+        "SEND_MESSAGE": {
+          "event_count": 497,
+          "mean_probability": 0.4355533199195171,
+          "realized_recovery_rate_percent": 44.668008048289735
+        },
+        "VOICE_RECOVERY": {
+          "event_count": 497,
+          "mean_probability": 0.4495975855130785,
+          "realized_recovery_rate_percent": 46.68008048289738
+        }
+      },
+      "event_count": 497,
+      "exact_tie_event_count": 0,
+      "exact_tie_frequency_percent": 0.0,
+      "highest_probability_action": [
+        "RETRY_LATER"
+      ],
+      "near_tie_event_count": 0,
+      "near_tie_frequency_percent": 0.0
+    },
+    "ISSUER_NETWORK_DEGRADATION": {
+      "actions": {
+        "DO_NOTHING": {
+          "event_count": 264,
+          "mean_probability": 0.3450757575757576,
+          "realized_recovery_rate_percent": 37.5
+        },
+        "ESCALATE": {
+          "event_count": 264,
+          "mean_probability": 0.4303030303030303,
+          "realized_recovery_rate_percent": 43.93939393939394
+        },
+        "PAYMENT_LINK": {
+          "event_count": 264,
+          "mean_probability": 0.4731818181818182,
+          "realized_recovery_rate_percent": 45.07575757575758
+        },
+        "RETRY_LATER": {
+          "event_count": 264,
+          "mean_probability": 0.45284090909090907,
+          "realized_recovery_rate_percent": 44.696969696969695
+        },
+        "RETRY_NOW": {
+          "event_count": 264,
+          "mean_probability": 0.1859469696969697,
+          "realized_recovery_rate_percent": 17.803030303030305
+        },
+        "SEND_MESSAGE": {
+          "event_count": 264,
+          "mean_probability": 0.42068181818181816,
+          "realized_recovery_rate_percent": 41.666666666666664
+        },
+        "VOICE_RECOVERY": {
+          "event_count": 264,
+          "mean_probability": 0.42996212121212124,
+          "realized_recovery_rate_percent": 40.53030303030303
+        }
+      },
+      "event_count": 264,
+      "exact_tie_event_count": 0,
+      "exact_tie_frequency_percent": 0.0,
+      "highest_probability_action": [
+        "PAYMENT_LINK"
+      ],
+      "near_tie_event_count": 29,
+      "near_tie_frequency_percent": 10.984848484848484
+    },
+    "NORMAL": {
+      "actions": {
+        "DO_NOTHING": {
+          "event_count": 4239,
+          "mean_probability": 0.3576079263977353,
+          "realized_recovery_rate_percent": 36.35291342297712
+        },
+        "ESCALATE": {
+          "event_count": 4239,
+          "mean_probability": 0.423727294173154,
+          "realized_recovery_rate_percent": 42.98183533852324
+        },
+        "PAYMENT_LINK": {
+          "event_count": 4239,
+          "mean_probability": 0.5005756074545883,
+          "realized_recovery_rate_percent": 49.77589054022175
+        },
+        "RETRY_LATER": {
+          "event_count": 4239,
+          "mean_probability": 0.3528426515687662,
+          "realized_recovery_rate_percent": 34.7723519698042
+        },
+        "RETRY_NOW": {
+          "event_count": 4239,
+          "mean_probability": 0.2569238027836754,
+          "realized_recovery_rate_percent": 26.232602028780374
+        },
+        "SEND_MESSAGE": {
+          "event_count": 4239,
+          "mean_probability": 0.43022410945977824,
+          "realized_recovery_rate_percent": 42.43925454116537
+        },
+        "VOICE_RECOVERY": {
+          "event_count": 4239,
+          "mean_probability": 0.4395800896437839,
+          "realized_recovery_rate_percent": 43.33569238027837
+        }
+      },
+      "event_count": 4239,
+      "exact_tie_event_count": 69,
+      "exact_tie_frequency_percent": 1.6277423920736023,
+      "highest_probability_action": [
+        "PAYMENT_LINK"
+      ],
+      "near_tie_event_count": 261,
+      "near_tie_frequency_percent": 6.1571125265392785
+    }
+  },
+  "event_count": 5000,
+  "incident_flag_x_action": {
+    "false": {
+      "actions": {
+        "DO_NOTHING": {
+          "event_count": 4239,
+          "mean_probability": 0.3576079263977353,
+          "realized_recovery_rate_percent": 36.35291342297712
+        },
+        "ESCALATE": {
+          "event_count": 4239,
+          "mean_probability": 0.423727294173154,
+          "realized_recovery_rate_percent": 42.98183533852324
+        },
+        "PAYMENT_LINK": {
+          "event_count": 4239,
+          "mean_probability": 0.5005756074545883,
+          "realized_recovery_rate_percent": 49.77589054022175
+        },
+        "RETRY_LATER": {
+          "event_count": 4239,
+          "mean_probability": 0.3528426515687662,
+          "realized_recovery_rate_percent": 34.7723519698042
+        },
+        "RETRY_NOW": {
+          "event_count": 4239,
+          "mean_probability": 0.2569238027836754,
+          "realized_recovery_rate_percent": 26.232602028780374
+        },
+        "SEND_MESSAGE": {
+          "event_count": 4239,
+          "mean_probability": 0.43022410945977824,
+          "realized_recovery_rate_percent": 42.43925454116537
+        },
+        "VOICE_RECOVERY": {
+          "event_count": 4239,
+          "mean_probability": 0.4395800896437839,
+          "realized_recovery_rate_percent": 43.33569238027837
+        }
+      },
+      "event_count": 4239,
+      "exact_tie_event_count": 69,
+      "exact_tie_frequency_percent": 1.6277423920736023,
+      "highest_probability_action": [
+        "PAYMENT_LINK"
+      ],
+      "near_tie_event_count": 261,
+      "near_tie_frequency_percent": 6.1571125265392785
+    },
+    "true": {
+      "actions": {
+        "DO_NOTHING": {
+          "event_count": 761,
+          "mean_probability": 0.35965834428383703,
+          "realized_recovery_rate_percent": 36.136662286465175
+        },
+        "ESCALATE": {
+          "event_count": 761,
+          "mean_probability": 0.44526938239159003,
+          "realized_recovery_rate_percent": 42.31274638633377
+        },
+        "PAYMENT_LINK": {
+          "event_count": 761,
+          "mean_probability": 0.4809724047306176,
+          "realized_recovery_rate_percent": 44.415243101182654
+        },
+        "RETRY_LATER": {
+          "event_count": 761,
+          "mean_probability": 0.542838370565046,
+          "realized_recovery_rate_percent": 55.19053876478318
+        },
+        "RETRY_NOW": {
+          "event_count": 761,
+          "mean_probability": 0.18797634691195794,
+          "realized_recovery_rate_percent": 17.47700394218134
+        },
+        "SEND_MESSAGE": {
+          "event_count": 761,
+          "mean_probability": 0.43039421813403417,
+          "realized_recovery_rate_percent": 43.62680683311432
+        },
+        "VOICE_RECOVERY": {
+          "event_count": 761,
+          "mean_probability": 0.4427858081471748,
+          "realized_recovery_rate_percent": 44.54664914586071
+        }
+      },
+      "event_count": 761,
+      "exact_tie_event_count": 0,
+      "exact_tie_frequency_percent": 0.0,
+      "highest_probability_action": [
+        "RETRY_LATER"
+      ],
+      "near_tie_event_count": 29,
+      "near_tie_frequency_percent": 3.8107752956636007
+    }
+  },
+  "lower_clamp_analysis": {
+    "combinations": [
+      {
+        "action": "RETRY_NOW",
+        "count": 3,
+        "customer_segment": "EXPIRED_METHOD_TENDENCY",
+        "environment": "GATEWAY_DEGRADATION",
+        "root_cause": "abandonment",
+        "share_of_lower_clamp_hits_percent": 0.12987012987012986
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 4,
+        "customer_segment": "EXPIRED_METHOD_TENDENCY",
+        "environment": "ISSUER_NETWORK_DEGRADATION",
+        "root_cause": "abandonment",
+        "share_of_lower_clamp_hits_percent": 0.17316017316017315
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 26,
+        "customer_segment": "LOW_ENGAGEMENT",
+        "environment": "GATEWAY_DEGRADATION",
+        "root_cause": "abandonment",
+        "share_of_lower_clamp_hits_percent": 1.1255411255411256
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 16,
+        "customer_segment": "LOW_ENGAGEMENT",
+        "environment": "ISSUER_NETWORK_DEGRADATION",
+        "root_cause": "abandonment",
+        "share_of_lower_clamp_hits_percent": 0.6926406926406926
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 29,
+        "customer_segment": "EXPIRED_METHOD_TENDENCY",
+        "environment": "GATEWAY_DEGRADATION",
+        "root_cause": "expired_method",
+        "share_of_lower_clamp_hits_percent": 1.2554112554112553
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 18,
+        "customer_segment": "EXPIRED_METHOD_TENDENCY",
+        "environment": "ISSUER_NETWORK_DEGRADATION",
+        "root_cause": "expired_method",
+        "share_of_lower_clamp_hits_percent": 0.7792207792207793
+      },
+      {
+        "action": "RETRY_LATER",
+        "count": 691,
+        "customer_segment": "EXPIRED_METHOD_TENDENCY",
+        "environment": "NORMAL",
+        "root_cause": "expired_method",
+        "share_of_lower_clamp_hits_percent": 29.913419913419915
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 691,
+        "customer_segment": "EXPIRED_METHOD_TENDENCY",
+        "environment": "NORMAL",
+        "root_cause": "expired_method",
+        "share_of_lower_clamp_hits_percent": 29.913419913419915
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 3,
+        "customer_segment": "LOW_ENGAGEMENT",
+        "environment": "GATEWAY_DEGRADATION",
+        "root_cause": "expired_method",
+        "share_of_lower_clamp_hits_percent": 0.12987012987012986
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 2,
+        "customer_segment": "LOW_ENGAGEMENT",
+        "environment": "ISSUER_NETWORK_DEGRADATION",
+        "root_cause": "expired_method",
+        "share_of_lower_clamp_hits_percent": 0.08658008658008658
+      },
+      {
+        "action": "RETRY_LATER",
+        "count": 93,
+        "customer_segment": "LOW_ENGAGEMENT",
+        "environment": "NORMAL",
+        "root_cause": "expired_method",
+        "share_of_lower_clamp_hits_percent": 4.025974025974026
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 93,
+        "customer_segment": "LOW_ENGAGEMENT",
+        "environment": "NORMAL",
+        "root_cause": "expired_method",
+        "share_of_lower_clamp_hits_percent": 4.025974025974026
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 3,
+        "customer_segment": "EXPIRED_METHOD_TENDENCY",
+        "environment": "GATEWAY_DEGRADATION",
+        "root_cause": "insufficient_funds",
+        "share_of_lower_clamp_hits_percent": 0.12987012987012986
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 3,
+        "customer_segment": "EXPIRED_METHOD_TENDENCY",
+        "environment": "ISSUER_NETWORK_DEGRADATION",
+        "root_cause": "insufficient_funds",
+        "share_of_lower_clamp_hits_percent": 0.12987012987012986
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 7,
+        "customer_segment": "LOW_ENGAGEMENT",
+        "environment": "GATEWAY_DEGRADATION",
+        "root_cause": "insufficient_funds",
+        "share_of_lower_clamp_hits_percent": 0.30303030303030304
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 8,
+        "customer_segment": "LOW_ENGAGEMENT",
+        "environment": "ISSUER_NETWORK_DEGRADATION",
+        "root_cause": "insufficient_funds",
+        "share_of_lower_clamp_hits_percent": 0.3463203463203463
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 179,
+        "customer_segment": "LOW_ENGAGEMENT",
+        "environment": "NORMAL",
+        "root_cause": "insufficient_funds",
+        "share_of_lower_clamp_hits_percent": 7.748917748917749
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 37,
+        "customer_segment": "EXPIRED_METHOD_TENDENCY",
+        "environment": "ISSUER_NETWORK_DEGRADATION",
+        "root_cause": "issuer_decline",
+        "share_of_lower_clamp_hits_percent": 1.6017316017316017
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 2,
+        "customer_segment": "LOW_ENGAGEMENT",
+        "environment": "GATEWAY_DEGRADATION",
+        "root_cause": "issuer_decline",
+        "share_of_lower_clamp_hits_percent": 0.08658008658008658
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 29,
+        "customer_segment": "LOW_ENGAGEMENT",
+        "environment": "ISSUER_NETWORK_DEGRADATION",
+        "root_cause": "issuer_decline",
+        "share_of_lower_clamp_hits_percent": 1.2554112554112553
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 3,
+        "customer_segment": "EXPIRED_METHOD_TENDENCY",
+        "environment": "GATEWAY_DEGRADATION",
+        "root_cause": "other",
+        "share_of_lower_clamp_hits_percent": 0.12987012987012986
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 2,
+        "customer_segment": "EXPIRED_METHOD_TENDENCY",
+        "environment": "ISSUER_NETWORK_DEGRADATION",
+        "root_cause": "other",
+        "share_of_lower_clamp_hits_percent": 0.08658008658008658
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 3,
+        "customer_segment": "LOW_ENGAGEMENT",
+        "environment": "GATEWAY_DEGRADATION",
+        "root_cause": "other",
+        "share_of_lower_clamp_hits_percent": 0.12987012987012986
+      },
+      {
+        "action": "VOICE_RECOVERY",
+        "count": 39,
+        "customer_segment": "LOW_ENGAGEMENT",
+        "environment": "NORMAL",
+        "root_cause": "other",
+        "share_of_lower_clamp_hits_percent": 1.6883116883116882
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 79,
+        "customer_segment": "EXPIRED_METHOD_TENDENCY",
+        "environment": "GATEWAY_DEGRADATION",
+        "root_cause": "technical_degradation",
+        "share_of_lower_clamp_hits_percent": 3.41991341991342
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 5,
+        "customer_segment": "EXPIRED_METHOD_TENDENCY",
+        "environment": "ISSUER_NETWORK_DEGRADATION",
+        "root_cause": "technical_degradation",
+        "share_of_lower_clamp_hits_percent": 0.21645021645021645
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 101,
+        "customer_segment": "EXPIRED_METHOD_TENDENCY",
+        "environment": "NORMAL",
+        "root_cause": "technical_degradation",
+        "share_of_lower_clamp_hits_percent": 4.372294372294372
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 55,
+        "customer_segment": "LOW_ENGAGEMENT",
+        "environment": "GATEWAY_DEGRADATION",
+        "root_cause": "technical_degradation",
+        "share_of_lower_clamp_hits_percent": 2.380952380952381
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 3,
+        "customer_segment": "LOW_ENGAGEMENT",
+        "environment": "ISSUER_NETWORK_DEGRADATION",
+        "root_cause": "technical_degradation",
+        "share_of_lower_clamp_hits_percent": 0.12987012987012986
+      },
+      {
+        "action": "RETRY_NOW",
+        "count": 83,
+        "customer_segment": "LOW_ENGAGEMENT",
+        "environment": "NORMAL",
+        "root_cause": "technical_degradation",
+        "share_of_lower_clamp_hits_percent": 3.593073593073593
+      }
+    ],
+    "percentage_of_all_probabilities": 6.6,
+    "total_hits": 2310,
+    "total_probabilities": 35000
+  },
+  "probability_clamp_percentages": {
+    "lower_0.01": 6.6,
+    "upper_0.99": 0.0
+  },
+  "recovery_probability_by_action": {
+    "DO_NOTHING": {
+      "max": 0.7,
+      "mean": 0.35791999999999996,
+      "min": 0.1
+    },
+    "ESCALATE": {
+      "max": 0.77,
+      "mean": 0.427006,
+      "min": 0.15000000000000002
+    },
+    "PAYMENT_LINK": {
+      "max": 0.7799999999999999,
+      "mean": 0.497592,
+      "min": 0.12000000000000001
+    },
+    "RETRY_LATER": {
+      "max": 0.95,
+      "mean": 0.38176,
+      "min": 0.01
+    },
+    "RETRY_NOW": {
+      "max": 0.64,
+      "mean": 0.24643,
+      "min": 0.01
+    },
+    "SEND_MESSAGE": {
+      "max": 0.7699999999999999,
+      "mean": 0.43024999999999997,
+      "min": 0.020000000000000004
+    },
+    "VOICE_RECOVERY": {
+      "max": 0.7799999999999999,
+      "mean": 0.440068,
+      "min": 0.01
+    }
+  },
+  "root_cause_distribution": {
+    "abandonment": {
+      "count": 834,
+      "share": 0.1668
+    },
+    "expired_method": {
+      "count": 1141,
+      "share": 0.2282
+    },
+    "insufficient_funds": {
+      "count": 921,
+      "share": 0.1842
+    },
+    "issuer_decline": {
+      "count": 1044,
+      "share": 0.2088
+    },
+    "other": {
+      "count": 245,
+      "share": 0.049
+    },
+    "technical_degradation": {
+      "count": 815,
+      "share": 0.163
+    }
+  },
+  "root_cause_x_action": {
+    "abandonment": {
+      "actions": {
+        "DO_NOTHING": {
+          "event_count": 834,
+          "mean_probability": 0.3067146282973621,
+          "realized_recovery_rate_percent": 30.93525179856115
+        },
+        "ESCALATE": {
+          "event_count": 834,
+          "mean_probability": 0.38508393285371706,
+          "realized_recovery_rate_percent": 40.04796163069545
+        },
+        "PAYMENT_LINK": {
+          "event_count": 834,
+          "mean_probability": 0.4200719424460432,
+          "realized_recovery_rate_percent": 41.84652278177458
+        },
+        "RETRY_LATER": {
+          "event_count": 834,
+          "mean_probability": 0.28396882494004794,
+          "realized_recovery_rate_percent": 28.057553956834532
+        },
+        "RETRY_NOW": {
+          "event_count": 834,
+          "mean_probability": 0.22050359712230214,
+          "realized_recovery_rate_percent": 24.100719424460433
+        },
+        "SEND_MESSAGE": {
+          "event_count": 834,
+          "mean_probability": 0.39741007194244604,
+          "realized_recovery_rate_percent": 38.96882494004796
+        },
+        "VOICE_RECOVERY": {
+          "event_count": 834,
+          "mean_probability": 0.3565107913669065,
+          "realized_recovery_rate_percent": 35.851318944844124
+        }
+      },
+      "event_count": 834,
+      "exact_tie_event_count": 0,
+      "exact_tie_frequency_percent": 0.0,
+      "highest_probability_action": [
+        "PAYMENT_LINK"
+      ],
+      "near_tie_event_count": 0,
+      "near_tie_frequency_percent": 0.0
+    },
+    "expired_method": {
+      "actions": {
+        "DO_NOTHING": {
+          "event_count": 1141,
+          "mean_probability": 0.28439964943032425,
+          "realized_recovery_rate_percent": 29.009640666082383
+        },
+        "ESCALATE": {
+          "event_count": 1141,
+          "mean_probability": 0.332532865907099,
+          "realized_recovery_rate_percent": 31.901840490797547
+        },
+        "PAYMENT_LINK": {
+          "event_count": 1141,
+          "mean_probability": 0.6173181419807187,
+          "realized_recovery_rate_percent": 60.82383873794917
+        },
+        "RETRY_LATER": {
+          "event_count": 1141,
+          "mean_probability": 0.13649430324276948,
+          "realized_recovery_rate_percent": 13.847502191060473
+        },
+        "RETRY_NOW": {
+          "event_count": 1141,
+          "mean_probability": 0.10319894829097283,
+          "realized_recovery_rate_percent": 10.692375109553023
+        },
+        "SEND_MESSAGE": {
+          "event_count": 1141,
+          "mean_probability": 0.3793514460999124,
+          "realized_recovery_rate_percent": 37.949167397020155
+        },
+        "VOICE_RECOVERY": {
+          "event_count": 1141,
+          "mean_probability": 0.37990359333917617,
+          "realized_recovery_rate_percent": 38.03680981595092
+        }
+      },
+      "event_count": 1141,
+      "exact_tie_event_count": 0,
+      "exact_tie_frequency_percent": 0.0,
+      "highest_probability_action": [
+        "PAYMENT_LINK"
+      ],
+      "near_tie_event_count": 0,
+      "near_tie_frequency_percent": 0.0
+    },
+    "insufficient_funds": {
+      "actions": {
+        "DO_NOTHING": {
+          "event_count": 921,
+          "mean_probability": 0.34386536373507054,
+          "realized_recovery_rate_percent": 35.72204125950054
+        },
+        "ESCALATE": {
+          "event_count": 921,
+          "mean_probability": 0.4585124864277959,
+          "realized_recovery_rate_percent": 46.90553745928339
+        },
+        "PAYMENT_LINK": {
+          "event_count": 921,
+          "mean_probability": 0.40675352877307275,
+          "realized_recovery_rate_percent": 37.13355048859935
+        },
+        "RETRY_LATER": {
+          "event_count": 921,
+          "mean_probability": 0.45133550488599344,
+          "realized_recovery_rate_percent": 43.865363735070574
+        },
+        "RETRY_NOW": {
+          "event_count": 921,
+          "mean_probability": 0.25275787187839305,
+          "realized_recovery_rate_percent": 23.995656894679698
+        },
+        "SEND_MESSAGE": {
+          "event_count": 921,
+          "mean_probability": 0.4557546145494028,
+          "realized_recovery_rate_percent": 46.36264929424539
+        },
+        "VOICE_RECOVERY": {
+          "event_count": 921,
+          "mean_probability": 0.5250271444082518,
+          "realized_recovery_rate_percent": 53.74592833876221
+        }
+      },
+      "event_count": 921,
+      "exact_tie_event_count": 0,
+      "exact_tie_frequency_percent": 0.0,
+      "highest_probability_action": [
+        "VOICE_RECOVERY"
+      ],
+      "near_tie_event_count": 192,
+      "near_tie_frequency_percent": 20.846905537459282
+    },
+    "issuer_decline": {
+      "actions": {
+        "DO_NOTHING": {
+          "event_count": 1044,
+          "mean_probability": 0.4532567049808429,
+          "realized_recovery_rate_percent": 45.593869731800766
+        },
+        "ESCALATE": {
+          "event_count": 1044,
+          "mean_probability": 0.503860153256705,
+          "realized_recovery_rate_percent": 51.4367816091954
+        },
+        "PAYMENT_LINK": {
+          "event_count": 1044,
+          "mean_probability": 0.5164367816091954,
+          "realized_recovery_rate_percent": 52.969348659003835
+        },
+        "RETRY_LATER": {
+          "event_count": 1044,
+          "mean_probability": 0.5038218390804597,
+          "realized_recovery_rate_percent": 49.42528735632184
+        },
+        "RETRY_NOW": {
+          "event_count": 1044,
+          "mean_probability": 0.40663793103448276,
+          "realized_recovery_rate_percent": 40.51724137931034
+        },
+        "SEND_MESSAGE": {
+          "event_count": 1044,
+          "mean_probability": 0.4857662835249042,
+          "realized_recovery_rate_percent": 47.60536398467433
+        },
+        "VOICE_RECOVERY": {
+          "event_count": 1044,
+          "mean_probability": 0.4994348659003831,
+          "realized_recovery_rate_percent": 48.75478927203065
+        }
+      },
+      "event_count": 1044,
+      "exact_tie_event_count": 0,
+      "exact_tie_frequency_percent": 0.0,
+      "highest_probability_action": [
+        "PAYMENT_LINK"
+      ],
+      "near_tie_event_count": 29,
+      "near_tie_frequency_percent": 2.7777777777777777
+    },
+    "other": {
+      "actions": {
+        "DO_NOTHING": {
+          "event_count": 245,
+          "mean_probability": 0.3689795918367347,
+          "realized_recovery_rate_percent": 36.326530612244895
+        },
+        "ESCALATE": {
+          "event_count": 245,
+          "mean_probability": 0.41685714285714287,
+          "realized_recovery_rate_percent": 44.48979591836735
+        },
+        "PAYMENT_LINK": {
+          "event_count": 245,
+          "mean_probability": 0.4758775510204082,
+          "realized_recovery_rate_percent": 44.89795918367347
+        },
+        "RETRY_LATER": {
+          "event_count": 245,
+          "mean_probability": 0.371469387755102,
+          "realized_recovery_rate_percent": 36.326530612244895
+        },
+        "RETRY_NOW": {
+          "event_count": 245,
+          "mean_probability": 0.3126122448979592,
+          "realized_recovery_rate_percent": 33.46938775510204
+        },
+        "SEND_MESSAGE": {
+          "event_count": 245,
+          "mean_probability": 0.39889795918367343,
+          "realized_recovery_rate_percent": 42.857142857142854
+        },
+        "VOICE_RECOVERY": {
+          "event_count": 245,
+          "mean_probability": 0.40591836734693876,
+          "realized_recovery_rate_percent": 34.69387755102041
+        }
+      },
+      "event_count": 245,
+      "exact_tie_event_count": 69,
+      "exact_tie_frequency_percent": 28.163265306122447,
+      "highest_probability_action": [
+        "PAYMENT_LINK"
+      ],
+      "near_tie_event_count": 69,
+      "near_tie_frequency_percent": 28.163265306122447
+    },
+    "technical_degradation": {
+      "actions": {
+        "DO_NOTHING": {
+          "event_count": 815,
+          "mean_probability": 0.403680981595092,
+          "realized_recovery_rate_percent": 40.85889570552147
+        },
+        "ESCALATE": {
+          "event_count": 815,
+          "mean_probability": 0.47116564417177914,
+          "realized_recovery_rate_percent": 45.15337423312884
+        },
+        "PAYMENT_LINK": {
+          "event_count": 815,
+          "mean_probability": 0.49434355828220855,
+          "realized_recovery_rate_percent": 49.079754601226995
+        },
+        "RETRY_LATER": {
+          "event_count": 815,
+          "mean_probability": 0.5933128834355827,
+          "realized_recovery_rate_percent": 60.49079754601227
+        },
+        "RETRY_NOW": {
+          "event_count": 815,
+          "mean_probability": 0.24121472392638038,
+          "realized_recovery_rate_percent": 24.049079754601227
+        },
+        "SEND_MESSAGE": {
+          "event_count": 815,
+          "mean_probability": 0.444601226993865,
+          "realized_recovery_rate_percent": 42.20858895705521
+        },
+        "VOICE_RECOVERY": {
+          "event_count": 815,
+          "mean_probability": 0.4480122699386503,
+          "realized_recovery_rate_percent": 43.43558282208589
+        }
+      },
+      "event_count": 815,
+      "exact_tie_event_count": 0,
+      "exact_tie_frequency_percent": 0.0,
+      "highest_probability_action": [
+        "RETRY_LATER"
+      ],
+      "near_tie_event_count": 0,
+      "near_tie_frequency_percent": 0.0
+    }
+  },
+  "root_cause_x_customer_segment_best_action": {
+    "abandonment": {
+      "EXPIRED_METHOD_TENDENCY": {
+        "actions": {
+          "DO_NOTHING": {
+            "event_count": 108,
+            "mean_probability": 0.2,
+            "realized_recovery_rate_percent": 27.77777777777778
+          },
+          "ESCALATE": {
+            "event_count": 108,
+            "mean_probability": 0.2812962962962963,
+            "realized_recovery_rate_percent": 34.25925925925926
+          },
+          "PAYMENT_LINK": {
+            "event_count": 108,
+            "mean_probability": 0.6000000000000001,
+            "realized_recovery_rate_percent": 56.48148148148148
+          },
+          "RETRY_LATER": {
+            "event_count": 108,
+            "mean_probability": 0.10787037037037038,
+            "realized_recovery_rate_percent": 9.25925925925926
+          },
+          "RETRY_NOW": {
+            "event_count": 108,
+            "mean_probability": 0.06611111111111112,
+            "realized_recovery_rate_percent": 9.25925925925926
+          },
+          "SEND_MESSAGE": {
+            "event_count": 108,
+            "mean_probability": 0.4206481481481482,
+            "realized_recovery_rate_percent": 44.44444444444444
+          },
+          "VOICE_RECOVERY": {
+            "event_count": 108,
+            "mean_probability": 0.360925925925926,
+            "realized_recovery_rate_percent": 37.03703703703704
+          }
+        },
+        "event_count": 108,
+        "exact_tie_event_count": 0,
+        "exact_tie_frequency_percent": 0.0,
+        "highest_probability_action": [
+          "PAYMENT_LINK"
+        ],
+        "near_tie_event_count": 0,
+        "near_tie_frequency_percent": 0.0
+      },
+      "LOW_ENGAGEMENT": {
+        "actions": {
+          "DO_NOTHING": {
+            "event_count": 354,
+            "mean_probability": 0.1,
+            "realized_recovery_rate_percent": 9.03954802259887
+          },
+          "ESCALATE": {
+            "event_count": 354,
+            "mean_probability": 0.18237288135593221,
+            "realized_recovery_rate_percent": 17.231638418079097
+          },
+          "PAYMENT_LINK": {
+            "event_count": 354,
+            "mean_probability": 0.17,
+            "realized_recovery_rate_percent": 18.07909604519774
+          },
+          "RETRY_LATER": {
+            "event_count": 354,
+            "mean_probability": 0.04553672316384181,
+            "realized_recovery_rate_percent": 4.237288135593221
+          },
+          "RETRY_NOW": {
+            "event_count": 354,
+            "mean_probability": 0.010000000000000007,
+            "realized_recovery_rate_percent": 1.1299435028248588
+          },
+          "SEND_MESSAGE": {
+            "event_count": 354,
+            "mean_probability": 0.1211864406779661,
+            "realized_recovery_rate_percent": 13.841807909604519
+          },
+          "VOICE_RECOVERY": {
+            "event_count": 354,
+            "mean_probability": 0.06192090395480226,
+            "realized_recovery_rate_percent": 5.932203389830509
+          }
+        },
+        "event_count": 354,
+        "exact_tie_event_count": 0,
+        "exact_tie_frequency_percent": 0.0,
+        "highest_probability_action": [
+          "ESCALATE"
+        ],
+        "near_tie_event_count": 0,
+        "near_tie_frequency_percent": 0.0
+      },
+      "NATURAL_PAYER": {
+        "actions": {
+          "DO_NOTHING": {
+            "event_count": 218,
+            "mean_probability": 0.7,
+            "realized_recovery_rate_percent": 67.43119266055047
+          },
+          "ESCALATE": {
+            "event_count": 218,
+            "mean_probability": 0.7326605504587156,
+            "realized_recovery_rate_percent": 75.68807339449542
+          },
+          "PAYMENT_LINK": {
+            "event_count": 218,
+            "mean_probability": 0.73,
+            "realized_recovery_rate_percent": 72.93577981651376
+          },
+          "RETRY_LATER": {
+            "event_count": 218,
+            "mean_probability": 0.6469724770642201,
+            "realized_recovery_rate_percent": 63.30275229357798
+          },
+          "RETRY_NOW": {
+            "event_count": 218,
+            "mean_probability": 0.5755045871559633,
+            "realized_recovery_rate_percent": 63.76146788990825
+          },
+          "SEND_MESSAGE": {
+            "event_count": 218,
+            "mean_probability": 0.7613302752293577,
+            "realized_recovery_rate_percent": 73.85321100917432
+          },
+          "VOICE_RECOVERY": {
+            "event_count": 218,
+            "mean_probability": 0.7020642201834862,
+            "realized_recovery_rate_percent": 68.80733944954129
+          }
+        },
+        "event_count": 218,
+        "exact_tie_event_count": 0,
+        "exact_tie_frequency_percent": 0.0,
+        "highest_probability_action": [
+          "SEND_MESSAGE"
+        ],
+        "near_tie_event_count": 0,
+        "near_tie_frequency_percent": 0.0
+      },
+      "TEMPORARY_LIQUIDITY": {
+        "actions": {
+          "DO_NOTHING": {
+            "event_count": 154,
+            "mean_probability": 0.3,
+            "realized_recovery_rate_percent": 31.818181818181817
+          },
+          "ESCALATE": {
+            "event_count": 154,
+            "mean_probability": 0.4318181818181819,
+            "realized_recovery_rate_percent": 46.103896103896105
+          },
+          "PAYMENT_LINK": {
+            "event_count": 154,
+            "mean_probability": 0.43,
+            "realized_recovery_rate_percent": 42.20779220779221
+          },
+          "RETRY_LATER": {
+            "event_count": 154,
+            "mean_probability": 0.44168831168831163,
+            "realized_recovery_rate_percent": 46.103896103896105
+          },
+          "RETRY_NOW": {
+            "event_count": 154,
+            "mean_probability": 0.3101298701298701,
+            "realized_recovery_rate_percent": 31.16883116883117
+          },
+          "SEND_MESSAGE": {
+            "event_count": 154,
+            "mean_probability": 0.5009090909090909,
+            "realized_recovery_rate_percent": 43.506493506493506
+          },
+          "VOICE_RECOVERY": {
+            "event_count": 154,
+            "mean_probability": 0.5414285714285715,
+            "realized_recovery_rate_percent": 57.142857142857146
+          }
+        },
+        "event_count": 154,
+        "exact_tie_event_count": 0,
+        "exact_tie_frequency_percent": 0.0,
+        "highest_probability_action": [
+          "VOICE_RECOVERY"
+        ],
+        "near_tie_event_count": 0,
+        "near_tie_frequency_percent": 0.0
+      }
+    },
+    "expired_method": {
+      "EXPIRED_METHOD_TENDENCY": {
+        "actions": {
+          "DO_NOTHING": {
+            "event_count": 738,
+            "mean_probability": 0.2,
+            "realized_recovery_rate_percent": 21.00271002710027
+          },
+          "ESCALATE": {
+            "event_count": 738,
+            "mean_probability": 0.2512737127371274,
+            "realized_recovery_rate_percent": 25.203252032520325
+          },
+          "PAYMENT_LINK": {
+            "event_count": 738,
+            "mean_probability": 0.65,
+            "realized_recovery_rate_percent": 64.36314363143632
+          },
+          "RETRY_LATER": {
+            "event_count": 738,
+            "mean_probability": 0.01769647696476965,
+            "realized_recovery_rate_percent": 2.4390243902439024
+          },
+          "RETRY_NOW": {
+            "event_count": 738,
+            "mean_probability": 0.01,
+            "realized_recovery_rate_percent": 0.5420054200542005
+          },
+          "SEND_MESSAGE": {
+            "event_count": 738,
+            "mean_probability": 0.3406368563685637,
+            "realized_recovery_rate_percent": 32.79132791327913
+          },
+          "VOICE_RECOVERY": {
+            "event_count": 738,
+            "mean_probability": 0.3310298102981031,
+            "realized_recovery_rate_percent": 32.65582655826558
+          }
+        },
+        "event_count": 738,
+        "exact_tie_event_count": 0,
+        "exact_tie_frequency_percent": 0.0,
+        "highest_probability_action": [
+          "PAYMENT_LINK"
+        ],
+        "near_tie_event_count": 0,
+        "near_tie_frequency_percent": 0.0
+      },
+      "LOW_ENGAGEMENT": {
+        "actions": {
+          "DO_NOTHING": {
+            "event_count": 98,
+            "mean_probability": 0.1,
+            "realized_recovery_rate_percent": 9.183673469387756
+          },
+          "ESCALATE": {
+            "event_count": 98,
+            "mean_probability": 0.15102040816326534,
+            "realized_recovery_rate_percent": 11.224489795918368
+          },
+          "PAYMENT_LINK": {
+            "event_count": 98,
+            "mean_probability": 0.22000000000000003,
+            "realized_recovery_rate_percent": 26.53061224489796
+          },
+          "RETRY_LATER": {
+            "event_count": 98,
+            "mean_probability": 0.012551020408163267,
+            "realized_recovery_rate_percent": 1.0204081632653061
+          },
+          "RETRY_NOW": {
+            "event_count": 98,
+            "mean_probability": 0.01,
+            "realized_recovery_rate_percent": 1.0204081632653061
+          },
+          "SEND_MESSAGE": {
+            "event_count": 98,
+            "mean_probability": 0.04051020408163266,
+            "realized_recovery_rate_percent": 4.081632653061225
+          },
+          "VOICE_RECOVERY": {
+            "event_count": 98,
+            "mean_probability": 0.030816326530612243,
+            "realized_recovery_rate_percent": 2.0408163265306123
+          }
+        },
+        "event_count": 98,
+        "exact_tie_event_count": 0,
+        "exact_tie_frequency_percent": 0.0,
+        "highest_probability_action": [
+          "PAYMENT_LINK"
+        ],
+        "near_tie_event_count": 0,
+        "near_tie_frequency_percent": 0.0
+      },
+      "NATURAL_PAYER": {
+        "actions": {
+          "DO_NOTHING": {
+            "event_count": 189,
+            "mean_probability": 0.7,
+            "realized_recovery_rate_percent": 67.19576719576719
+          },
+          "ESCALATE": {
+            "event_count": 189,
+            "mean_probability": 0.7015873015873015,
+            "realized_recovery_rate_percent": 68.25396825396825
+          },
+          "PAYMENT_LINK": {
+            "event_count": 189,
+            "mean_probability": 0.7799999999999999,
+            "realized_recovery_rate_percent": 74.07407407407408
+          },
+          "RETRY_LATER": {
+            "event_count": 189,
+            "mean_probability": 0.54005291005291,
+            "realized_recovery_rate_percent": 50.79365079365079
+          },
+          "RETRY_NOW": {
+            "event_count": 189,
+            "mean_probability": 0.4613227513227513,
+            "realized_recovery_rate_percent": 48.67724867724868
+          },
+          "SEND_MESSAGE": {
+            "event_count": 189,
+            "mean_probability": 0.6807936507936507,
+            "realized_recovery_rate_percent": 74.07407407407408
+          },
+          "VOICE_RECOVERY": {
+            "event_count": 189,
+            "mean_probability": 0.6712169312169312,
+            "realized_recovery_rate_percent": 68.78306878306879
+          }
+        },
+        "event_count": 189,
+        "exact_tie_event_count": 0,
+        "exact_tie_frequency_percent": 0.0,
+        "highest_probability_action": [
+          "PAYMENT_LINK"
+        ],
+        "near_tie_event_count": 0,
+        "near_tie_frequency_percent": 0.0
+      },
+      "TEMPORARY_LIQUIDITY": {
+        "actions": {
+          "DO_NOTHING": {
+            "event_count": 116,
+            "mean_probability": 0.3,
+            "realized_recovery_rate_percent": 34.48275862068966
+          },
+          "ESCALATE": {
+            "event_count": 116,
+            "mean_probability": 0.40155172413793105,
+            "realized_recovery_rate_percent": 32.758620689655174
+          },
+          "PAYMENT_LINK": {
+            "event_count": 116,
+            "mean_probability": 0.48,
+            "realized_recovery_rate_percent": 45.689655172413794
+          },
+          "RETRY_LATER": {
+            "event_count": 116,
+            "mean_probability": 0.3394827586206896,
+            "realized_recovery_rate_percent": 37.06896551724138
+          },
+          "RETRY_NOW": {
+            "event_count": 116,
+            "mean_probability": 0.19137931034482758,
+            "realized_recovery_rate_percent": 21.551724137931036
+          },
+          "SEND_MESSAGE": {
+            "event_count": 116,
+            "mean_probability": 0.42077586206896556,
+            "realized_recovery_rate_percent": 40.51724137931034
+          },
+          "VOICE_RECOVERY": {
+            "event_count": 116,
+            "mean_probability": 0.5111206896551724,
+            "realized_recovery_rate_percent": 52.58620689655172
+          }
+        },
+        "event_count": 116,
+        "exact_tie_event_count": 0,
+        "exact_tie_frequency_percent": 0.0,
+        "highest_probability_action": [
+          "VOICE_RECOVERY"
+        ],
+        "near_tie_event_count": 0,
+        "near_tie_frequency_percent": 0.0
+      }
+    },
+    "insufficient_funds": {
+      "EXPIRED_METHOD_TENDENCY": {
+        "actions": {
+          "DO_NOTHING": {
+            "event_count": 64,
+            "mean_probability": 0.2,
+            "realized_recovery_rate_percent": 14.0625
+          },
+          "ESCALATE": {
+            "event_count": 64,
+            "mean_probability": 0.301875,
+            "realized_recovery_rate_percent": 20.3125
+          },
+          "PAYMENT_LINK": {
+            "event_count": 64,
+            "mean_probability": 0.55,
+            "realized_recovery_rate_percent": 45.3125
+          },
+          "RETRY_LATER": {
+            "event_count": 64,
+            "mean_probability": 0.18171875,
+            "realized_recovery_rate_percent": 25.0
+          },
+          "RETRY_NOW": {
+            "event_count": 64,
+            "mean_probability": 0.019062500000000003,
+            "realized_recovery_rate_percent": 3.125
+          },
+          "SEND_MESSAGE": {
+            "event_count": 64,
+            "mean_probability": 0.4009375,
+            "realized_recovery_rate_percent": 37.5
+          },
+          "VOICE_RECOVERY": {
+            "event_count": 64,
+            "mean_probability": 0.42140625000000004,
+            "realized_recovery_rate_percent": 42.1875
+          }
+        },
+        "event_count": 64,
+        "exact_tie_event_count": 0,
+        "exact_tie_frequency_percent": 0.0,
+        "highest_probability_action": [
+          "PAYMENT_LINK"
+        ],
+        "near_tie_event_count": 0,
+        "near_tie_frequency_percent": 0.0
+      },
+      "LOW_ENGAGEMENT": {
+        "actions": {
+          "DO_NOTHING": {
+            "event_count": 194,
+            "mean_probability": 0.1,
+            "realized_recovery_rate_percent": 12.371134020618557
+          },
+          "ESCALATE": {
+            "event_count": 194,
+            "mean_probability": 0.20154639175257733,
+            "realized_recovery_rate_percent": 19.587628865979383
+          },
+          "PAYMENT_LINK": {
+            "event_count": 194,
+            "mean_probability": 0.12000000000000001,
+            "realized_recovery_rate_percent": 7.731958762886598
+          },
+          "RETRY_LATER": {
+            "event_count": 194,
+            "mean_probability": 0.1095360824742268,
+            "realized_recovery_rate_percent": 10.824742268041238
+          },
+          "RETRY_NOW": {
+            "event_count": 194,
+            "mean_probability": 0.01,
+            "realized_recovery_rate_percent": 1.0309278350515463
+          },
+          "SEND_MESSAGE": {
+            "event_count": 194,
+            "mean_probability": 0.10077319587628866,
+            "realized_recovery_rate_percent": 10.824742268041238
+          },
+          "VOICE_RECOVERY": {
+            "event_count": 194,
+            "mean_probability": 0.1211340206185567,
+            "realized_recovery_rate_percent": 14.43298969072165
+          }
+        },
+        "event_count": 194,
+        "exact_tie_event_count": 0,
+        "exact_tie_frequency_percent": 0.0,
+        "highest_probability_action": [
+          "ESCALATE"
+        ],
+        "near_tie_event_count": 0,
+        "near_tie_frequency_percent": 0.0
+      },
+      "NATURAL_PAYER": {
+        "actions": {
+          "DO_NOTHING": {
+            "event_count": 214,
+            "mean_probability": 0.7,
+            "realized_recovery_rate_percent": 70.5607476635514
+          },
+          "ESCALATE": {
+            "event_count": 214,
+            "mean_probability": 0.7520560747663552,
+            "realized_recovery_rate_percent": 76.6355140186916
+          },
+          "PAYMENT_LINK": {
+            "event_count": 214,
+            "mean_probability": 0.6799999999999999,
+            "realized_recovery_rate_percent": 68.22429906542057
+          },
+          "RETRY_LATER": {
+            "event_count": 214,
+            "mean_probability": 0.7130841121495327,
+            "realized_recovery_rate_percent": 69.1588785046729
+          },
+          "RETRY_NOW": {
+            "event_count": 214,
+            "mean_probability": 0.528785046728972,
+            "realized_recovery_rate_percent": 46.728971962616825
+          },
+          "SEND_MESSAGE": {
+            "event_count": 214,
+            "mean_probability": 0.7410280373831775,
+            "realized_recovery_rate_percent": 72.42990654205607
+          },
+          "VOICE_RECOVERY": {
+            "event_count": 214,
+            "mean_probability": 0.7615887850467289,
+            "realized_recovery_rate_percent": 80.37383177570094
+          }
+        },
+        "event_count": 214,
+        "exact_tie_event_count": 0,
+        "exact_tie_frequency_percent": 0.0,
+        "highest_probability_action": [
+          "VOICE_RECOVERY"
+        ],
+        "near_tie_event_count": 192,
+        "near_tie_frequency_percent": 89.7196261682243
+      },
+      "TEMPORARY_LIQUIDITY": {
+        "actions": {
+          "DO_NOTHING": {
+            "event_count": 449,
+            "mean_probability": 0.3,
+            "realized_recovery_rate_percent": 32.29398663697105
+          },
+          "ESCALATE": {
+            "event_count": 449,
+            "mean_probability": 0.4519599109131403,
+            "realized_recovery_rate_percent": 48.329621380846326
+          },
+          "PAYMENT_LINK": {
+            "event_count": 449,
+            "mean_probability": 0.38,
+            "realized_recovery_rate_percent": 33.85300668151448
+          },
+          "RETRY_LATER": {
+            "event_count": 449,
+            "mean_probability": 0.5126948775055679,
+            "realized_recovery_rate_percent": 48.775055679287306
+          },
+          "RETRY_NOW": {
+            "event_count": 449,
+            "mean_probability": 0.2593986636971046,
+            "realized_recovery_rate_percent": 26.057906458797326
+          },
+          "SEND_MESSAGE": {
+            "event_count": 449,
+            "mean_probability": 0.4809799554565702,
+            "realized_recovery_rate_percent": 50.55679287305122
+          },
+          "VOICE_RECOVERY": {
+            "event_count": 449,
+            "mean_probability": 0.6015590200445434,
+            "realized_recovery_rate_percent": 59.68819599109131
+          }
+        },
+        "event_count": 449,
+        "exact_tie_event_count": 0,
+        "exact_tie_frequency_percent": 0.0,
+        "highest_probability_action": [
+          "VOICE_RECOVERY"
+        ],
+        "near_tie_event_count": 0,
+        "near_tie_frequency_percent": 0.0
+      }
+    },
+    "issuer_decline": {
+      "EXPIRED_METHOD_TENDENCY": {
+        "actions": {
+          "DO_NOTHING": {
+            "event_count": 154,
+            "mean_probability": 0.2,
+            "realized_recovery_rate_percent": 19.48051948051948
+          },
+          "ESCALATE": {
+            "event_count": 154,
+            "mean_probability": 0.2658441558441559,
+            "realized_recovery_rate_percent": 33.76623376623377
+          },
+          "PAYMENT_LINK": {
+            "event_count": 154,
+            "mean_probability": 0.55,
+            "realized_recovery_rate_percent": 50.64935064935065
+          },
+          "RETRY_LATER": {
+            "event_count": 154,
+            "mean_probability": 0.19181818181818183,
+            "realized_recovery_rate_percent": 20.12987012987013
+          },
+          "RETRY_NOW": {
+            "event_count": 154,
+            "mean_probability": 0.08837662337662339,
+            "realized_recovery_rate_percent": 9.090909090909092
+          },
+          "SEND_MESSAGE": {
+            "event_count": 154,
+            "mean_probability": 0.34292207792207796,
+            "realized_recovery_rate_percent": 30.51948051948052
+          },
+          "VOICE_RECOVERY": {
+            "event_count": 154,
+            "mean_probability": 0.33344155844155854,
+            "realized_recovery_rate_percent": 31.16883116883117
+          }
+        },
+        "event_count": 154,
+        "exact_tie_event_count": 0,
+        "exact_tie_frequency_percent": 0.0,
+        "highest_probability_action": [
+          "PAYMENT_LINK"
+        ],
+        "near_tie_event_count": 0,
+        "near_tie_frequency_percent": 0.0
+      },
+      "LOW_ENGAGEMENT": {
+        "actions": {
+          "DO_NOTHING": {
+            "event_count": 139,
+            "mean_probability": 0.1,
+            "realized_recovery_rate_percent": 10.79136690647482
+          },
+          "ESCALATE": {
+            "event_count": 139,
+            "mean_probability": 0.16446043165467628,
+            "realized_recovery_rate_percent": 17.985611510791365
+          },
+          "PAYMENT_LINK": {
+            "event_count": 139,
+            "mean_probability": 0.12000000000000001,
+            "realized_recovery_rate_percent": 14.388489208633093
+          },
+          "RETRY_LATER": {
+            "event_count": 139,
+            "mean_probability": 0.11302158273381295,
+            "realized_recovery_rate_percent": 12.949640287769784
+          },
+          "RETRY_NOW": {
+            "event_count": 139,
+            "mean_probability": 0.04884892086330936,
+            "realized_recovery_rate_percent": 1.4388489208633093
+          },
+          "SEND_MESSAGE": {
+            "event_count": 139,
+            "mean_probability": 0.04223021582733814,
+            "realized_recovery_rate_percent": 7.194244604316546
+          },
+          "VOICE_RECOVERY": {
+            "event_count": 139,
+            "mean_probability": 0.03237410071942446,
+            "realized_recovery_rate_percent": 3.597122302158273
+          }
+        },
+        "event_count": 139,
+        "exact_tie_event_count": 0,
+        "exact_tie_frequency_percent": 0.0,
+        "highest_probability_action": [
+          "ESCALATE"
+        ],
+        "near_tie_event_count": 29,
+        "near_tie_frequency_percent": 20.863309352517987
+      },
+      "NATURAL_PAYER": {
+        "actions": {
+          "DO_NOTHING": {
+            "event_count": 508,
+            "mean_probability": 0.7,
+            "realized_recovery_rate_percent": 70.07874015748031
+          },
+          "ESCALATE": {
+            "event_count": 508,
+            "mean_probability": 0.7123622047244094,
+            "realized_recovery_rate_percent": 70.2755905511811
+          },
+          "PAYMENT_LINK": {
+            "event_count": 508,
+            "mean_probability": 0.6799999999999999,
+            "realized_recovery_rate_percent": 69.29133858267717
+          },
+          "RETRY_LATER": {
+            "event_count": 508,
+            "mean_probability": 0.7043700787401574,
+            "realized_recovery_rate_percent": 69.48818897637796
+          },
+          "RETRY_NOW": {
+            "event_count": 508,
+            "mean_probability": 0.6268503937007874,
+            "realized_recovery_rate_percent": 63.188976377952756
+          },
+          "SEND_MESSAGE": {
+            "event_count": 508,
+            "mean_probability": 0.6811811023622046,
+            "realized_recovery_rate_percent": 67.71653543307086
+          },
+          "VOICE_RECOVERY": {
+            "event_count": 508,
+            "mean_probability": 0.6716929133858267,
+            "realized_recovery_rate_percent": 64.96062992125984
+          }
+        },
+        "event_count": 508,
+        "exact_tie_event_count": 0,
+        "exact_tie_frequency_percent": 0.0,
+        "highest_probability_action": [
+          "ESCALATE"
+        ],
+        "near_tie_event_count": 0,
+        "near_tie_frequency_percent": 0.0
+      },
+      "TEMPORARY_LIQUIDITY": {
+        "actions": {
+          "DO_NOTHING": {
+            "event_count": 243,
+            "mean_probability": 0.3,
+            "realized_recovery_rate_percent": 30.864197530864196
+          },
+          "ESCALATE": {
+            "event_count": 243,
+            "mean_probability": 0.412962962962963,
+            "realized_recovery_rate_percent": 42.38683127572016
+          },
+          "PAYMENT_LINK": {
+            "event_count": 243,
+            "mean_probability": 0.38,
+            "realized_recovery_rate_percent": 42.38683127572016
+          },
+          "RETRY_LATER": {
+            "event_count": 243,
+            "mean_probability": 0.5058436213991769,
+            "realized_recovery_rate_percent": 46.91358024691358
+          },
+          "RETRY_NOW": {
+            "event_count": 243,
+            "mean_probability": 0.3526337448559671,
+            "realized_recovery_rate_percent": 35.390946502057616
+          },
+          "SEND_MESSAGE": {
+            "event_count": 243,
+            "mean_probability": 0.4214814814814815,
+            "realized_recovery_rate_percent": 39.50617283950617
+          },
+          "VOICE_RECOVERY": {
+            "event_count": 243,
+            "mean_probability": 0.5116872427983539,
+            "realized_recovery_rate_percent": 51.851851851851855
+          }
+        },
+        "event_count": 243,
+        "exact_tie_event_count": 0,
+        "exact_tie_frequency_percent": 0.0,
+        "highest_probability_action": [
+          "VOICE_RECOVERY"
+        ],
+        "near_tie_event_count": 0,
+        "near_tie_frequency_percent": 0.0
+      }
+    },
+    "other": {
+      "EXPIRED_METHOD_TENDENCY": {
+        "actions": {
+          "DO_NOTHING": {
+            "event_count": 63,
+            "mean_probability": 0.2,
+            "realized_recovery_rate_percent": 25.396825396825395
+          },
+          "ESCALATE": {
+            "event_count": 63,
+            "mean_probability": 0.2515873015873016,
+            "realized_recovery_rate_percent": 19.047619047619047
+          },
+          "PAYMENT_LINK": {
+            "event_count": 63,
+            "mean_probability": 0.55,
+            "realized_recovery_rate_percent": 46.03174603174603
+          },
+          "RETRY_LATER": {
+            "event_count": 63,
+            "mean_probability": 0.13031746031746033,
+            "realized_recovery_rate_percent": 20.634920634920636
+          },
+          "RETRY_NOW": {
+            "event_count": 63,
+            "mean_probability": 0.09285714285714286,
+            "realized_recovery_rate_percent": 11.11111111111111
+          },
+          "SEND_MESSAGE": {
+            "event_count": 63,
+            "mean_probability": 0.3207936507936508,
+            "realized_recovery_rate_percent": 28.571428571428573
+          },
+          "VOICE_RECOVERY": {
+            "event_count": 63,
+            "mean_probability": 0.3012698412698413,
+            "realized_recovery_rate_percent": 33.333333333333336
+          }
+        },
+        "event_count": 63,
+        "exact_tie_event_count": 0,
+        "exact_tie_frequency_percent": 0.0,
+        "highest_probability_action": [
+          "PAYMENT_LINK"
+        ],
+        "near_tie_event_count": 0,
+        "near_tie_frequency_percent": 0.0
+      },
+      "LOW_ENGAGEMENT": {
+        "actions": {
+          "DO_NOTHING": {
+            "event_count": 42,
+            "mean_probability": 0.1,
+            "realized_recovery_rate_percent": 2.380952380952381
+          },
+          "ESCALATE": {
+            "event_count": 42,
+            "mean_probability": 0.15142857142857144,
+            "realized_recovery_rate_percent": 21.428571428571427
+          },
+          "PAYMENT_LINK": {
+            "event_count": 42,
+            "mean_probability": 0.12000000000000001,
+            "realized_recovery_rate_percent": 11.904761904761905
+          },
+          "RETRY_LATER": {
+            "event_count": 42,
+            "mean_probability": 0.06071428571428572,
+            "realized_recovery_rate_percent": 9.523809523809524
+          },
+          "RETRY_NOW": {
+            "event_count": 42,
+            "mean_probability": 0.03785714285714287,
+            "realized_recovery_rate_percent": 0.0
+          },
+          "SEND_MESSAGE": {
+            "event_count": 42,
+            "mean_probability": 0.02071428571428572,
+            "realized_recovery_rate_percent": 4.761904761904762
+          },
+          "VOICE_RECOVERY": {
+            "event_count": 42,
+            "mean_probability": 0.010714285714285714,
+            "realized_recovery_rate_percent": 0.0
+          }
+        },
+        "event_count": 42,
+        "exact_tie_event_count": 0,
+        "exact_tie_frequency_percent": 0.0,
+        "highest_probability_action": [
+          "ESCALATE"
+        ],
+        "near_tie_event_count": 0,
+        "near_tie_frequency_percent": 0.0
+      },
+      "NATURAL_PAYER": {
+        "actions": {
+          "DO_NOTHING": {
+            "event_count": 79,
+            "mean_probability": 0.7,
+            "realized_recovery_rate_percent": 65.82278481012658
+          },
+          "ESCALATE": {
+            "event_count": 79,
+            "mean_probability": 0.7025316455696202,
+            "realized_recovery_rate_percent": 73.41772151898734
+          },
+          "PAYMENT_LINK": {
+            "event_count": 79,
+            "mean_probability": 0.6799999999999999,
+            "realized_recovery_rate_percent": 60.75949367088607
+          },
+          "RETRY_LATER": {
+            "event_count": 79,
+            "mean_probability": 0.6664556962025315,
+            "realized_recovery_rate_percent": 62.0253164556962
+          },
+          "RETRY_NOW": {
+            "event_count": 79,
+            "mean_probability": 0.6063291139240506,
+            "realized_recovery_rate_percent": 72.15189873417721
+          },
+          "SEND_MESSAGE": {
+            "event_count": 79,
+            "mean_probability": 0.66126582278481,
+            "realized_recovery_rate_percent": 73.41772151898734
+          },
+          "VOICE_RECOVERY": {
+            "event_count": 79,
+            "mean_probability": 0.6420253164556962,
+            "realized_recovery_rate_percent": 55.69620253164557
+          }
+        },
+        "event_count": 79,
+        "exact_tie_event_count": 69,
+        "exact_tie_frequency_percent": 87.34177215189874,
+        "highest_probability_action": [
+          "ESCALATE"
+        ],
+        "near_tie_event_count": 69,
+        "near_tie_frequency_percent": 87.34177215189874
+      },
+      "TEMPORARY_LIQUIDITY": {
+        "actions": {
+          "DO_NOTHING": {
+            "event_count": 61,
+            "mean_probability": 0.3,
+            "realized_recovery_rate_percent": 32.78688524590164
+          },
+          "ESCALATE": {
+            "event_count": 61,
+            "mean_probability": 0.400327868852459,
+            "realized_recovery_rate_percent": 49.18032786885246
+          },
+          "PAYMENT_LINK": {
+            "event_count": 61,
+            "mean_probability": 0.38,
+            "realized_recovery_rate_percent": 45.90163934426229
+          },
+          "RETRY_LATER": {
+            "event_count": 61,
+            "mean_probability": 0.4524590163934426,
+            "realized_recovery_rate_percent": 37.704918032786885
+          },
+          "RETRY_NOW": {
+            "event_count": 61,
+            "mean_probability": 0.3483606557377049,
+            "realized_recovery_rate_percent": 29.508196721311474
+          },
+          "SEND_MESSAGE": {
+            "event_count": 61,
+            "mean_probability": 0.40016393442622955,
+            "realized_recovery_rate_percent": 44.26229508196721
+          },
+          "VOICE_RECOVERY": {
+            "event_count": 61,
+            "mean_probability": 0.480327868852459,
+            "realized_recovery_rate_percent": 32.78688524590164
+          }
+        },
+        "event_count": 61,
+        "exact_tie_event_count": 0,
+        "exact_tie_frequency_percent": 0.0,
+        "highest_probability_action": [
+          "VOICE_RECOVERY"
+        ],
+        "near_tie_event_count": 0,
+        "near_tie_frequency_percent": 0.0
+      }
+    },
+    "technical_degradation": {
+      "EXPIRED_METHOD_TENDENCY": {
+        "actions": {
+          "DO_NOTHING": {
+            "event_count": 185,
+            "mean_probability": 0.2,
+            "realized_recovery_rate_percent": 25.405405405405407
+          },
+          "ESCALATE": {
+            "event_count": 185,
+            "mean_probability": 0.2790810810810811,
+            "realized_recovery_rate_percent": 25.405405405405407
+          },
+          "PAYMENT_LINK": {
+            "event_count": 185,
+            "mean_probability": 0.55,
+            "realized_recovery_rate_percent": 51.891891891891895
+          },
+          "RETRY_LATER": {
+            "event_count": 185,
+            "mean_probability": 0.33675675675675676,
+            "realized_recovery_rate_percent": 36.21621621621622
+          },
+          "RETRY_NOW": {
+            "event_count": 185,
+            "mean_probability": 0.01,
+            "realized_recovery_rate_percent": 0.5405405405405406
+          },
+          "SEND_MESSAGE": {
+            "event_count": 185,
+            "mean_probability": 0.34454054054054056,
+            "realized_recovery_rate_percent": 36.21621621621622
+          },
+          "VOICE_RECOVERY": {
+            "event_count": 185,
+            "mean_probability": 0.32881081081081087,
+            "realized_recovery_rate_percent": 34.5945945945946
+          }
+        },
+        "event_count": 185,
+        "exact_tie_event_count": 0,
+        "exact_tie_frequency_percent": 0.0,
+        "highest_probability_action": [
+          "PAYMENT_LINK"
+        ],
+        "near_tie_event_count": 0,
+        "near_tie_frequency_percent": 0.0
+      },
+      "LOW_ENGAGEMENT": {
+        "actions": {
+          "DO_NOTHING": {
+            "event_count": 141,
+            "mean_probability": 0.1,
+            "realized_recovery_rate_percent": 7.092198581560283
+          },
+          "ESCALATE": {
+            "event_count": 141,
+            "mean_probability": 0.17822695035460995,
+            "realized_recovery_rate_percent": 19.148936170212767
+          },
+          "PAYMENT_LINK": {
+            "event_count": 141,
+            "mean_probability": 0.12000000000000001,
+            "realized_recovery_rate_percent": 10.638297872340425
+          },
+          "RETRY_LATER": {
+            "event_count": 141,
+            "mean_probability": 0.26063829787234044,
+            "realized_recovery_rate_percent": 26.24113475177305
+          },
+          "RETRY_NOW": {
+            "event_count": 141,
+            "mean_probability": 0.01,
+            "realized_recovery_rate_percent": 0.7092198581560284
+          },
+          "SEND_MESSAGE": {
+            "event_count": 141,
+            "mean_probability": 0.044113475177304975,
+            "realized_recovery_rate_percent": 3.5460992907801416
+          },
+          "VOICE_RECOVERY": {
+            "event_count": 141,
+            "mean_probability": 0.028014184397163123,
+            "realized_recovery_rate_percent": 0.7092198581560284
+          }
+        },
+        "event_count": 141,
+        "exact_tie_event_count": 0,
+        "exact_tie_frequency_percent": 0.0,
+        "highest_probability_action": [
+          "RETRY_LATER"
+        ],
+        "near_tie_event_count": 0,
+        "near_tie_frequency_percent": 0.0
+      },
+      "NATURAL_PAYER": {
+        "actions": {
+          "DO_NOTHING": {
+            "event_count": 328,
+            "mean_probability": 0.7,
+            "realized_recovery_rate_percent": 71.95121951219512
+          },
+          "ESCALATE": {
+            "event_count": 328,
+            "mean_probability": 0.7262804878048781,
+            "realized_recovery_rate_percent": 72.86585365853658
+          },
+          "PAYMENT_LINK": {
+            "event_count": 328,
+            "mean_probability": 0.6799999999999999,
+            "realized_recovery_rate_percent": 67.6829268292683
+          },
+          "RETRY_LATER": {
+            "event_count": 328,
+            "mean_probability": 0.8458841463414634,
+            "realized_recovery_rate_percent": 85.67073170731707
+          },
+          "RETRY_NOW": {
+            "event_count": 328,
+            "mean_probability": 0.488109756097561,
+            "realized_recovery_rate_percent": 49.69512195121951
+          },
+          "SEND_MESSAGE": {
+            "event_count": 328,
+            "mean_probability": 0.683140243902439,
+            "realized_recovery_rate_percent": 65.2439024390244
+          },
+          "VOICE_RECOVERY": {
+            "event_count": 328,
+            "mean_probability": 0.6660365853658536,
+            "realized_recovery_rate_percent": 63.71951219512195
+          }
+        },
+        "event_count": 328,
+        "exact_tie_event_count": 0,
+        "exact_tie_frequency_percent": 0.0,
+        "highest_probability_action": [
+          "RETRY_LATER"
+        ],
+        "near_tie_event_count": 0,
+        "near_tie_frequency_percent": 0.0
+      },
+      "TEMPORARY_LIQUIDITY": {
+        "actions": {
+          "DO_NOTHING": {
+            "event_count": 161,
+            "mean_probability": 0.3,
+            "realized_recovery_rate_percent": 24.84472049689441
+          },
+          "ESCALATE": {
+            "event_count": 161,
+            "mean_probability": 0.4286956521739131,
+            "realized_recovery_rate_percent": 34.161490683229815
+          },
+          "PAYMENT_LINK": {
+            "event_count": 161,
+            "mean_probability": 0.38,
+            "realized_recovery_rate_percent": 41.61490683229814
+          },
+          "RETRY_LATER": {
+            "event_count": 161,
+            "mean_probability": 0.6649068322981366,
+            "realized_recovery_rate_percent": 67.0807453416149
+          },
+          "RETRY_NOW": {
+            "event_count": 161,
+            "mean_probability": 0.20639751552795027,
+            "realized_recovery_rate_percent": 19.25465838509317
+          },
+          "SEND_MESSAGE": {
+            "event_count": 161,
+            "mean_probability": 0.4243478260869566,
+            "realized_recovery_rate_percent": 36.024844720496894
+          },
+          "VOICE_RECOVERY": {
+            "event_count": 161,
+            "mean_probability": 0.5086335403726708,
+            "realized_recovery_rate_percent": 49.68944099378882
+          }
+        },
+        "event_count": 161,
+        "exact_tie_event_count": 0,
+        "exact_tie_frequency_percent": 0.0,
+        "highest_probability_action": [
+          "RETRY_LATER"
+        ],
+        "near_tie_event_count": 0,
+        "near_tie_frequency_percent": 0.0
+      }
+    }
+  },
+  "segment_distribution": {
+    "EXPIRED_METHOD_TENDENCY": {
+      "count": 1312,
+      "share": 0.2624
+    },
+    "LOW_ENGAGEMENT": {
+      "count": 968,
+      "share": 0.1936
+    },
+    "NATURAL_PAYER": {
+      "count": 1536,
+      "share": 0.3072
+    },
+    "TEMPORARY_LIQUIDITY": {
+      "count": 1184,
+      "share": 0.2368
+    }
+  },
+  "seven_day_recovery_rate_by_action": {
+    "DO_NOTHING": 36.32,
+    "ESCALATE": 42.88,
+    "PAYMENT_LINK": 48.96,
+    "RETRY_LATER": 37.88,
+    "RETRY_NOW": 24.9,
+    "SEND_MESSAGE": 42.62,
+    "VOICE_RECOVERY": 43.52
+  }
+}

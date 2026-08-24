@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "simulator_version": "simulator_v1.0.0",
+  "freeze": {
+    "specification_date": "2026-08-24"
+  },
+  "dataset": {
+    "default_events": 10000,
+    "observation_window_days": 30,
+    "evaluation_horizon_days": 7
+  },
+  "distributions": {
+    "segments": {
+      "NATURAL_PAYER": 0.30,
+      "TEMPORARY_LIQUIDITY": 0.25,
+      "EXPIRED_METHOD_TENDENCY": 0.25,
+      "LOW_ENGAGEMENT": 0.20
+    },
+    "environments": {
+      "NORMAL": 0.85,
+      "GATEWAY_DEGRADATION": 0.10,
+      "ISSUER_NETWORK_DEGRADATION": 0.05
+    },
+    "root_causes_by_segment": {
+      "NATURAL_PAYER": {
+        "issuer_decline": 0.35,
+        "expired_method": 0.15,
+        "technical_degradation": 0.15,
+        "insufficient_funds": 0.15,
+        "abandonment": 0.15,
+        "other": 0.05
+      },
+      "TEMPORARY_LIQUIDITY": {
+        "issuer_decline": 0.20,
+        "expired_method": 0.10,
+        "technical_degradation": 0.10,
+        "insufficient_funds": 0.40,
+        "abandonment": 0.15,
+        "other": 0.05
+      },
+      "EXPIRED_METHOD_TENDENCY": {
+        "issuer_decline": 0.10,
+        "expired_method": 0.60,
+        "technical_degradation": 0.10,
+        "insufficient_funds": 0.05,
+        "abandonment": 0.10,
+        "other": 0.05
+      },
+      "LOW_ENGAGEMENT": {
+        "issuer_decline": 0.15,
+        "expired_method": 0.10,
+        "technical_degradation": 0.10,
+        "insufficient_funds": 0.20,
+        "abandonment": 0.40,
+        "other": 0.05
+      }
+    },
+    "amount_bands": [
+      {"min_paise": 50000, "max_paise": 500000, "share": 0.60},
+      {"min_paise": 500001, "max_paise": 2500000, "share": 0.30},
+      {"min_paise": 2500001, "max_paise": 10000000, "share": 0.10}
+    ],
+    "environment_root_cause_overrides": {
+      "GATEWAY_DEGRADATION": {
+        "root_cause": "technical_degradation",
+        "probability": 0.60
+      },
+      "ISSUER_NETWORK_DEGRADATION": {
+        "root_cause": "issuer_decline",
+        "probability": 0.50
+      }
+    }
+  },
+  "outcomes": {
+    "natural_recovery_by_segment": {
+      "NATURAL_PAYER": 0.70,
+      "TEMPORARY_LIQUIDITY": 0.30,
+      "EXPIRED_METHOD_TENDENCY": 0.20,
+      "LOW_ENGAGEMENT": 0.10
+    },
+    "segment_action_delta": {
+      "NATURAL_PAYER": {"RETRY_NOW": -0.08, "RETRY_LATER": -0.05, "PAYMENT_LINK": -0.02, "SEND_MESSAGE": -0.04, "VOICE_RECOVERY": -0.06, "ESCALATE": 0.00, "DO_NOTHING": 0.00},
+      "TEMPORARY_LIQUIDITY": {"RETRY_NOW": 0.05, "RETRY_LATER": 0.15, "PAYMENT_LINK": 0.08, "SEND_MESSAGE": 0.10, "VOICE_RECOVERY": 0.18, "ESCALATE": 0.10, "DO_NOTHING": 0.00},
+      "EXPIRED_METHOD_TENDENCY": {"RETRY_NOW": -0.10, "RETRY_LATER": -0.08, "PAYMENT_LINK": 0.35, "SEND_MESSAGE": 0.12, "VOICE_RECOVERY": 0.10, "ESCALATE": 0.05, "DO_NOTHING": 0.00},
+      "LOW_ENGAGEMENT": {"RETRY_NOW": -0.06, "RETRY_LATER": -0.05, "PAYMENT_LINK": 0.02, "SEND_MESSAGE": -0.08, "VOICE_RECOVERY": -0.10, "ESCALATE": 0.05, "DO_NOTHING": 0.00}
+    },
+    "root_cause_action_delta": {
+      "issuer_decline": {"RETRY_NOW": 0.02, "RETRY_LATER": 0.04, "PAYMENT_LINK": 0.00, "SEND_MESSAGE": 0.02, "VOICE_RECOVERY": 0.03, "ESCALATE": 0.01, "DO_NOTHING": 0.00},
+      "expired_method": {"RETRY_NOW": -0.15, "RETRY_LATER": -0.12, "PAYMENT_LINK": 0.10, "SEND_MESSAGE": 0.02, "VOICE_RECOVERY": 0.03, "ESCALATE": 0.00, "DO_NOTHING": 0.00},
+      "technical_degradation": {"RETRY_NOW": -0.10, "RETRY_LATER": 0.15, "PAYMENT_LINK": 0.00, "SEND_MESSAGE": 0.02, "VOICE_RECOVERY": 0.02, "ESCALATE": 0.02, "DO_NOTHING": 0.00},
+      "insufficient_funds": {"RETRY_NOW": -0.08, "RETRY_LATER": 0.05, "PAYMENT_LINK": 0.00, "SEND_MESSAGE": 0.08, "VOICE_RECOVERY": 0.12, "ESCALATE": 0.05, "DO_NOTHING": 0.00},
+      "abandonment": {"RETRY_NOW": -0.03, "RETRY_LATER": -0.02, "PAYMENT_LINK": 0.05, "SEND_MESSAGE": 0.10, "VOICE_RECOVERY": 0.06, "ESCALATE": 0.03, "DO_NOTHING": 0.00},
+      "other": {"RETRY_NOW": 0.00, "RETRY_LATER": 0.00, "PAYMENT_LINK": 0.00, "SEND_MESSAGE": 0.00, "VOICE_RECOVERY": 0.00, "ESCALATE": 0.00, "DO_NOTHING": 0.00}
+    },
+    "environment_action_delta": {
+      "NORMAL": {"RETRY_NOW": 0.00, "RETRY_LATER": 0.00, "PAYMENT_LINK": 0.00, "SEND_MESSAGE": 0.00, "VOICE_RECOVERY": 0.00, "ESCALATE": 0.00, "DO_NOTHING": 0.00},
+      "GATEWAY_DEGRADATION": {"RETRY_NOW": -0.10, "RETRY_LATER": 0.15, "PAYMENT_LINK": 0.00, "SEND_MESSAGE": 0.01, "VOICE_RECOVERY": 0.02, "ESCALATE": 0.02, "DO_NOTHING": 0.00},
+      "ISSUER_NETWORK_DEGRADATION": {"RETRY_NOW": -0.12, "RETRY_LATER": 0.10, "PAYMENT_LINK": 0.00, "SEND_MESSAGE": 0.01, "VOICE_RECOVERY": 0.01, "ESCALATE": 0.02, "DO_NOTHING": 0.00}
+    },
+    "timing_modifier": 0.0
+  },
+  "costs_paise": {
+    "action": {"RETRY_NOW": 500, "RETRY_LATER": 500, "PAYMENT_LINK": 100, "SEND_MESSAGE": 200, "VOICE_RECOVERY": 2500, "ESCALATE": 5000, "DO_NOTHING": 0},
+    "incentive": {"RETRY_NOW": 0, "RETRY_LATER": 0, "PAYMENT_LINK": 0, "SEND_MESSAGE": 0, "VOICE_RECOVERY": 0, "ESCALATE": 0, "DO_NOTHING": 0},
+    "fatigue_base": {"RETRY_NOW": 0, "RETRY_LATER": 0, "PAYMENT_LINK": 100, "SEND_MESSAGE": 200, "VOICE_RECOVERY": 800, "ESCALATE": 0, "DO_NOTHING": 0}
+  },
+  "policy_defaults": {
+    "max_retries": 3,
+    "max_contacts_per_7_days": 2,
+    "contact_window_start": "08:00",
+    "contact_window_end": "19:00",
+    "contact_window_timezone": "merchant_local",
+    "contact_actions": ["SEND_MESSAGE", "VOICE_RECOVERY", "HUMAN_OUTREACH"],
+    "approval_threshold_paise": 10000000,
+    "low_confidence_threshold": 0.60,
+    "voice_enabled": true
+  },
+  "seed": {
+    "derivation": "simulator_version + split + seed + event_index + action_type",
+    "ranges": {
+      "training": [100000, 199999],
+      "validation": [200000, 299999],
+      "holdout": [300000, 399999],
+      "arena_development": [400000, 499999],
+      "arena_final": [900000, 999999]
+    }
+  }
+}
