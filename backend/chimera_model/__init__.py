@@ -10,6 +10,16 @@ from .features import (
     build_feature_builder,
 )
 from .model import ModelCompatibilityError, RecoveryProbabilityModel
+from .benchmark import (
+    BenchmarkProbabilityModel,
+    Gate4ModelAdapter,
+    GradientBoostedStumps,
+    InteractionFeatureBuilder,
+    INTERACTION_FEATURE_SCHEMA_VERSION,
+    INTERACTION_MODEL_VERSION,
+    TREE_MODEL_VERSION,
+    train_benchmark_model,
+)
 
 __all__ = [
     "DatasetSpec",
@@ -20,6 +30,14 @@ __all__ = [
     "ModelCompatibilityError",
     "ModelDataset",
     "RecoveryProbabilityModel",
+    "BenchmarkProbabilityModel",
+    "Gate4ModelAdapter",
+    "GradientBoostedStumps",
+    "InteractionFeatureBuilder",
+    "INTERACTION_FEATURE_SCHEMA_VERSION",
+    "INTERACTION_MODEL_VERSION",
+    "TREE_MODEL_VERSION",
+    "train_benchmark_model",
     "TemporalLeakageError",
     "build_feature_builder",
     "generate_dataset",

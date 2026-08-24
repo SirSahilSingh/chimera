@@ -1,4 +1,4 @@
-# Gate 3 Recovery Probability Model
+# Gate 3 and Gate 3.5 Recovery Probability Models
 
 Gate 3 adds a local, calibrated Logistic Regression model for:
 
@@ -47,3 +47,47 @@ Artifacts and reports are written under `data/model_v1/` by:
 ```powershell
 python backend/scripts/train_recovery_model.py
 ```
+
+## Gate 3.5 benchmark
+
+Gate 3.5 preserves `recovery_model_v1.0.0` and benchmarks two additional
+models using the same observable event rows and the same fixed split seeds.
+No Arena data is used for fitting, calibration, tuning, or selection.
+
+| Candidate | Representation | Artifact |
+|---|---|---|
+| `baseline_logistic_regression` | 44 v1 features plus one-hot action | `data/model_v1/recovery_model_v1.json` (read-only) |
+| `interaction_logistic_regression` | 44 v1 features plus 126 explicit action-context interactions | `data/model_benchmark_v1/recovery_model_v2_interaction_lr.json` |
+| `gradient_boosted_stumps` | Same 170 observable features, deterministic NumPy stumps | `data/model_benchmark_v1/recovery_model_v3_gradient_boosting.json` |
+
+The interaction schema is `features_v2.0.0_interaction`. For each action it
+adds indicators for failure reason, incident flag, payment method,
+communication preference, subscription state, and prior response, plus
+action-conditioned `contacts_last_7_days` and `historic_recovery_ratio`.
+Numeric interactions retain their deterministic numeric value only for the
+candidate action; other action interaction columns are zero.
+
+The tree candidate is a dependency-free gradient booster over decision
+stumps: learning rate `0.08`, 24 estimators, 12 quantile threshold candidates
+per feature, L2 `0.001`, and fixed seed metadata `0`. It is intentionally a
+transparent benchmark rather than a replacement for a mature production tree
+library.
+
+Run the frozen benchmark with:
+
+```powershell
+python backend/scripts/benchmark_recovery_models.py
+```
+
+The protocol is: fit candidates on training only; fit Platt scaling on
+validation only; freeze candidates; evaluate holdout once. The selected
+candidate is `recovery_model_v2_interaction_lr.0.0`, chosen by minimum
+holdout Brier score (`0.201287`), then holdout PR-AUC, generalization gap, and
+fixed simplicity order. Its holdout ROC-AUC is `0.737706` and PR-AUC is
+`0.637621`. The tree model scored holdout Brier `0.209414`; the preserved
+baseline scored `0.205624`.
+
+The selected model can be passed to the unchanged Gate 4 engine through the
+explicit `Gate4ModelAdapter`; the adapter preserves Gate 4's expected-value,
+cost, fatigue, constraint, tie-breaking, and explanation logic. No new
+CHIMERA Arena comparison is part of Gate 3.5.

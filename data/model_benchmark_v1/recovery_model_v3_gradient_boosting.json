@@ -1,0 +1,461 @@
+{
+  "action_order": [
+    "RETRY_NOW",
+    "RETRY_LATER",
+    "PAYMENT_LINK",
+    "SEND_MESSAGE",
+    "VOICE_RECOVERY",
+    "ESCALATE",
+    "DO_NOTHING"
+  ],
+  "calibration": {
+    "a": 1.578214172402308,
+    "b": 0.24527275465075457,
+    "iterations": 5,
+    "method": "platt_scaling_on_validation_split"
+  },
+  "classifier": {
+    "base_logit": -0.41905518923642165,
+    "l2": 0.001,
+    "learning_rate": 0.08,
+    "max_thresholds_per_feature": 12,
+    "n_estimators": 24,
+    "random_seed": 0,
+    "stumps": [
+      {
+        "feature_index": 1,
+        "left_value": -0.5163150540271467,
+        "right_value": 0.7019837469699995,
+        "threshold": 0.375
+      },
+      {
+        "feature_index": 1,
+        "left_value": -0.47945704478593504,
+        "right_value": 0.6385529265196968,
+        "threshold": 0.375
+      },
+      {
+        "feature_index": 1,
+        "left_value": -0.4452709594299301,
+        "right_value": 0.5822535581454413,
+        "threshold": 0.375
+      },
+      {
+        "feature_index": 1,
+        "left_value": -0.4135124123735566,
+        "right_value": 0.531951694687502,
+        "threshold": 0.375
+      },
+      {
+        "feature_index": 1,
+        "left_value": -0.24941420665867295,
+        "right_value": 0.7927395045550961,
+        "threshold": 0.625
+      },
+      {
+        "feature_index": 1,
+        "left_value": -0.3661231940718861,
+        "right_value": 0.4603620423577765,
+        "threshold": 0.375
+      },
+      {
+        "feature_index": 1,
+        "left_value": -0.22010194161108357,
+        "right_value": 0.6860724502618674,
+        "threshold": 0.625
+      },
+      {
+        "feature_index": 1,
+        "left_value": -0.3240160906531178,
+        "right_value": 0.3999844729796899,
+        "threshold": 0.375
+      },
+      {
+        "feature_index": 1,
+        "left_value": -0.19412351143972947,
+        "right_value": 0.596960987794326,
+        "threshold": 0.625
+      },
+      {
+        "feature_index": 1,
+        "left_value": -0.2865649657674989,
+        "right_value": 0.3484896764672501,
+        "threshold": 0.375
+      },
+      {
+        "feature_index": 1,
+        "left_value": -0.48236470094198175,
+        "right_value": 0.18507007754807264,
+        "threshold": 0.125
+      },
+      {
+        "feature_index": 1,
+        "left_value": -0.16677146078326416,
+        "right_value": 0.506730010399384,
+        "threshold": 0.625
+      },
+      {
+        "feature_index": 37,
+        "left_value": 0.11272943645571215,
+        "right_value": -0.6811181409402348,
+        "threshold": 0.5
+      },
+      {
+        "feature_index": 1,
+        "left_value": -0.4388107448298132,
+        "right_value": 0.16535486433798308,
+        "threshold": 0.125
+      },
+      {
+        "feature_index": 1,
+        "left_value": -0.15014476444810107,
+        "right_value": 0.454132411981972,
+        "threshold": 0.625
+      },
+      {
+        "feature_index": 37,
+        "left_value": 0.10416063441789204,
+        "right_value": -0.6376702835737823,
+        "threshold": 0.5
+      },
+      {
+        "feature_index": 1,
+        "left_value": -0.39917982350859404,
+        "right_value": 0.14791780146123354,
+        "threshold": 0.125
+      },
+      {
+        "feature_index": 37,
+        "left_value": 0.09591940784506159,
+        "right_value": -0.5953589463266014,
+        "threshold": 0.5
+      },
+      {
+        "feature_index": 1,
+        "left_value": -0.135331157278227,
+        "right_value": 0.4081348265876933,
+        "threshold": 0.625
+      },
+      {
+        "feature_index": 37,
+        "left_value": 0.08850744055512347,
+        "right_value": -0.5565447987818638,
+        "threshold": 0.5
+      },
+      {
+        "feature_index": 1,
+        "left_value": -0.20310472249384418,
+        "right_value": 0.23968536475491095,
+        "threshold": 0.375
+      },
+      {
+        "feature_index": 1,
+        "left_value": -0.34949212988382705,
+        "right_value": 0.12699497394831455,
+        "threshold": 0.125
+      },
+      {
+        "feature_index": 37,
+        "left_value": 0.08197329026877392,
+        "right_value": -0.5220992552494861,
+        "threshold": 0.5
+      },
+      {
+        "feature_index": 1,
+        "left_value": -0.11634161788347132,
+        "right_value": 0.34961073332053755,
+        "threshold": 0.625
+      }
+    ],
+    "type": "gradient_boosted_stumps"
+  },
+  "created_at_utc": "2026-08-24T14:43:04.775822+00:00",
+  "feature_schema": {
+    "allowed_source_fields": [
+      "amount_paise",
+      "currency",
+      "payment_method",
+      "failure_reason",
+      "source_timestamp",
+      "decision_timestamp",
+      "context.successful_payment_ratio",
+      "context.historic_recovery_rate",
+      "context.contacts_last_7_days",
+      "context.last_channel",
+      "context.prior_response",
+      "context.hour",
+      "context.day_of_week",
+      "context.incident_flag",
+      "context.language_preference",
+      "context.communication_preference",
+      "context.subscription_state",
+      "contact_window",
+      "action_is_outbound",
+      "candidate_action"
+    ],
+    "feature_names": [
+      "amount_paise_scaled_1m",
+      "successful_payment_ratio",
+      "historic_recovery_rate",
+      "contacts_last_7_days",
+      "hour_sin",
+      "hour_cos",
+      "incident_flag",
+      "day_of_week_0",
+      "day_of_week_1",
+      "day_of_week_2",
+      "day_of_week_3",
+      "day_of_week_4",
+      "day_of_week_5",
+      "day_of_week_6",
+      "payment_method_card",
+      "payment_method_upi",
+      "payment_method_netbanking",
+      "failure_reason_issuer_decline",
+      "failure_reason_expired_method",
+      "failure_reason_technical_degradation",
+      "failure_reason_insufficient_funds",
+      "failure_reason_abandonment",
+      "failure_reason_other",
+      "language_english",
+      "language_hinglish",
+      "communication_preference_allowed",
+      "subscription_state_active",
+      "last_channel_none",
+      "last_channel_message",
+      "last_channel_voice",
+      "last_channel_payment_link",
+      "prior_response_none",
+      "prior_response_ignored",
+      "prior_response_read",
+      "prior_response_willing_to_pay",
+      "candidate_action_is_outbound",
+      "candidate_action_contact_window_eligible",
+      "candidate_action_RETRY_NOW",
+      "candidate_action_RETRY_LATER",
+      "candidate_action_PAYMENT_LINK",
+      "candidate_action_SEND_MESSAGE",
+      "candidate_action_VOICE_RECOVERY",
+      "candidate_action_ESCALATE",
+      "candidate_action_DO_NOTHING",
+      "interaction_RETRY_NOW_failure_reason_issuer_decline",
+      "interaction_RETRY_NOW_failure_reason_expired_method",
+      "interaction_RETRY_NOW_failure_reason_technical_degradation",
+      "interaction_RETRY_NOW_failure_reason_insufficient_funds",
+      "interaction_RETRY_NOW_failure_reason_abandonment",
+      "interaction_RETRY_NOW_failure_reason_other",
+      "interaction_RETRY_NOW_incident_flag",
+      "interaction_RETRY_NOW_payment_method_card",
+      "interaction_RETRY_NOW_payment_method_upi",
+      "interaction_RETRY_NOW_payment_method_netbanking",
+      "interaction_RETRY_NOW_communication_preference_allowed",
+      "interaction_RETRY_NOW_subscription_state_active",
+      "interaction_RETRY_NOW_prior_response_none",
+      "interaction_RETRY_NOW_prior_response_ignored",
+      "interaction_RETRY_NOW_prior_response_read",
+      "interaction_RETRY_NOW_prior_response_willing_to_pay",
+      "interaction_RETRY_NOW_contacts_last_7_days",
+      "interaction_RETRY_NOW_historic_recovery_ratio",
+      "interaction_RETRY_LATER_failure_reason_issuer_decline",
+      "interaction_RETRY_LATER_failure_reason_expired_method",
+      "interaction_RETRY_LATER_failure_reason_technical_degradation",
+      "interaction_RETRY_LATER_failure_reason_insufficient_funds",
+      "interaction_RETRY_LATER_failure_reason_abandonment",
+      "interaction_RETRY_LATER_failure_reason_other",
+      "interaction_RETRY_LATER_incident_flag",
+      "interaction_RETRY_LATER_payment_method_card",
+      "interaction_RETRY_LATER_payment_method_upi",
+      "interaction_RETRY_LATER_payment_method_netbanking",
+      "interaction_RETRY_LATER_communication_preference_allowed",
+      "interaction_RETRY_LATER_subscription_state_active",
+      "interaction_RETRY_LATER_prior_response_none",
+      "interaction_RETRY_LATER_prior_response_ignored",
+      "interaction_RETRY_LATER_prior_response_read",
+      "interaction_RETRY_LATER_prior_response_willing_to_pay",
+      "interaction_RETRY_LATER_contacts_last_7_days",
+      "interaction_RETRY_LATER_historic_recovery_ratio",
+      "interaction_PAYMENT_LINK_failure_reason_issuer_decline",
+      "interaction_PAYMENT_LINK_failure_reason_expired_method",
+      "interaction_PAYMENT_LINK_failure_reason_technical_degradation",
+      "interaction_PAYMENT_LINK_failure_reason_insufficient_funds",
+      "interaction_PAYMENT_LINK_failure_reason_abandonment",
+      "interaction_PAYMENT_LINK_failure_reason_other",
+      "interaction_PAYMENT_LINK_incident_flag",
+      "interaction_PAYMENT_LINK_payment_method_card",
+      "interaction_PAYMENT_LINK_payment_method_upi",
+      "interaction_PAYMENT_LINK_payment_method_netbanking",
+      "interaction_PAYMENT_LINK_communication_preference_allowed",
+      "interaction_PAYMENT_LINK_subscription_state_active",
+      "interaction_PAYMENT_LINK_prior_response_none",
+      "interaction_PAYMENT_LINK_prior_response_ignored",
+      "interaction_PAYMENT_LINK_prior_response_read",
+      "interaction_PAYMENT_LINK_prior_response_willing_to_pay",
+      "interaction_PAYMENT_LINK_contacts_last_7_days",
+      "interaction_PAYMENT_LINK_historic_recovery_ratio",
+      "interaction_SEND_MESSAGE_failure_reason_issuer_decline",
+      "interaction_SEND_MESSAGE_failure_reason_expired_method",
+      "interaction_SEND_MESSAGE_failure_reason_technical_degradation",
+      "interaction_SEND_MESSAGE_failure_reason_insufficient_funds",
+      "interaction_SEND_MESSAGE_failure_reason_abandonment",
+      "interaction_SEND_MESSAGE_failure_reason_other",
+      "interaction_SEND_MESSAGE_incident_flag",
+      "interaction_SEND_MESSAGE_payment_method_card",
+      "interaction_SEND_MESSAGE_payment_method_upi",
+      "interaction_SEND_MESSAGE_payment_method_netbanking",
+      "interaction_SEND_MESSAGE_communication_preference_allowed",
+      "interaction_SEND_MESSAGE_subscription_state_active",
+      "interaction_SEND_MESSAGE_prior_response_none",
+      "interaction_SEND_MESSAGE_prior_response_ignored",
+      "interaction_SEND_MESSAGE_prior_response_read",
+      "interaction_SEND_MESSAGE_prior_response_willing_to_pay",
+      "interaction_SEND_MESSAGE_contacts_last_7_days",
+      "interaction_SEND_MESSAGE_historic_recovery_ratio",
+      "interaction_VOICE_RECOVERY_failure_reason_issuer_decline",
+      "interaction_VOICE_RECOVERY_failure_reason_expired_method",
+      "interaction_VOICE_RECOVERY_failure_reason_technical_degradation",
+      "interaction_VOICE_RECOVERY_failure_reason_insufficient_funds",
+      "interaction_VOICE_RECOVERY_failure_reason_abandonment",
+      "interaction_VOICE_RECOVERY_failure_reason_other",
+      "interaction_VOICE_RECOVERY_incident_flag",
+      "interaction_VOICE_RECOVERY_payment_method_card",
+      "interaction_VOICE_RECOVERY_payment_method_upi",
+      "interaction_VOICE_RECOVERY_payment_method_netbanking",
+      "interaction_VOICE_RECOVERY_communication_preference_allowed",
+      "interaction_VOICE_RECOVERY_subscription_state_active",
+      "interaction_VOICE_RECOVERY_prior_response_none",
+      "interaction_VOICE_RECOVERY_prior_response_ignored",
+      "interaction_VOICE_RECOVERY_prior_response_read",
+      "interaction_VOICE_RECOVERY_prior_response_willing_to_pay",
+      "interaction_VOICE_RECOVERY_contacts_last_7_days",
+      "interaction_VOICE_RECOVERY_historic_recovery_ratio",
+      "interaction_ESCALATE_failure_reason_issuer_decline",
+      "interaction_ESCALATE_failure_reason_expired_method",
+      "interaction_ESCALATE_failure_reason_technical_degradation",
+      "interaction_ESCALATE_failure_reason_insufficient_funds",
+      "interaction_ESCALATE_failure_reason_abandonment",
+      "interaction_ESCALATE_failure_reason_other",
+      "interaction_ESCALATE_incident_flag",
+      "interaction_ESCALATE_payment_method_card",
+      "interaction_ESCALATE_payment_method_upi",
+      "interaction_ESCALATE_payment_method_netbanking",
+      "interaction_ESCALATE_communication_preference_allowed",
+      "interaction_ESCALATE_subscription_state_active",
+      "interaction_ESCALATE_prior_response_none",
+      "interaction_ESCALATE_prior_response_ignored",
+      "interaction_ESCALATE_prior_response_read",
+      "interaction_ESCALATE_prior_response_willing_to_pay",
+      "interaction_ESCALATE_contacts_last_7_days",
+      "interaction_ESCALATE_historic_recovery_ratio",
+      "interaction_DO_NOTHING_failure_reason_issuer_decline",
+      "interaction_DO_NOTHING_failure_reason_expired_method",
+      "interaction_DO_NOTHING_failure_reason_technical_degradation",
+      "interaction_DO_NOTHING_failure_reason_insufficient_funds",
+      "interaction_DO_NOTHING_failure_reason_abandonment",
+      "interaction_DO_NOTHING_failure_reason_other",
+      "interaction_DO_NOTHING_incident_flag",
+      "interaction_DO_NOTHING_payment_method_card",
+      "interaction_DO_NOTHING_payment_method_upi",
+      "interaction_DO_NOTHING_payment_method_netbanking",
+      "interaction_DO_NOTHING_communication_preference_allowed",
+      "interaction_DO_NOTHING_subscription_state_active",
+      "interaction_DO_NOTHING_prior_response_none",
+      "interaction_DO_NOTHING_prior_response_ignored",
+      "interaction_DO_NOTHING_prior_response_read",
+      "interaction_DO_NOTHING_prior_response_willing_to_pay",
+      "interaction_DO_NOTHING_contacts_last_7_days",
+      "interaction_DO_NOTHING_historic_recovery_ratio"
+    ],
+    "forbidden_source_fields": [
+      "hidden_state",
+      "customer_segment",
+      "environment_state",
+      "natural_recovery_probability",
+      "action_responsiveness",
+      "action_outcomes",
+      "recovery_probability",
+      "recovered",
+      "recovery_timestamp",
+      "promise_to_pay_date",
+      "verification_timestamp",
+      "outcome",
+      "future_outcome"
+    ],
+    "version": "features_v2.0.0_interaction"
+  },
+  "model_version": "recovery_model_v3_gradient_boosting.0.0",
+  "simulator_config_hash": "cb3153ea4cf9451b724f06e0a9702ab363ccc92d4ebed898b96629e4c6dbe70b",
+  "simulator_version": "simulator_v1.0.0",
+  "training_metadata": {
+    "dataset_specs": {
+      "holdout": {
+        "events_per_seed": 500,
+        "seeds": [
+          300000,
+          310000,
+          320000
+        ],
+        "split": "holdout"
+      },
+      "training": {
+        "events_per_seed": 500,
+        "seeds": [
+          100000,
+          110000,
+          120000,
+          130000,
+          140000,
+          150000,
+          160000,
+          170000,
+          180000,
+          190000
+        ],
+        "split": "training"
+      },
+      "validation": {
+        "events_per_seed": 500,
+        "seeds": [
+          200000,
+          210000,
+          220000
+        ],
+        "split": "validation"
+      }
+    },
+    "experiment_version": "gate3.5_benchmark_v1.0.0",
+    "model_hyperparameters": {
+      "l2": 0.001,
+      "learning_rate": 0.08,
+      "max_thresholds_per_feature": 12,
+      "n_estimators": 24,
+      "random_seed": 0,
+      "type": "gradient_boosted_stumps"
+    },
+    "protocol": "fit on training; fit Platt calibration on validation; freeze candidates; evaluate holdout once; no Arena evaluation",
+    "seed_policy": {
+      "arena_development_rejected": [
+        400000,
+        499999
+      ],
+      "arena_final_rejected": [
+        900000,
+        999999
+      ],
+      "holdout": [
+        300000,
+        399999
+      ],
+      "training": [
+        100000,
+        199999
+      ],
+      "validation": [
+        200000,
+        299999
+      ]
+    },
+    "simulator_config_hash": "cb3153ea4cf9451b724f06e0a9702ab363ccc92d4ebed898b96629e4c6dbe70b",
+    "simulator_version": "simulator_v1.0.0",
+    "training_timestamp_utc": "2026-08-24T14:42:57.353419+00:00"
+  }
+}

@@ -2,7 +2,10 @@
 
 ## Status
 
-Gate 3 complete. Model artifact: `recovery_model_v1.0.0`.
+Gate 3.5 complete. The original Gate 3 artifact remains preserved as
+`recovery_model_v1.0.0`. The selected benchmark candidate is
+`recovery_model_v2_interaction_lr.0.0`; it has not replaced the Gate 4
+artifact or been evaluated in a new Arena run.
 
 ## Intended use
 
@@ -28,7 +31,9 @@ candidate action, with the seven-day simulator recovery outcome as the target.
 Platt scaling is fitted once on the validation split and then applied during
 inference. No ML model or CHIMERA policy uses Arena seeds for fitting or tuning.
 
-Experiment timestamp: `2026-08-24T13:26:14.112335+00:00`.
+Experiment timestamp: Gate 3 artifact `2026-08-24T13:26:14.112335+00:00`;
+Gate 3.5 benchmark timestamp is recorded in
+`data/model_benchmark_v1/benchmark_report.json`.
 
 | Split | Seeds | Events | Action rows | Positive rate |
 |---|---|---:|---:|---:|
@@ -81,6 +86,39 @@ improvement means calibration is useful but limited; the reliability curves in
 `data/model_v1/evaluation_report.json` show residual overprediction in several
 high-probability bins.
 
+## Gate 3.5 model benchmark and selection
+
+The benchmark compared the preserved baseline, an interaction Logistic
+Regression, and a dependency-free NumPy gradient booster over decision
+stumps. All candidates used the same observable event context, candidate
+action, seed ranges, event-level split isolation, and seven-day labels. The
+workflow was training fit → validation Platt calibration → candidate freeze →
+one untouched holdout evaluation. Arena performance and action diversity were
+not selection criteria.
+
+| Candidate | Holdout ROC-AUC | Holdout PR-AUC | Holdout Brier |
+|---|---:|---:|---:|
+| Preserved `recovery_model_v1.0.0` | 0.724893 | 0.622047 | 0.205624 |
+| `recovery_model_v2_interaction_lr.0.0` | 0.737706 | 0.637621 | 0.201287 |
+| `recovery_model_v3_gradient_boosting.0.0` | 0.710801 | 0.594476 | 0.209414 |
+
+The interaction model was selected because it had the lowest untouched-holdout
+Brier score, highest holdout PR-AUC, and a smaller training-to-holdout Brier
+gap (`0.001000`) than the other candidates. It is an evaluation-based model
+selection result, not a claim that CHIMERA will win the Arena.
+
+The interaction schema version is `features_v2.0.0_interaction` with 170
+features: the original 44 plus 126 explicit action-conditioned fields. The
+fields cover action × failure reason, incident flag, payment method,
+communication preference, subscription state, prior response, recent contact
+count, and historical recovery ratio. Hidden simulator state, future records,
+and outcomes remain rejected.
+
+The tree benchmark used learning rate `0.08`, 24 deterministic stump
+estimators, 12 threshold candidates per feature, L2 `0.001`, and fixed seed
+metadata `0`. It was selected against no Arena results and is retained as a
+transparent fallback benchmark.
+
 ## Limitations and known failure modes
 
 - Synthetic outcomes encode the frozen simulator's assumptions, not production behavior.
@@ -95,4 +133,17 @@ high-probability bins.
 The artifact is rejected when simulator version, simulator configuration hash,
 feature schema, or action order is incompatible. Reproducible artifacts and
 reports are under `data/model_v1/`; the inference interface is implemented in
-`backend/chimera_model/model.py`.
+`backend/chimera_model/model.py` and `backend/chimera_model/benchmark.py`.
+The explicit `Gate4ModelAdapter` presents the selected benchmark model through
+the unchanged Gate 4 interface and records the underlying benchmark version.
+
+## Gate 3.5 limitations
+
+- The tree candidate is intentionally simple and should not be treated as a
+  mature CatBoost, LightGBM, or XGBoost implementation.
+- The selected interaction model still relies on synthetic observables and
+  does not estimate causal treatment effects.
+- The benchmark's representative scenarios show context-dependent action
+  probabilities, but they do not establish real-world calibration.
+- No new Arena comparison was run; Gate 4's prior `PAYMENT_LINK` concentration
+  remains an observed downstream limitation until separately reviewed.

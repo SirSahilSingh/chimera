@@ -469,3 +469,66 @@ Why this approach: The manifest is easy to reproduce and audit, and split valida
 Trade-offs: The experiment is representative of the frozen synthetic distribution only; it is not evidence of production generalization.
 
 Version/affected component: Gate 3 dataset pipeline, `data/model_v1/dataset_manifest.json`.
+
+## D-027 — Gate 4 deterministic expected-net-value engine
+
+Decision: CHIMERA selects the highest expected-net-value permissible action using the committed Gate 3 probability artifact.
+
+Date: 2026-08-24
+
+Context: The decision layer must remain deterministic, auditable, policy-constrained, and independent of LLM or persistence infrastructure.
+
+Chosen approach: Evaluate all seven actions, block unavailable actions and outbound contact outside the configured window, calculate expected gross recovery with integer-paise `ROUND_HALF_UP`, subtract frozen action/incentive/fatigue costs, resolve one-paise near ties by friction, cost, then fixed action order, and emit a complete trace. Fatigue remains the frozen observable formula `fatigue_base[action] * (1 + contacts_last_7_days)`. The frozen ObservableContext contains no pending-promise field, so the engine does not infer promise-to-pay state.
+
+Alternatives considered: Select the highest predicted probability; let an LLM choose; silently drop blocked actions; use floating-point INR comparison; tune the model after observing Arena action concentration.
+
+Why this approach: It preserves financial determinism and exposes every economic and policy factor needed for audit.
+
+Trade-offs: The Gate 4 development run selected `PAYMENT_LINK` for 100% of events. This is reported as a limitation of the current additive model/features, not corrected by tuning the frozen model or simulator.
+
+Version/affected component: `chimera_engine_v1.0.0`, Gate 4 Arena report, `docs/engine.md`.
+
+## D-028 — Gate 3.5 benchmark and model selection
+
+Decision: Preserve `recovery_model_v1.0.0` and select
+`recovery_model_v2_interaction_lr.0.0` as the Gate 3.5 probability-model
+candidate.
+
+Date: 2026-08-24
+
+Context: Gate 4 showed `PAYMENT_LINK` selected for 100% of development events.
+The model needed a controlled benchmark to determine whether the additive
+action representation was underfitting observable action-context effects,
+without tuning toward Arena performance.
+
+Chosen approach: Benchmark the preserved 44-feature Logistic Regression, a
+170-feature interaction Logistic Regression, and a deterministic NumPy
+gradient booster over decision stumps. All use the same event-level training,
+validation, and holdout seeds; all seven action rows remain grouped with their
+source event. Candidates are fit on training, Platt-calibrated on validation,
+then evaluated once on untouched holdout data. Arena seeds and Arena results
+are excluded from selection.
+
+Alternatives considered: Overwrite v1; tune features or costs until action
+diversity increased; add a native CatBoost/LightGBM/XGBoost dependency; select
+on development Arena revenue; use hidden simulator state.
+
+Why this approach: The interaction representation directly tests the stated
+modeling limitation while keeping the observable boundary and reproducibility
+contract. The dependency-free tree benchmark provides a structured-model
+comparison without adding an unpinned native runtime. The interaction model
+had the best holdout probability quality: ROC-AUC `0.737706`, PR-AUC
+`0.637621`, Brier `0.201287`, versus baseline Brier `0.205624` and tree Brier
+`0.209414`.
+
+Trade-offs: The interaction schema grows from 44 to 170 features and remains
+synthetic-only. The stump booster is a transparent benchmark, not a mature
+third-party gradient-boosting library. Selection does not prove Arena
+improvement and no new Arena comparison was run. Gate 4 remains unchanged and
+can consume the selected candidate only through the explicit compatibility
+adapter.
+
+Version/affected component: `features_v2.0.0_interaction`,
+`recovery_model_v2_interaction_lr.0.0`,
+`recovery_model_v3_gradient_boosting.0.0`, `data/model_benchmark_v1/`,
+`backend/chimera_model/benchmark.py`.

@@ -1,0 +1,35 @@
+{
+  "arena_excluded": true,
+  "comparison_rows": [
+    {
+      "generalization_brier_gap": 0.0024495923703182765,
+      "holdout_brier_score": 0.20562439482957806,
+      "holdout_pr_auc": 0.6220473170379588,
+      "holdout_roc_auc": 0.724892572716622,
+      "model": "baseline_logistic_regression",
+      "training_brier_score": 0.20807398719989634,
+      "validation_brier_score": 0.2087670362388843
+    },
+    {
+      "generalization_brier_gap": 0.0010000917958995215,
+      "holdout_brier_score": 0.20128677496186373,
+      "holdout_pr_auc": 0.6376205246654514,
+      "holdout_roc_auc": 0.7377061000762948,
+      "model": "interaction_logistic_regression",
+      "training_brier_score": 0.20228686675776325,
+      "validation_brier_score": 0.20479736792369738
+    },
+    {
+      "generalization_brier_gap": 0.002333272211891807,
+      "holdout_brier_score": 0.20941396817048216,
+      "holdout_pr_auc": 0.5944763735246916,
+      "holdout_roc_auc": 0.7108007769097804,
+      "model": "gradient_boosted_stumps",
+      "training_brier_score": 0.21174724038237397,
+      "validation_brier_score": 0.21214966337057845
+    }
+  ],
+  "rationale": "The selected candidate has the best untouched-holdout probability quality under the fixed rule; Arena revenue and action diversity were not consulted.",
+  "rule": "minimum holdout Brier, then maximum holdout PR-AUC, then minimum train-holdout Brier gap, then simpler fixed candidate order",
+  "selected_model": "interaction_logistic_regression"
+}
