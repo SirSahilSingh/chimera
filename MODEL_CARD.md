@@ -147,3 +147,27 @@ the unchanged Gate 4 interface and records the underlying benchmark version.
   probabilities, but they do not establish real-world calibration.
 - No new Arena comparison was run; Gate 4's prior `PAYMENT_LINK` concentration
   remains an observed downstream limitation until separately reviewed.
+
+## Gate 4 v2 re-evaluation
+
+The selected model was evaluated after selection using the unchanged
+`chimera_engine_v1.0.0` and the explicit `Gate4ModelAdapter`. The model was
+selected before this Arena evaluation. No Arena result was used to select or
+tune the model.
+
+On 5,000 development events, CHIMERA selected all seven actions: `PAYMENT_LINK`
+51.98%, `RETRY_LATER` 24.92%, `ESCALATE` 8.68%, `VOICE_RECOVERY` 7.26%,
+`SEND_MESSAGE` 4.46%, `DO_NOTHING` 1.38%, and `RETRY_NOW` 1.32%. The selected
+action differed from the highest raw predicted-probability action on 1,125
+events (22.50%). The unchanged engine recorded 313 cost-changed winners, 34
+fatigue-changed winners, and 962 constraint-changed winners.
+
+CHIMERA's mean recovery rate was 52.72%, versus 49.08% for
+`SIMPLE_RULE_BASED`; mean gross recovered value was ₹67,20,869.16 versus
+₹59,82,514.97; mean net recovery value was ₹67,10,382.56 versus
+₹59,77,822.57. These are descriptive synthetic Arena results, not claims of
+statistical significance or real-world superiority.
+
+The complete report, including per-seed results, grouped action distributions,
+reproducibility checks, traces, hashes, and the v1 comparison is at
+`data/model_benchmark_v1/gate4_reevaluation_v2_report.json`.

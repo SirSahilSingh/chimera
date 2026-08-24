@@ -532,3 +532,39 @@ Version/affected component: `features_v2.0.0_interaction`,
 `recovery_model_v2_interaction_lr.0.0`,
 `recovery_model_v3_gradient_boosting.0.0`, `data/model_benchmark_v1/`,
 `backend/chimera_model/benchmark.py`.
+
+## D-029 — Gate 4 re-evaluation with selected v2 model
+
+Decision: Re-evaluate the existing Gate 4 engine with
+`recovery_model_v2_interaction_lr.0.0` through the explicit
+`Gate4ModelAdapter`, without changing the engine or Arena methodology.
+
+Date: 2026-08-24
+
+Context: Gate 3.5 selected the interaction model using validation and untouched
+holdout probability quality. The downstream effect on CHIMERA must be observed
+on the fixed development Arena.
+
+Chosen approach: Load the versioned v2 artifact, validate simulator version,
+configuration hash, and interaction feature schema, then run the existing
+engine against the five approved development seeds with 1,000 events each and
+the three existing baselines. Separately repeat the run, reverse policy order,
+and remove the other policies to verify deterministic CHIMERA decisions.
+
+Alternatives considered: Modify Gate 4 compatibility logic; retrain or
+calibrate the model; tune costs, fatigue, constraints, tie-breaking, or the
+simulator; select the model using Arena outcomes.
+
+Why this approach: It isolates the effect of replacing the probability model
+and preserves the financial decision contract. The re-evaluation selected all
+seven actions, with `PAYMENT_LINK` at 51.98%, and the selected action differed
+from raw highest probability on 22.50% of events.
+
+Trade-offs: CHIMERA's synthetic development recovery and net value exceeded
+`SIMPLE_RULE_BASED` in this fixed run, but no significance test or real-world
+claim is made. Seed-level recovery standard deviation increased from 0.5352%
+to 0.9867%. The report remains downstream evaluation evidence only.
+
+Version/affected component: `gate4_reevaluation_v2.0.0`,
+`data/model_benchmark_v1/gate4_reevaluation_v2_report.json`,
+`backend/scripts/run_gate4_reevaluation_v2.py`.

@@ -67,3 +67,33 @@ Run the Gate 4 development evaluation with:
 ```powershell
 python backend/scripts/run_gate4_arena.py
 ```
+
+## Gate 4 v2 re-evaluation
+
+The selected Gate 3.5 model was evaluated through the unchanged engine using
+the explicit `Gate4ModelAdapter`. The adapter preserves the existing Gate 4
+compatibility surface while delegating feature construction and prediction to
+`recovery_model_v2_interaction_lr.0.0` with schema
+`features_v2.0.0_interaction`.
+
+Run the exact development re-evaluation with:
+
+```powershell
+python backend/scripts/run_gate4_reevaluation_v2.py
+```
+
+Configuration is fixed to `arena_development`, seeds `400000, 410000,
+420000, 430000, 440000`, 1,000 events per seed, and policies
+`NO_INTERVENTION`, `RETRY_ALL`, `SIMPLE_RULE_BASED`, and `CHIMERA`. The
+versioned report is `data/model_benchmark_v1/gate4_reevaluation_v2_report.json`.
+
+The run verifies identical event-batch hashes, repeated deterministic
+decisions, policy-order independence, and independence from adding or removing
+other policies. It also records per-seed policy economics, action
+distributions by observable grouping, seven real decision traces, and a
+comparison with the original v1 Gate 4 report.
+
+The model was selected before this Arena evaluation. No Arena result was used
+to select or tune the model. No simulator, cost, fatigue, constraint,
+tie-breaking, expected-value, rounding, explanation, or decision-engine logic
+was changed for this re-evaluation.
