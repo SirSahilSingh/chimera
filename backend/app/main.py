@@ -10,22 +10,57 @@ from backend.app.core.config import AppSettings, load_settings
 from backend.app.core.database import create_schema, make_engine, make_session_factory
 from backend.app.services.case_service import CaseService
 from backend.app.services.intelligence_service import IntelligenceService
+from backend.app.interventions.service import InterventionService
+from backend.chimera_voice.provider import VoiceProvider, provider_from_settings as voice_provider_from_settings
+from backend.chimera_voice.service import VoiceService
+from backend.chimera_payments.providers.local import LocalDeterministicPaymentProvider
+from backend.chimera_payments.providers.razorpay import RazorpayPaymentProvider
+from backend.chimera_payments.provider import PaymentProvider
+from backend.chimera_payments.service import PaymentService
 from backend.chimera_intelligence.agent import ExplanationAgent
-from backend.chimera_intelligence.provider import ExplanationProvider, provider_from_settings
+from backend.chimera_intelligence.provider import ExplanationProvider, provider_from_settings as explanation_provider_from_settings
 from backend.chimera_model.benchmark import BenchmarkProbabilityModel, INTERACTION_FEATURE_SCHEMA_VERSION
 from backend.chimera_simulator.config import SimulatorConfig
 
 
-def create_app(database_url: str | None = None, *, create_tables: bool = True, explanation_provider: ExplanationProvider | None = None) -> FastAPI:
+def create_app(database_url: str | None = None, *, create_tables: bool = True, explanation_provider: ExplanationProvider | None = None, voice_provider: VoiceProvider | None = None) -> FastAPI:
     settings = load_settings()
     if database_url is not None:
-        settings = AppSettings(database_url=database_url, api_environment=settings.api_environment, model_artifact_path=settings.model_artifact_path, simulator_config_path=settings.simulator_config_path)
+        settings = AppSettings(
+            database_url=database_url,
+            api_environment=settings.api_environment,
+            model_artifact_path=settings.model_artifact_path,
+            simulator_config_path=settings.simulator_config_path,
+            llm_provider=settings.llm_provider,
+            llm_base_url=settings.llm_base_url,
+            llm_api_key=settings.llm_api_key,
+            llm_model=settings.llm_model,
+            llm_timeout_seconds=settings.llm_timeout_seconds,
+            voice_provider=settings.voice_provider,
+            voice_enabled=settings.voice_enabled,
+            voice_base_url=settings.voice_base_url,
+            voice_api_key=settings.voice_api_key,
+            voice_agent_id=settings.voice_agent_id,
+            voice_phone_number=settings.voice_phone_number,
+            voice_timeout_seconds=settings.voice_timeout_seconds,
+            payment_provider=settings.payment_provider,
+            payment_enabled=settings.payment_enabled,
+            razorpay_key_id=settings.razorpay_key_id,
+            razorpay_key_secret=settings.razorpay_key_secret,
+            razorpay_webhook_secret=settings.razorpay_webhook_secret,
+            payment_timeout_seconds=settings.payment_timeout_seconds,
+        )
     engine = make_engine(settings.database_url)
     if create_tables:
         create_schema(engine)
     session_factory = make_session_factory(engine)
     simulator_config = SimulatorConfig.from_file(settings.simulator_config_path)
-    agent = ExplanationAgent(explanation_provider if explanation_provider is not None else provider_from_settings(settings))
+    agent = ExplanationAgent(explanation_provider if explanation_provider is not None else explanation_provider_from_settings(settings))
+    configured_voice_provider = voice_provider if voice_provider is not None else voice_provider_from_settings(settings)
+    if settings.payment_provider == "razorpay":
+        configured_payment_provider: PaymentProvider = RazorpayPaymentProvider(settings.razorpay_key_id, settings.razorpay_key_secret, settings.razorpay_webhook_secret, enabled=settings.payment_enabled, timeout_seconds=settings.payment_timeout_seconds)
+    else:
+        configured_payment_provider = LocalDeterministicPaymentProvider()
 
     @lru_cache(maxsize=1)
     def compatibility_status() -> str:
@@ -44,12 +79,24 @@ def create_app(database_url: str | None = None, *, create_tables: bool = True, e
     def intelligence_service_factory(session):
         return IntelligenceService(session, simulator_config, agent)
 
+    def intervention_service_factory(session):
+        return InterventionService(session)
+
+    def payment_service_factory(session):
+        return PaymentService(session, configured_payment_provider, demo_enabled=settings.api_environment != "production", enabled=settings.payment_enabled)
+
+    def voice_service_factory(session):
+        return VoiceService(session, configured_voice_provider, payment_service=payment_service_factory(session))
+
     app = FastAPI(title="CHIMERA API", version="1.0.0")
     router = build_router(
         session_factory=session_factory,
         service_factory=service_factory,
         health_factory=health_factory,
         intelligence_service_factory=intelligence_service_factory,
+        intervention_service_factory=intervention_service_factory,
+        voice_service_factory=voice_service_factory,
+        payment_service_factory=payment_service_factory,
     )
     app.include_router(router, prefix="/api/v1")
     app.include_router(router, prefix="")
@@ -57,6 +104,8 @@ def create_app(database_url: str | None = None, *, create_tables: bool = True, e
     app.state.session_factory = session_factory
     app.state.settings = settings
     app.state.explanation_agent = agent
+    app.state.voice_provider = configured_voice_provider
+    app.state.payment_provider = configured_payment_provider
     return app
 
 

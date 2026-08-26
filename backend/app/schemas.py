@@ -116,3 +116,96 @@ class HealthResponse(BaseModel):
     database: str
     model_compatibility: str
     api_environment: str
+
+
+class InterventionCreateRequest(BaseModel):
+    """Intentionally empty: the action is always read from the stored decision."""
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class InterventionExecutionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    intervention_id: str
+    attempt_number: int
+    executor_type: str
+    status: str
+    idempotency_key: str
+    provider_reference: str | None
+    request_hash: str
+    result_hash: str | None
+    error_code: str | None
+    error_message_safe: str | None
+    started_at: datetime
+    completed_at: datetime | None
+    created_at: datetime
+    response_json: dict[str, Any]
+
+
+class InterventionOutcomeCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["PENDING", "RECOVERED", "NOT_RECOVERED", "FAILED", "EXPIRED"]
+    recovered_amount_paise: StrictInt | None = Field(default=None, ge=0)
+    currency: str | None = Field(default=None, min_length=3, max_length=3)
+    outcome_reference: str | None = Field(default=None, max_length=255)
+    occurred_at: datetime
+    source: str = Field(min_length=1, max_length=64)
+
+    @field_validator("occurred_at")
+    @classmethod
+    def outcome_timezone_required(cls, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            raise ValueError("occurred_at must include a timezone")
+        return value
+
+
+class InterventionOutcomeResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    intervention_id: str
+    status: str
+    recovered_amount_paise: int | None
+    currency: str | None
+    outcome_reference: str | None
+    occurred_at: datetime
+    source: str
+    created_at: datetime
+
+
+class InterventionEventResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    intervention_id: str
+    recovery_case_id: str
+    decision_id: str
+    event_type: str
+    actor: str
+    payload_json: dict[str, Any]
+    sequence_number: int
+    created_at: datetime
+
+
+class InterventionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    recovery_case_id: str
+    decision_id: str
+    action: str
+    status: str
+    priority: int
+    idempotency_key: str
+    created_at: datetime
+    queued_at: datetime | None
+    started_at: datetime | None
+    completed_at: datetime | None
+    updated_at: datetime
+    lifecycle_version: int
+    executions: list[InterventionExecutionResponse] = []
+    outcomes: list[InterventionOutcomeResponse] = []
+    events: list[InterventionEventResponse] = []

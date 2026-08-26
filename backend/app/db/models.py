@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import JSON, CheckConstraint, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -42,6 +42,9 @@ class RecoveryCase(Base):
     executions: Mapped[list[ActionExecution]] = relationship(back_populates="recovery_case", cascade="all, delete-orphan")
     audit_logs: Mapped[list[AuditLog]] = relationship(back_populates="recovery_case", cascade="all, delete-orphan")
     explanations: Mapped[list[Explanation]] = relationship(back_populates="recovery_case")
+    interventions: Mapped[list[Intervention]] = relationship(back_populates="recovery_case", cascade="all, delete-orphan")
+    intervention_events: Mapped[list[InterventionEvent]] = relationship(back_populates="recovery_case", cascade="all, delete-orphan")
+    payment_links: Mapped[list[PaymentLink]] = relationship(back_populates="recovery_case", cascade="all, delete-orphan")
 
 
 class Decision(Base):
@@ -67,6 +70,8 @@ class Decision(Base):
     candidates: Mapped[list[DecisionCandidate]] = relationship(back_populates="decision", cascade="all, delete-orphan")
     executions: Mapped[list[ActionExecution]] = relationship(back_populates="decision")
     explanations: Mapped[list[Explanation]] = relationship(back_populates="decision")
+    interventions: Mapped[list[Intervention]] = relationship(back_populates="decision", cascade="all, delete-orphan")
+    payment_links: Mapped[list[PaymentLink]] = relationship(back_populates="decision", cascade="all, delete-orphan")
 
 
 class DecisionCandidate(Base):
@@ -148,3 +153,260 @@ class Explanation(Base):
 
     recovery_case: Mapped[RecoveryCase] = relationship(back_populates="explanations")
     decision: Mapped[Decision] = relationship(back_populates="explanations")
+
+
+class Intervention(Base):
+    """Operational record for carrying out one immutable stored decision."""
+
+    __tablename__ = "interventions"
+    __table_args__ = (
+        UniqueConstraint("idempotency_key", name="uq_interventions_idempotency_key"),
+        UniqueConstraint("decision_id", name="uq_interventions_decision_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    recovery_case_id: Mapped[str] = mapped_column(ForeignKey("recovery_cases.id"), nullable=False, index=True)
+    decision_id: Mapped[str] = mapped_column(ForeignKey("decisions.id"), nullable=False, index=True)
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, index=True, default="CREATED")
+    priority: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    idempotency_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    queued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+    lifecycle_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    recovery_case: Mapped[RecoveryCase] = relationship(back_populates="interventions")
+    decision: Mapped[Decision] = relationship(back_populates="interventions")
+    executions: Mapped[list[InterventionExecution]] = relationship(back_populates="intervention", cascade="all, delete-orphan")
+    events: Mapped[list[InterventionEvent]] = relationship(back_populates="intervention", cascade="all, delete-orphan")
+    outcomes: Mapped[list[InterventionOutcome]] = relationship(back_populates="intervention", cascade="all, delete-orphan")
+    voice_calls: Mapped[list[VoiceCall]] = relationship(back_populates="intervention", cascade="all, delete-orphan")
+    payment_links: Mapped[list[PaymentLink]] = relationship(back_populates="intervention", cascade="all, delete-orphan")
+
+
+class InterventionExecution(Base):
+    """Append-only record of one local/provider execution attempt."""
+
+    __tablename__ = "intervention_executions"
+    __table_args__ = (
+        UniqueConstraint("idempotency_key", name="uq_intervention_executions_idempotency_key"),
+        UniqueConstraint("intervention_id", "attempt_number", name="uq_intervention_executions_attempt"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    intervention_id: Mapped[str] = mapped_column(ForeignKey("interventions.id"), nullable=False, index=True)
+    attempt_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    executor_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    provider_reference: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    result_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    error_message_safe: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    response_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+
+    intervention: Mapped[Intervention] = relationship(back_populates="executions")
+
+
+class InterventionEvent(Base):
+    """Append-only intervention lifecycle audit event."""
+
+    __tablename__ = "intervention_events"
+    __table_args__ = (UniqueConstraint("intervention_id", "sequence_number", name="uq_intervention_events_sequence"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    intervention_id: Mapped[str] = mapped_column(ForeignKey("interventions.id"), nullable=False, index=True)
+    recovery_case_id: Mapped[str] = mapped_column(ForeignKey("recovery_cases.id"), nullable=False, index=True)
+    decision_id: Mapped[str] = mapped_column(ForeignKey("decisions.id"), nullable=False, index=True)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    actor: Mapped[str] = mapped_column(String(64), nullable=False, default="system")
+    payload_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    sequence_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+    intervention: Mapped[Intervention] = relationship(back_populates="events")
+    recovery_case: Mapped[RecoveryCase] = relationship(back_populates="intervention_events")
+
+
+class InterventionOutcome(Base):
+    """Append-only outcome observations; terminal outcomes are never overwritten."""
+
+    __tablename__ = "intervention_outcomes"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    intervention_id: Mapped[str] = mapped_column(ForeignKey("interventions.id"), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    recovered_amount_paise: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    currency: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    outcome_reference: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    source: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+    intervention: Mapped[Intervention] = relationship(back_populates="outcomes")
+
+
+class VoiceCall(Base):
+    """Mutable lifecycle pointer with append-only turns and events."""
+
+    __tablename__ = "voice_calls"
+    __table_args__ = (
+        UniqueConstraint("intervention_id", name="uq_voice_calls_intervention_id"),
+        UniqueConstraint("idempotency_key", name="uq_voice_calls_idempotency_key"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    intervention_id: Mapped[str] = mapped_column(ForeignKey("interventions.id"), nullable=False, index=True)
+    recovery_case_id: Mapped[str] = mapped_column(ForeignKey("recovery_cases.id"), nullable=False, index=True)
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    provider_call_reference: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    scenario: Mapped[str] = mapped_column(String(64), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    input_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    transcript_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    voice_agent_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    prompt_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    outcome_intent: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    payment_link: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    failure_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+    lifecycle_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    intervention: Mapped[Intervention] = relationship(back_populates="voice_calls")
+    turns: Mapped[list[VoiceTurn]] = relationship(back_populates="call", cascade="all, delete-orphan")
+    events: Mapped[list[VoiceEvent]] = relationship(back_populates="call", cascade="all, delete-orphan")
+
+
+class VoiceTurn(Base):
+    """Append-only validated conversation turn."""
+
+    __tablename__ = "voice_turns"
+    __table_args__ = (UniqueConstraint("call_id", "sequence_number", name="uq_voice_turns_sequence"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    call_id: Mapped[str] = mapped_column(ForeignKey("voice_calls.id"), nullable=False, index=True)
+    sequence_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    speaker: Mapped[str] = mapped_column(String(16), nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    intent: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    confidence: Mapped[float] = mapped_column(nullable=False)
+    requested_action: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    requires_confirmation: Mapped[bool] = mapped_column(nullable=False)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    validated: Mapped[bool] = mapped_column(nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+    call: Mapped[VoiceCall] = relationship(back_populates="turns")
+
+
+class VoiceEvent(Base):
+    """Append-only voice lifecycle/provider audit event."""
+
+    __tablename__ = "voice_events"
+    __table_args__ = (
+        UniqueConstraint("event_id", name="uq_voice_events_event_id"),
+        UniqueConstraint("call_id", "sequence_number", name="uq_voice_events_sequence"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    call_id: Mapped[str] = mapped_column(ForeignKey("voice_calls.id"), nullable=False, index=True)
+    event_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
+    payload_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    input_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    transcript_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    voice_agent_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    prompt_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    sequence_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+    call: Mapped[VoiceCall] = relationship(back_populates="events")
+
+
+class PaymentLink(Base):
+    """Mutable provider-link pointer; provider events remain append-only below."""
+
+    __tablename__ = "payment_links"
+    __table_args__ = (
+        UniqueConstraint("idempotency_key", name="uq_payment_links_idempotency_key"),
+        UniqueConstraint("provider", "provider_payment_link_id", name="uq_payment_links_provider_ref"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    recovery_case_id: Mapped[str] = mapped_column(ForeignKey("recovery_cases.id"), nullable=False, index=True)
+    intervention_id: Mapped[str] = mapped_column(ForeignKey("interventions.id"), nullable=False, index=True)
+    decision_id: Mapped[str] = mapped_column(ForeignKey("decisions.id"), nullable=False, index=True)
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    provider_payment_link_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    short_url: Mapped[str] = mapped_column(String(512), nullable=False)
+    amount_paise: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, index=True, default="CREATED")
+    idempotency_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    result_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+
+    recovery_case: Mapped[RecoveryCase] = relationship(back_populates="payment_links")
+    intervention: Mapped[Intervention] = relationship(back_populates="payment_links")
+    decision: Mapped[Decision] = relationship(back_populates="payment_links")
+    attempts: Mapped[list[PaymentAttempt]] = relationship(back_populates="payment_link", cascade="all, delete-orphan")
+    events: Mapped[list[PaymentEvent]] = relationship(back_populates="payment_link", cascade="all, delete-orphan")
+
+
+class PaymentAttempt(Base):
+    """Provider payment reference and status observed for a payment link."""
+
+    __tablename__ = "payment_attempts"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    payment_link_id: Mapped[str] = mapped_column(ForeignKey("payment_links.id"), nullable=False, index=True)
+    provider_payment_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    amount_paise: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+    payment_link: Mapped[PaymentLink] = relationship(back_populates="attempts")
+    events: Mapped[list[PaymentEvent]] = relationship(back_populates="attempt", cascade="all, delete-orphan")
+
+
+class PaymentEvent(Base):
+    """Append-only, sanitized provider/reconciliation event."""
+
+    __tablename__ = "payment_events"
+    __table_args__ = (UniqueConstraint("provider", "provider_event_id", name="uq_payment_events_provider_event"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    payment_link_id: Mapped[str] = mapped_column(ForeignKey("payment_links.id"), nullable=False, index=True)
+    payment_attempt_id: Mapped[str | None] = mapped_column(ForeignKey("payment_attempts.id"), nullable=True, index=True)
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    provider_event_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    amount_paise: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    signature_verified: Mapped[bool] = mapped_column(nullable=False)
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+    payment_link: Mapped[PaymentLink] = relationship(back_populates="events")
+    attempt: Mapped[PaymentAttempt | None] = relationship(back_populates="events")

@@ -36,7 +36,37 @@ For Gate 6 explanations, the stored `Decision` and `DecisionCandidate` rows are 
 
 ## Operator frontend boundary
 
-Gate 7 adds a Next.js/TypeScript operator frontend under `frontend/`. The browser consumes the existing `/api/v1` contracts for the Command Center, Recovery Cases list, and Decision Room. The frontend never calculates or selects recovery actions; it renders stored candidate economics and statuses, requests deterministic decisions from the backend, requests optional Gate 6 explanations, and asks the existing execution endpoint to perform an eligible stored action. Provider credentials, hidden state, future outcomes, and counterfactual truth never cross into frontend payloads.
+The Next.js/TypeScript operator frontend under `frontend/` consumes the existing `/api/v1` contracts for the Command Center, Recovery Cases list, and Decision Room. The frontend never calculates or selects recovery actions; it renders stored candidate economics and statuses, requests deterministic decisions from the backend, requests optional Gate 6 explanations, and asks the existing execution endpoint to perform an eligible stored action. Provider credentials, hidden state, future outcomes, and counterfactual truth never cross into frontend payloads.
+
+## Intervention orchestration boundary
+
+Gate 7 introduces `backend/app/interventions/` between stored `Decision` rows
+and future provider adapters. `InterventionService` consumes a persisted
+decision, copies its selected action, and manages the explicit lifecycle
+`CREATED → QUEUED → READY → EXECUTING → AWAITING_OUTCOME → terminal`. It never
+calls the Gate 4 engine and cannot substitute an action. Strict approved
+execution context schemas expose only observable payment fields and stable
+references. Local executors prove the lifecycle without fabricating recovery;
+outcomes are a separate append-only boundary. Razorpay, messaging, and voice
+providers remain deferred.
+
+## Voice execution boundary
+
+Gate 8 adds `backend/chimera_voice/` for calls attached only to persisted
+`VOICE_RECOVERY` interventions. `VoiceService` first uses the Gate 7 execution
+boundary, then manages a separate validated call state machine and append-only
+voice transcript/event records. A strict `VoiceContext` contains observable
+payment context only. Local deterministic scenarios work without credentials;
+the optional live HTTP provider is isolated behind `VOICE_*` configuration.
+Conversation intents can record customer requests or a pending operational
+outcome, but they cannot change the selected action or declare payment recovery.
+Razorpay and payment gateway integration are isolated in
+`backend/chimera_payments/`. The payment service creates links only from
+persisted `PAYMENT_LINK` interventions or validated Gate 8
+`SEND_PAYMENT_LINK` intent. Provider webhooks are the only successful-payment
+authority; they are signature-verified, amount/currency validated, idempotent,
+and append-only in `payment_events`. The local provider uses synthetic
+deterministic links and never contacts a payment gateway.
 
 ## Local-first implementation gates
 
@@ -47,9 +77,9 @@ Gate 7 adds a Next.js/TypeScript operator frontend under `frontend/`. The browse
 5. Gate 4: implement CHIMERA decision and deterministic policy/guardrail engine.
 6. Gate 5: add PostgreSQL persistence, recovery lifecycle, and audit trail.
 7. Gate 6: add LLM and voice adapters; voice initially appears in Decision Room.
-8. Gate 7: add Razorpay test-mode/webhook boundary.
-9. Gate 8: build Command Center, Decision Room, and Recovery Arena first; add supporting views afterward.
-10. Gate 9: run final QA, Arena evaluation, deployment checks, and demo rehearsal.
+8. Gate 7: add provider-independent intervention orchestration and outcome boundary.
+9. Gate 9: add Razorpay test-mode/webhook and other concrete payment execution providers.
+10. Gate 10: run final QA, Arena evaluation, deployment checks, and demo rehearsal.
 
 ## Frontend priority
 

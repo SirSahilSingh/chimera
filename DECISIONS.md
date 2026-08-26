@@ -673,3 +673,109 @@ Why this approach: It matches the operator's actual task while preserving the ba
 Trade-offs: Friendly REC-### IDs, true historical trends, customer names, granular audit events, and recovered amounts are not invented because the current API does not provide them. The UI uses external event IDs, stored timestamps, case status, and stored amounts instead.
 
 Version/affected component: `frontend/`, `DESIGN.md`, `docs/frontend.md`. Gate 0–6 behavior and API contracts unchanged.
+
+## D-034 — Gate 7 provider-independent intervention lifecycle
+
+Decision: Model intervention orchestration as a separate append-only operational
+layer that consumes stored decisions and does not recompute or reinterpret them.
+
+Date: 2026-08-26
+
+Context: Operators need a durable lifecycle from a persisted deterministic
+decision through queueing, execution acceptance, and a later recovery outcome.
+Gate 7 must be testable without Razorpay, messaging, or telephony credentials.
+
+Chosen approach: Add `Intervention`, append-only `InterventionExecution`,
+`InterventionEvent`, and `InterventionOutcome` records. Use an explicit state
+machine, deterministic SHA-256 idempotency keys, strict approved execution
+context, deterministic local executors, and monotonic per-intervention audit
+sequence numbers. Copy `Decision.selected_action` exactly; create a terminal
+`COMPLETED` record for `DO_NOTHING`.
+
+Alternatives considered: Reuse Gate 5 `ActionExecution`; let the intervention
+layer rerun the decision engine; call providers directly; treat execution
+acceptance as recovery; overwrite one mutable status/history row.
+
+Why this approach: It keeps decision authority, operational authority, and
+provider authority separate, preserves replayable history, and allows Gate 8
+providers to attach without changing deterministic decision behavior.
+
+Trade-offs: Gate 7 local executors cannot confirm real payment recovery, contact
+eligibility is explicitly unavailable in the persisted Gate 5 case contract,
+and cancellation/retry policy surface remains intentionally small until the
+provider integration gate.
+
+Version/affected component: `backend/app/interventions/`, `interventions`,
+`intervention_executions`, `intervention_events`, `intervention_outcomes`,
+`docs/interventions.md`, migration `0003_gate7_interventions`.
+
+## D-035 — Gate 8 controlled voice execution boundary
+
+Decision: Add voice as a constrained execution adapter attached only to a
+stored `VOICE_RECOVERY` intervention; conversation intent must never become a
+new CHIMERA action or payment-success signal.
+
+Date: 2026-08-26
+
+Context: The demo needs a realistic voice recovery interaction while the
+deterministic decision engine, policy checks, and payment outcome boundary
+remain authoritative.
+
+Chosen approach: Persist `VoiceCall`, append-only `VoiceTurn`, and append-only
+`VoiceEvent` records. Use a validated voice-call state machine, strict
+allowlisted `VoiceContext`, deterministic local scenarios, and a provider-
+neutral live HTTP adapter configured through `VOICE_*` environment variables.
+Payment-link requests create deterministic demo links only; positive speech
+records a pending conversational result and does not mark recovery.
+
+Alternatives considered: Let an LLM choose a follow-up action; treat customer
+agreement as recovered; store raw provider payloads; hardcode a telephony
+vendor into Gate 7; require paid credentials for the demo.
+
+Why this approach: It provides a judge-ready local flow, preserves decision and
+policy authority, creates a replayable audit trail, and leaves live provider
+translation replaceable without changing the intervention lifecycle.
+
+Trade-offs: Live calls require a configured provider endpoint, destination
+number, agent identifier, and credentials; speech recognition is represented by
+validated intent extraction/provider events rather than a vendor-specific STT
+implementation; Razorpay/payment confirmation remains a later boundary.
+
+Version/affected component: `backend/chimera_voice/`, `voice_calls`,
+`voice_turns`, `voice_events`, migration `0004_gate8_voice_agent`,
+`docs/voice_agent.md`.
+
+## D-036 — Gate 9 provider-authoritative payment boundary
+
+Decision: Add a provider-neutral payment-link boundary with deterministic local
+demo behavior and an isolated Razorpay adapter. Only a validated provider
+success event may mark an intervention recovered.
+
+Date: 2026-08-26
+
+Context: Gate 8 can validate a customer request for a payment link, but it must
+not create payment instruments or claim recovery. Real payment confirmation
+needs durable, replayable provider references and event history.
+
+Chosen approach: `PaymentService` reads the stored intervention, decision, and
+case; it creates one idempotent link through `PaymentProvider`, persists
+sanitized request/result hashes, and appends `PaymentEvent` rows. Webhooks are
+verified against the raw body, provider event IDs are idempotent, amounts and
+currency are checked in integer paise/INR, and terminal PAID state is monotonic.
+Voice may call the service only after validated `SEND_PAYMENT_LINK` intent.
+
+Alternatives considered: Let voice or frontend create links; treat link
+creation, customer intent, or a redirect as recovery; persist raw provider
+payloads; use a Razorpay SDK directly throughout the app; use mutable-only
+payment status.
+
+Why this approach: It preserves Gate 4/7/8 authority boundaries, supports a
+credential-free local demo, and leaves live Razorpay transport replaceable.
+
+Trade-offs: Local provider state is process-local and is for demonstration;
+Razorpay reconciliation requires configured test credentials; payment-link
+creation is intentionally limited to the selected intervention action.
+
+Version/affected component: `backend/chimera_payments/`, payment tables,
+migration `0005_gate9_payments`, payment routes, Gate 8 payment-link handoff,
+`docs/payments.md`.

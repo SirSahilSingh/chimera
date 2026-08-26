@@ -19,6 +19,19 @@ class AppSettings:
     llm_api_key: str | None = None
     llm_model: str = "gpt-4o-mini"
     llm_timeout_seconds: float = 10.0
+    voice_provider: str = "local"
+    voice_enabled: bool = False
+    voice_base_url: str | None = None
+    voice_api_key: str | None = None
+    voice_agent_id: str | None = None
+    voice_phone_number: str | None = None
+    voice_timeout_seconds: float = 10.0
+    payment_provider: str = "local"
+    payment_enabled: bool = True
+    razorpay_key_id: str | None = None
+    razorpay_key_secret: str | None = None
+    razorpay_webhook_secret: str | None = None
+    payment_timeout_seconds: float = 10.0
 
 
 def load_settings() -> AppSettings:
@@ -32,4 +45,17 @@ def load_settings() -> AppSettings:
         llm_api_key=os.getenv("LLM_API_KEY") or None,
         llm_model=os.getenv("LLM_MODEL", "gpt-4o-mini"),
         llm_timeout_seconds=float(os.getenv("LLM_TIMEOUT_SECONDS", "10")),
+        voice_provider=os.getenv("VOICE_PROVIDER", "local"),
+        voice_enabled=os.getenv("VOICE_ENABLED", "false").casefold() in {"1", "true", "yes"},
+        voice_base_url=os.getenv("VOICE_BASE_URL") or None,
+        voice_api_key=os.getenv("VOICE_API_KEY") or None,
+        voice_agent_id=os.getenv("VOICE_AGENT_ID") or None,
+        voice_phone_number=os.getenv("VOICE_PHONE_NUMBER") or None,
+        voice_timeout_seconds=float(os.getenv("VOICE_TIMEOUT_SECONDS", "10")),
+        payment_provider=os.getenv("PAYMENT_PROVIDER", "local"),
+        payment_enabled=os.getenv("PAYMENT_ENABLED", "true").casefold() in {"1", "true", "yes"},
+        razorpay_key_id=os.getenv("RAZORPAY_KEY_ID") or None,
+        razorpay_key_secret=os.getenv("RAZORPAY_KEY_SECRET") or None,
+        razorpay_webhook_secret=os.getenv("RAZORPAY_WEBHOOK_SECRET") or None,
+        payment_timeout_seconds=float(os.getenv("PAYMENT_TIMEOUT_SECONDS", "10")),
     )
