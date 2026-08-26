@@ -20,3 +20,4 @@ export const ClockIcon = (props: IconProps) => <Icon {...props}><circle cx="12" 
 export const RefreshIcon = (props: IconProps) => <Icon {...props}><path d="M20 11a8 8 0 0 0-14.8-3L3 11" /><path d="M3 5v6h6M4 13a8 8 0 0 0 14.8 3L21 13" /><path d="M21 19v-6h-6" /></Icon>;
 export const ExternalIcon = (props: IconProps) => <Icon {...props}><path d="M14 5h5v5M19 5l-8 8" /><path d="M18 13v5H5V6h5" /></Icon>;
 export const XIcon = (props: IconProps) => <Icon {...props}><path d="m6 6 12 12M18 6 6 18" /></Icon>;
+export const FlaskIcon = (props: IconProps) => <Icon {...props}><path d="M9 3h6M10 3v6l-5.5 9.3A1.8 1.8 0 0 0 6 21h12a1.8 1.8 0 0 0 1.5-2.7L14 9V3" /><path d="M7.3 16h9.4" /></Icon>;

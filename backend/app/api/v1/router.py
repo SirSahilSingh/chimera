@@ -25,7 +25,8 @@ from backend.app.schemas import (
 from backend.app.services.case_service import CaseService
 from backend.app.services.intelligence_service import IntelligenceService
 from backend.app.services.journey_service import RecoveryJourneyService
-from backend.chimera_intelligence.schemas import ExplanationResponse
+from backend.chimera_intelligence.schemas import ExplanationResponse, RecoveryIntelligenceResponse
+from backend.chimera_intelligence.service import RecoveryIntelligenceService
 from backend.app.interventions.errors import (
     DecisionNotFoundError,
     ExecutorUnavailableError,
@@ -54,7 +55,7 @@ from backend.chimera_orchestration.service import RecoveryOrchestrator
 from backend.chimera_retry.service import RetryService
 
 
-def build_router(*, session_factory, service_factory, health_factory, intelligence_service_factory, intervention_service_factory, voice_service_factory, payment_service_factory, orchestration_service_factory) -> APIRouter:
+def build_router(*, session_factory, service_factory, health_factory, intelligence_service_factory, recovery_intelligence_service_factory, intervention_service_factory, voice_service_factory, payment_service_factory, orchestration_service_factory) -> APIRouter:
     router = APIRouter()
 
     def db() -> Session:
@@ -65,6 +66,9 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
 
     def intelligence_service(session: Session = Depends(db)) -> IntelligenceService:
         return intelligence_service_factory(session)
+
+    def recovery_intelligence_service(session: Session = Depends(db)) -> RecoveryIntelligenceService:
+        return recovery_intelligence_service_factory(session)
 
     def intervention_service(session: Session = Depends(db)) -> InterventionService:
         return intervention_service_factory(session)
@@ -246,6 +250,13 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
 
     @router.get("/recovery-cases/{case_id}/journey")
     def recovery_journey(case_id: str, service: RecoveryJourneyService = Depends(journey_service)):
+        try:
+            return service.get(case_id)
+        except DomainError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @router.get("/recovery-cases/{case_id}/intelligence", response_model=RecoveryIntelligenceResponse)
+    def recovery_intelligence(case_id: str, service: RecoveryIntelligenceService = Depends(recovery_intelligence_service)):
         try:
             return service.get(case_id)
         except DomainError as exc:

@@ -850,3 +850,40 @@ not raw secrets or request bodies.
 Version/affected component: `backend/provider_modes.py`, provider services,
 `RecoveryJourneyService`, demo/journey routes, migration
 `0007_gate11_provider_modes`.
+
+## D-039 — Gate 13 read-only recovery intelligence projection
+
+Decision: Build case-level recovery intelligence as a deterministic,
+observable-only projection over persisted journey records.
+
+Date: 2026-08-26
+
+Context: Operators need one coherent explanation of detection, likely root
+cause, stored decision, intervention, outcome, and learning without weakening
+the Gate 4 decision authority or exposing simulator truth.
+
+Chosen approach: Add `RecoveryIntelligenceService` and explicit Pydantic
+schemas behind `GET /api/v1/recovery-cases/{case_id}/intelligence`. Reuse the
+persisted `RecoveryJourneyService` projection; classify root causes from
+observable failure reason/incident/contact signals; copy decision economics
+and trace flags; derive outcome status only from persisted lifecycle records;
+and produce descriptive deterministic insights. Use the documented display
+severity thresholds of 100,000 and 25,000 paise. Label local/mock/test voice
+records `Demo Voice Agent` and require a persisted live provider reference for
+live wording.
+
+Alternatives considered: Re-run the model or decision engine on read; add a
+second decision path; call the LLM by default; expose hidden simulator state;
+persist a new intelligence table.
+
+Why this approach: It is side-effect-free, replayable, honest about causal
+uncertainty, and gives the frontend one complete narrative without a schema or
+migration dependency.
+
+Trade-offs: Root-cause categories are operational interpretations, not causal
+proof. Cases created before provider/journey records may show partial
+intervention or outcome detail. Severity thresholds are display assumptions,
+not merchant risk policy.
+
+Version/affected component: `backend/chimera_intelligence/`, intelligence
+endpoint, Decision Room, `docs/recovery_intelligence.md`.

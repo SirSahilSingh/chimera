@@ -9,6 +9,7 @@ from backend.app.api.v1.router import build_router
 from backend.app.core.config import AppSettings, load_settings
 from backend.app.core.database import create_schema, make_engine, make_session_factory
 from backend.app.services.case_service import CaseService
+from backend.app.services.journey_service import RecoveryJourneyService
 from backend.app.services.intelligence_service import IntelligenceService
 from backend.app.interventions.service import InterventionService
 from backend.chimera_voice.provider import VoiceProvider, provider_from_settings as voice_provider_from_settings
@@ -26,6 +27,7 @@ from backend.provider_modes import resolve_mode
 from backend.chimera_orchestration.service import RecoveryOrchestrator
 from backend.chimera_intelligence.agent import ExplanationAgent
 from backend.chimera_intelligence.provider import ExplanationProvider, provider_from_settings as explanation_provider_from_settings
+from backend.chimera_intelligence.service import RecoveryIntelligenceService
 from backend.chimera_model.benchmark import BenchmarkProbabilityModel, INTERACTION_FEATURE_SCHEMA_VERSION
 from backend.chimera_simulator.config import SimulatorConfig
 
@@ -111,6 +113,9 @@ def create_app(database_url: str | None = None, *, create_tables: bool = True, e
     def intelligence_service_factory(session):
         return IntelligenceService(session, simulator_config, agent)
 
+    def recovery_intelligence_service_factory(session):
+        return RecoveryIntelligenceService(RecoveryJourneyService(session), simulator_config)
+
     def intervention_service_factory(session):
         return InterventionService(session)
 
@@ -135,6 +140,7 @@ def create_app(database_url: str | None = None, *, create_tables: bool = True, e
         service_factory=service_factory,
         health_factory=health_factory,
         intelligence_service_factory=intelligence_service_factory,
+        recovery_intelligence_service_factory=recovery_intelligence_service_factory,
         intervention_service_factory=intervention_service_factory,
         voice_service_factory=voice_service_factory,
         payment_service_factory=payment_service_factory,

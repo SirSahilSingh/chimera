@@ -50,6 +50,7 @@ export type Execution = {
   recovery_case_id: string;
   decision_id: string;
   action: string;
+  provider_mode: "LOCAL" | "MOCK" | "TEST" | "LIVE" | string;
   status: string;
   idempotency_key: string;
   provider_reference: string | null;
@@ -110,4 +111,215 @@ export type PaginatedCases = {
   page: number;
   page_size: number;
   total: number;
+};
+
+export type ProviderMode = "LOCAL" | "MOCK" | "TEST" | "LIVE" | string;
+
+export type JourneyEvent = {
+  id: string;
+  event_type: string;
+  source: string;
+  timestamp: string | null;
+  provider_mode: ProviderMode | null;
+  payload: Record<string, unknown>;
+};
+
+export type JourneyCandidate = Pick<Candidate, "action" | "status" | "predicted_probability" | "expected_net_value_paise" | "rank">;
+
+export type JourneyDecision = {
+  id: string;
+  selected_action: string;
+  predicted_probability: number;
+  expected_gross_recovery_paise: number;
+  expected_net_value_paise: number;
+  model_version: string;
+  feature_schema_version: string;
+  engine_version: string;
+  simulator_version: string | null;
+  decision_timestamp: string;
+  created_at: string;
+  trace_json: Record<string, unknown>;
+  candidates: JourneyCandidate[];
+};
+
+export type JourneyIntervention = {
+  id: string;
+  decision_id: string;
+  action: string;
+  status: string;
+  priority: number;
+  created_at: string;
+  queued_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  executions: JourneyExecution[];
+  outcomes: JourneyOutcome[];
+  events: JourneyEvent[];
+};
+
+export type JourneyExecution = {
+  id: string;
+  action: string | null;
+  provider_mode: ProviderMode;
+  status: string;
+  provider_reference: string | null;
+  error_code: string | null;
+  executed_at: string | null;
+  created_at: string;
+  response_json: Record<string, unknown>;
+};
+
+export type JourneyOutcome = {
+  id: string;
+  status: string;
+  recovered_amount_paise: number | null;
+  occurred_at: string;
+  source: string;
+};
+
+export type JourneyPayment = {
+  id: string;
+  provider: string;
+  provider_mode: ProviderMode;
+  status: string;
+  amount_paise: number;
+  short_url: string;
+  created_at: string;
+  events: JourneyEvent[];
+};
+
+export type JourneyMessage = {
+  id: string;
+  provider: string;
+  provider_mode: ProviderMode;
+  status: string;
+  delivery_state: string;
+  provider_message_id: string | null;
+  created_at: string;
+  events: JourneyEvent[];
+};
+
+export type JourneyRetry = {
+  id: string;
+  action: string;
+  provider: string;
+  provider_mode: ProviderMode;
+  status: string;
+  provider_reference: string | null;
+  validated_result_json: Record<string, unknown>;
+  created_at: string;
+};
+
+export type JourneyScheduledRetry = {
+  id: string;
+  provider_mode: ProviderMode;
+  scheduled_at: string;
+  execution_status: string;
+  eligibility_status: string;
+  executed_at: string | null;
+  created_at: string;
+};
+
+export type JourneyVoiceCall = {
+  id: string;
+  provider: string;
+  provider_mode: ProviderMode;
+  status: string;
+  scenario: string;
+  provider_call_reference: string | null;
+  outcome_intent: string | null;
+  created_at: string;
+  turns: { id: string; speaker: string; text: string; intent: string | null; timestamp: string }[];
+  events: JourneyEvent[];
+};
+
+export type JourneyEscalation = {
+  id: string;
+  status: string;
+  reason: string;
+  priority: number;
+  provider_mode: ProviderMode;
+  created_at: string;
+  events: JourneyEvent[];
+};
+
+export type RecoveryJourney = {
+  case: { id: string; external_event_id: string; payment_id: string; customer_id: string; amount_paise: number; currency: string; failure_reason: string; incident_flag: boolean; payment_method: string; decision_timestamp: string; status: string; created_at: string; updated_at: string };
+  decision: JourneyDecision | null;
+  latest_explanation: Explanation | null;
+  interventions: JourneyIntervention[];
+  execution: JourneyExecution[];
+  payments: JourneyPayment[];
+  messages: JourneyMessage[];
+  retries: JourneyRetry[];
+  scheduled_retries: JourneyScheduledRetry[];
+  voice_calls: JourneyVoiceCall[];
+  escalations: JourneyEscalation[];
+  audit_trail: JourneyEvent[];
+};
+
+export type DemoRecoveryResponse = {
+  case_id: string;
+  decision_id: string;
+  intervention_id: string;
+  selected_action: string;
+  status: string;
+  provider: string | null;
+  provider_mode: ProviderMode | null;
+  journey_url: string;
+};
+
+export type RecoveryIntelligence = {
+  case_id: string;
+  detection: {
+    problem_type: "payment_failure";
+    failure_reason: string;
+    payment_method: string;
+    incident_detected: boolean;
+    failure_timestamp: string;
+    amount_at_risk_paise: number;
+    contact_window_status: string;
+    outbound_contact_eligible: boolean;
+    current_recovery_state: string;
+    severity: "low" | "medium" | "high";
+    observable_history: Record<string, number | null>;
+    summary: string;
+  };
+  diagnosis: {
+    primary_cause: string;
+    confidence: "low" | "medium" | "high";
+    contributing_factors: string[];
+    evidence: { field: string; value: string; interpretation: string }[];
+    alternatives: { category: string; explanation: string }[];
+    statement: string;
+  };
+  decision: {
+    selected_action: string;
+    decision_summary: string;
+    alternatives: { action: string; status: string; predicted_probability: number; expected_net_value_paise: number; reason_not_selected: string }[];
+    constraints: { action: string; reason: string }[];
+    cost_affected: boolean;
+    fatigue_affected: boolean;
+    constraint_affected: boolean;
+    highest_probability_action: string | null;
+    highest_probability_action_differed: boolean;
+  } | null;
+  intervention: {
+    action: string | null;
+    status: string;
+    provider_mode: string;
+    execution_summary: string;
+    voice: { label: string; status: string; provider_mode: string; customer_intent: string | null; conversation_result: string; payment_link_requested: boolean; final_intervention_state: string } | null;
+  };
+  outcome: {
+    status: string;
+    recovered_amount_paise: number | null;
+    outcome_timestamp: string | null;
+    time_to_outcome_seconds: number | null;
+    summary: string;
+    recovery_path: string[];
+  };
+  journey_summary: { stages_completed: string[]; current_stage: string; timeline: { event_type: string; label: string; timestamp: string | null; source: string }[] };
+  explanation: { explanation_source: string; provider: string; model_name: string; generated_at: string; fallback_reason: string | null; summary: string } | null;
+  insights: { type: string; message: string }[];
 };

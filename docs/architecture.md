@@ -125,3 +125,14 @@ and returns a chronological, append-only projection without recomputing a
 decision. Razorpay, Twilio-compatible messaging, and the optional provider-
 neutral voice adapter remain server-side boundaries with bounded timeouts,
 signature verification, sanitized event payloads, and idempotent event handling.
+
+## Gate 13 recovery intelligence boundary
+
+`backend/chimera_intelligence/` now includes a read-only
+`RecoveryIntelligenceService` alongside the Gate 6 explanation adapter. The
+service consumes the persisted journey projection and returns deterministic
+detection, observable-only root-cause analysis, stored-decision narrative,
+provider/intervention state, outcome status, and descriptive post-outcome
+insights. It never invokes the model or decision engine, generates simulator
+outcomes, calls an LLM by default, or mutates lifecycle state. The consolidated
+endpoint is `GET /api/v1/recovery-cases/{case_id}/intelligence`.

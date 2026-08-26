@@ -5,10 +5,12 @@ import Link from "next/link";
 import { api, ApiError } from "../lib/api";
 import { caseDisplayId } from "../lib/operations";
 import { formatAction, formatDate, formatPaise } from "../lib/formatters";
-import type { Decision, Explanation, Execution, RecoveryCase } from "../lib/types";
+import type { Decision, Explanation, Execution, RecoveryCase, RecoveryIntelligence, RecoveryJourney } from "../lib/types";
 import { AlertIcon, ArrowRightIcon, CheckIcon, ChevronDownIcon, ClockIcon, ExternalIcon, RefreshIcon, ShieldIcon, XIcon } from "./icons";
 import { Button, ErrorState, StatusBadge } from "./shell";
-import { CandidateActionComparison, ConstraintList, DecisionReasoning, FailureDiagnosis, InterventionStatus, RecoveryActivityFeed, RecoveryLifecycle, RecoveryOutcome } from "./operational";
+import { CandidateActionComparison, ConstraintList, DecisionReasoning, FailureDiagnosis, InterventionStatus, RecoveryLifecycle, RecoveryOutcome } from "./operational";
+import { PersistedJourneyTimeline, ProviderJourney } from "./recovery-journey";
+import { RecoveryIntelligenceNarrative } from "./recovery-intelligence";
 
 export function DecisionRoom({ initialCase }: { initialCase: RecoveryCase }) {
   const [caseData, setCaseData] = useState(initialCase);
@@ -17,9 +19,24 @@ export function DecisionRoom({ initialCase }: { initialCase: RecoveryCase }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [explanation, setExplanation] = useState<Explanation | null>(null);
   const [history, setHistory] = useState<Explanation[]>([]);
+  const [journey, setJourney] = useState<RecoveryJourney | null>(null);
+  const [intelligence, setIntelligence] = useState<RecoveryIntelligence | null>(null);
   const decision = caseData.latest_decision;
 
-  const refresh = async () => setCaseData(await api.getCase(caseData.id));
+  const refresh = async () => {
+    const nextCase = await api.getCase(caseData.id);
+    setCaseData(nextCase);
+    const [journeyResult, intelligenceResult] = await Promise.allSettled([api.getJourney(caseData.id), api.getIntelligence(caseData.id)]);
+    setJourney(journeyResult.status === "fulfilled" ? journeyResult.value : null);
+    setIntelligence(intelligenceResult.status === "fulfilled" ? intelligenceResult.value : null);
+  };
+  useEffect(() => {
+    setJourney(null); setIntelligence(null);
+    Promise.allSettled([api.getJourney(caseData.id), api.getIntelligence(caseData.id)]).then(([journeyResult, intelligenceResult]) => {
+      setJourney(journeyResult.status === "fulfilled" ? journeyResult.value : null);
+      setIntelligence(intelligenceResult.status === "fulfilled" ? intelligenceResult.value : null);
+    });
+  }, [caseData.id]);
   useEffect(() => {
     if (!decision) return;
     api.getLatestExplanation(decision.id).then(setExplanation).catch(() => undefined);
@@ -48,13 +65,14 @@ export function DecisionRoom({ initialCase }: { initialCase: RecoveryCase }) {
     </div>
     {error && <ErrorState message={error} onRetry={() => setError(null)} />}
     <RecoveryLifecycle caseData={caseData} />
+    {intelligence ? <RecoveryIntelligenceNarrative intelligence={intelligence} /> : <section className="intelligence-narrative intelligence-loading"><div className="inline-empty"><span className="loader" /><span>Loading case intelligence…</span></div></section>}
     <div className="detail-grid"><FailureDiagnosis caseData={caseData} decision={decision} />{decision ? <DecisionReasoning decision={decision} explanation={explanation} /> : <DecisionEmpty busy={busy === "decide"} onDecide={() => run("decide")} />}</div>
     {decision ? <>
       <CandidateActionComparison decision={decision} currency={caseData.currency} />
       <div className="detail-grid lower"><ExplanationSection decision={decision} explanation={explanation} history={history} busy={busy === "explain"} onExplain={() => run("explain")} /><ConstraintList decision={decision} /></div>
       <div className="detail-grid lower"><InterventionStatus caseData={caseData} decision={decision} execution={caseData.latest_execution} canExecute={canExecute} onExecute={() => setConfirmOpen(true)} /><RecoveryOutcome caseData={caseData} /></div>
-      <RecoveryActivityFeed caseData={caseData} decision={decision} execution={caseData.latest_execution} />
-    </> : <div className="detail-grid lower"><RecoveryOutcome caseData={caseData} /><RecoveryActivityFeed caseData={caseData} /></div>}
+    {journey ? <><ProviderJourney journey={journey} /><PersistedJourneyTimeline journey={journey} /></> : <section className="journey-panel"><div className="inline-empty"><span className="loader" /><span>Loading persisted recovery journey…</span></div></section>}
+    </> : <div className="detail-grid lower"><RecoveryOutcome caseData={caseData} /></div>}
     {confirmOpen && decision && <ConfirmDialog caseData={caseData} decision={decision} onCancel={() => setConfirmOpen(false)} onConfirm={() => run("execute")} busy={busy === "execute"} />}
   </div>;
 }
