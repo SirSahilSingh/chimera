@@ -48,10 +48,10 @@ class MessagingService:
         try:
             result = self.provider.send_message(context, content, key)
         except Exception as exc:
-            row = MessageAttempt(recovery_case_id=intervention.recovery_case_id, intervention_id=intervention.id, decision_id=intervention.decision_id, provider=self.provider.name, idempotency_key=key, attempt_number=1, template_key=template, template_version=version, rendered_content_hash=content_hash, provider_message_id=None, status="FAILED", delivery_state="FAILED", sent_at=self._now())
+            row = MessageAttempt(recovery_case_id=intervention.recovery_case_id, intervention_id=intervention.id, decision_id=intervention.decision_id, provider=self.provider.name, provider_mode=self.provider.mode, idempotency_key=key, attempt_number=1, template_key=template, template_version=version, rendered_content_hash=content_hash, provider_message_id=None, status="FAILED", delivery_state="FAILED", sent_at=self._now())
             self.session.add(row)
             self.session.flush()
-            self.session.add(MessagingEvent(message_attempt_id=row.id, provider=self.provider.name, provider_mode=self.provider.mode, provider_event_id=f"failed-{row.id}", event_type="message.failed", delivery_state="FAILED", signature_verified=False, occurred_at=row.sent_at, payload_hash=payload_hash({"delivery_state": "FAILED"}), payload_json={"delivery_state": "FAILED", "reason": "provider_request_failed"}))
+            self.session.add(MessagingEvent(message_attempt_id=row.id, provider=self.provider.name, provider_mode=self.provider.mode, provider_event_id=f"failed-{row.id}", event_type="message.failed", delivery_state="FAILED", signature_verified=False, occurred_at=row.sent_at, payload_hash=payload_hash({"delivery_state": "FAILED"}), payload_json={"delivery_state": "FAILED", "failure_classification": "provider_request_failed", "processing_result": "failed"}))
             self.session.commit()
             raise ValueError("provider_request_failed") from exc
         row = MessageAttempt(recovery_case_id=intervention.recovery_case_id, intervention_id=intervention.id, decision_id=intervention.decision_id, provider=self.provider.name, provider_mode=self.provider.mode, idempotency_key=key, attempt_number=1, template_key=template, template_version=version, rendered_content_hash=content_hash, provider_message_id=result.provider_message_id, status=result.status, delivery_state=result.delivery_state, sent_at=result.sent_at)
@@ -70,7 +70,12 @@ class MessagingService:
     def handle_webhook(self, provider_name: str, raw_body: bytes, signature: str, provider_event_id: str | None = None, webhook_url: str | None = None) -> MessageAttempt:
         if provider_name != self.provider.name or not self.provider.verify_webhook(raw_body, signature, webhook_url):
             raise ValueError("invalid_webhook_signature")
-        parsed = self.provider.parse_webhook(raw_body, provider_event_id)
+        try:
+            parsed = self.provider.parse_webhook(raw_body, provider_event_id)
+        except (ValueError, KeyError, TypeError, UnicodeDecodeError) as exc:
+            raise ValueError("invalid_webhook_payload") from exc
+        if not parsed.get("provider_message_id") or not parsed.get("provider_event_id"):
+            raise ValueError("invalid_webhook_payload")
         attempt = self.session.scalar(select(MessageAttempt).where(MessageAttempt.provider == provider_name, MessageAttempt.provider_message_id == parsed["provider_message_id"]))
         if attempt is None:
             raise ValueError("message not found for provider reference")
@@ -78,8 +83,13 @@ class MessagingService:
         if existing is not None:
             return self.get_message(attempt.id)
         occurred = parsed.get("occurred_at")
-        self.session.add(MessagingEvent(message_attempt_id=attempt.id, provider=provider_name, provider_mode=self.provider.mode, provider_event_id=parsed["provider_event_id"], event_type=parsed["event_type"], delivery_state=parsed["delivery_state"], signature_verified=True, occurred_at=occurred, payload_hash=payload_hash(parsed), payload_json={"provider_message_id": parsed["provider_message_id"], "delivery_state": parsed["delivery_state"]}))
-        attempt.delivery_state = parsed["delivery_state"]
+        current = str(attempt.delivery_state).upper()
+        incoming = str(parsed["delivery_state"]).upper()
+        terminal = {"DELIVERED", "FAILED", "UNDELIVERABLE", "CANCELED", "CANCELLED"}
+        processing_result = "ignored_terminal_state" if current in terminal and incoming != current else "applied"
+        self.session.add(MessagingEvent(message_attempt_id=attempt.id, provider=provider_name, provider_mode=self.provider.mode, provider_event_id=parsed["provider_event_id"], event_type=parsed["event_type"], delivery_state=parsed["delivery_state"], signature_verified=True, occurred_at=occurred, payload_hash=payload_hash(parsed), payload_json={"provider_message_id": parsed["provider_message_id"], "delivery_state": parsed["delivery_state"], "processing_result": processing_result}))
+        if processing_result == "applied":
+            attempt.delivery_state = parsed["delivery_state"]
         self.session.commit()
         return self.get_message(attempt.id)
 

@@ -341,6 +341,7 @@ class VoiceEvent(Base):
     source: Mapped[str] = mapped_column(String(32), nullable=False)
     provider_mode: Mapped[str] = mapped_column(String(16), nullable=False, default="LOCAL")
     payload_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    provider_event_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     input_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     transcript_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     voice_agent_version: Mapped[str] = mapped_column(String(64), nullable=False)

@@ -58,6 +58,7 @@ def create_app(database_url: str | None = None, *, create_tables: bool = True, e
             razorpay_key_id=settings.razorpay_key_id,
             razorpay_key_secret=settings.razorpay_key_secret,
             razorpay_webhook_secret=settings.razorpay_webhook_secret,
+            razorpay_mode=settings.razorpay_mode,
             payment_timeout_seconds=settings.payment_timeout_seconds,
             payment_mode=settings.payment_mode,
             messaging_provider=settings.messaging_provider,
@@ -81,7 +82,7 @@ def create_app(database_url: str | None = None, *, create_tables: bool = True, e
     if settings.voice_mode:
         configured_voice_provider.mode = resolve_mode(configured_voice_provider.name, settings.voice_mode)
     if settings.payment_provider == "razorpay":
-        configured_payment_provider: PaymentProvider = RazorpayPaymentProvider(settings.razorpay_key_id, settings.razorpay_key_secret, settings.razorpay_webhook_secret, enabled=settings.payment_enabled, timeout_seconds=settings.payment_timeout_seconds, mode=settings.payment_mode)
+        configured_payment_provider: PaymentProvider = RazorpayPaymentProvider(settings.razorpay_key_id, settings.razorpay_key_secret, settings.razorpay_webhook_secret, enabled=settings.payment_enabled, timeout_seconds=settings.payment_timeout_seconds, mode=settings.razorpay_mode)
     else:
         configured_payment_provider = LocalDeterministicPaymentProvider()
         if settings.payment_mode:

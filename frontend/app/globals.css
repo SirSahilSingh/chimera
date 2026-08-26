@@ -490,7 +490,9 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .demo-launcher-intro p { margin: 3px 0 0; color: var(--ink-faint); font-size: 11px; }
 .demo-form { display: grid; grid-template-columns: 1.3fr 1fr 1fr auto auto; align-items: end; gap: 12px; padding: 16px 20px 19px; border-top: 1px solid var(--line); }
 .demo-form label { display: grid; gap: 6px; color: var(--ink-faint); font-size: 10px; }
+.demo-form label small { color: var(--ink-faint); font-size: 10px; line-height: 1.35; }
 .demo-form select, .demo-form input { min-height: 35px; padding: 0 10px; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; outline: 0; }
+.demo-form select:disabled { color: var(--ink-soft); opacity: 1; }
 .demo-form select:focus, .demo-form input:focus { border-color: var(--mint); }
 .demo-checkbox { display: flex !important; align-items: center; gap: 8px !important; min-height: 35px; white-space: nowrap; }
 .demo-checkbox input { min-height: auto; accent-color: var(--mint); }

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Any, Literal
+from enum import StrEnum
+from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, field_validator
 
@@ -27,6 +29,67 @@ class CaseCreate(BaseModel):
         if value.tzinfo is None:
             raise ValueError("decision_timestamp must include a timezone")
         return value
+
+
+class DemoScenario(StrEnum):
+    PAYMENT_RECOVERY = "payment_recovery"
+    TECHNICAL_RETRY = "technical_retry"
+    VOICE_RECOVERY = "voice_recovery"
+    ESCALATION = "escalation"
+
+
+class DemoRunRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    scenario: DemoScenario
+    provider_mode: Literal["LOCAL", "MOCK", "TEST", "LIVE"] = "LOCAL"
+
+    @property
+    def expected_action(self) -> str:
+        return {
+            DemoScenario.PAYMENT_RECOVERY: "PAYMENT_LINK",
+            DemoScenario.TECHNICAL_RETRY: "RETRY_LATER",
+            DemoScenario.VOICE_RECOVERY: "VOICE_RECOVERY",
+            DemoScenario.ESCALATION: "ESCALATE",
+        }[self.scenario]
+
+    def case_payload(self) -> CaseCreate:
+        """Return a synthetic, observable-only preset for the deterministic demo."""
+        presets = {
+            DemoScenario.PAYMENT_RECOVERY: ("expired_method", False, "card", 1000, 10),
+            DemoScenario.TECHNICAL_RETRY: ("insufficient_funds", True, "card", 12500, 10),
+            DemoScenario.VOICE_RECOVERY: ("insufficient_funds", False, "card", 125000, 10),
+            DemoScenario.ESCALATION: ("insufficient_funds", False, "upi", 10000000, 0),
+        }
+        failure_reason, incident_flag, payment_method, amount_paise, hour = presets[self.scenario]
+        token = uuid4().hex
+        from datetime import datetime, timezone
+        return CaseCreate(
+            external_event_id=f"gate14-demo-{self.scenario.value}-{token}",
+            payment_id=f"synthetic-payment-{token}",
+            customer_id=f"synthetic-customer-{token}",
+            amount_paise=amount_paise,
+            currency="INR",
+            failure_reason=failure_reason,
+            incident_flag=incident_flag,
+            payment_method=payment_method,
+            decision_timestamp=datetime(2026, 8, 26, hour, tzinfo=timezone.utc),
+        )
+
+
+class DemoRunResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    scenario: DemoScenario
+    case_id: str
+    decision_id: str
+    intervention_id: str
+    selected_action: str
+    current_status: str
+    provider: str | None
+    provider_mode: str
+    provider_mode_label: str
+    journey_url: str
 
 
 class CandidateResponse(BaseModel):

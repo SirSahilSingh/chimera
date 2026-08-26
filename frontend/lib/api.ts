@@ -1,4 +1,4 @@
-import type { Decision, DemoRecoveryResponse, Explanation, PaginatedCases, RecoveryCase, Execution, RecoveryIntelligence, RecoveryJourney } from "./types";
+import type { Decision, DemoRecoveryResponse, DemoRunResponse, Explanation, PaginatedCases, RecoveryCase, Execution, RecoveryIntelligence, RecoveryJourney } from "./types";
 
 // Prefer the same-origin Next.js proxy locally so the browser does not need a
 // separate CORS policy. An explicit public base remains available for a
@@ -53,4 +53,5 @@ export const api = {
   getJourney: (caseId: string) => request<RecoveryJourney>(`/recovery-cases/${caseId}/journey`),
   getIntelligence: (caseId: string) => request<RecoveryIntelligence>(`/recovery-cases/${caseId}/intelligence`),
   runRecoveryDemo: (payload: { external_event_id: string; payment_id: string; customer_id: string; amount_paise: number; currency: "INR"; failure_reason: string; incident_flag: boolean; payment_method: "card" | "upi" | "netbanking"; decision_timestamp: string }) => request<DemoRecoveryResponse>("/demo/recovery", { method: "POST", body: JSON.stringify(payload) }),
+  runDemo: (payload: { scenario: DemoRunResponse["scenario"]; provider_mode: "LOCAL" }) => request<DemoRunResponse>("/demo/run", { method: "POST", body: JSON.stringify(payload) }),
 };

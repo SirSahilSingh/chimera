@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
@@ -12,6 +13,7 @@ from backend.app.db.models import Intervention, VoiceCall, VoiceEvent, VoiceTurn
 from backend.app.interventions.service import InterventionService
 from backend.app.interventions.state_machine import InterventionStatus
 from backend.app.schemas import InterventionOutcomeCreate
+from backend.provider_modes import safe_failure_code
 
 from .agent import VoiceAgent
 from .context import build_voice_context, context_hash
@@ -110,12 +112,12 @@ class VoiceService:
             self._event(call, "CALL_INITIATED", "provider", {"provider": started.provider})
             self.session.commit()
         except VoiceProviderError as exc:
-            call.failure_code = exc.code
+            call.failure_code = safe_failure_code(exc.code)
             call.completed_at = self._now()
             self._transition(call, VoiceCallStatus.FAILED)
-            self._event(call, "CALL_FAILED", "provider", {"failure_code": exc.code})
+            self._event(call, "CALL_FAILED", "provider", {"failure_code": call.failure_code})
             self.session.commit()
-            raise VoiceProviderFailure(exc.code) from None
+            raise VoiceProviderFailure(call.failure_code) from None
         except IntegrityError as exc:
             self.session.rollback()
             existing = self.session.scalar(select(VoiceCall).where(VoiceCall.idempotency_key == key))
@@ -201,7 +203,7 @@ class VoiceService:
             self._transition(call, target)
             if target in TERMINAL_VOICE_STATUSES:
                 call.completed_at = event.event_timestamp
-        self._event(call, f"PROVIDER_{event.event_type.upper()}", "provider", {"provider_event_id": event.event_id, "provider_event_type": event.event_type}, event_id=event.event_id)
+        self._event(call, f"PROVIDER_{event.event_type.upper()}", "provider", {"provider_event_id": event.event_id, "provider_event_type": event.event_type, "processing_result": "applied"}, event_id=event.event_id, provider_event_hash=self._webhook_hash(event))
         self.session.commit()
         return self.get_call(call.id)
 
@@ -244,7 +246,7 @@ class VoiceService:
         self._event(call, "CONVERSATION_TURN", "agent" if turn.speaker == "agent" else "customer", {"turn_id": row.id, "speaker": turn.speaker, "intent": row.intent}, input_hash=context_hash(context), transcript_hash=call.transcript_hash)
         return row
 
-    def _event(self, call: VoiceCall, event_type: str, source: str, payload: dict, *, input_hash: str | None = None, transcript_hash: str | None = None, event_id: str | None = None) -> VoiceEvent:
+    def _event(self, call: VoiceCall, event_type: str, source: str, payload: dict, *, input_hash: str | None = None, transcript_hash: str | None = None, event_id: str | None = None, provider_event_hash: str | None = None) -> VoiceEvent:
         persisted = int(self.session.scalar(select(func.max(VoiceEvent.sequence_number)).where(VoiceEvent.call_id == call.id)) or 0)
         pending = max((event.sequence_number for event in self.session.new if isinstance(event, VoiceEvent) and event.call_id == call.id), default=0)
         event = VoiceEvent(
@@ -254,6 +256,7 @@ class VoiceService:
             source=source,
             provider_mode=self.provider.mode,
             payload_json=payload,
+            provider_event_hash=provider_event_hash,
             input_hash=input_hash,
             transcript_hash=transcript_hash,
             voice_agent_version=VOICE_AGENT_VERSION,
@@ -262,6 +265,16 @@ class VoiceService:
         )
         call.events.append(event)
         return event
+
+    @staticmethod
+    def _webhook_hash(event: VoiceWebhookEvent) -> str:
+        canonical = json.dumps({
+            "event_id": event.event_id,
+            "provider_call_reference": event.provider_call_reference,
+            "event_type": event.event_type,
+            "event_timestamp": event.event_timestamp.isoformat(),
+        }, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
     def _next_turn_sequence(self, call_id: str) -> int:
         persisted = int(self.session.scalar(select(func.max(VoiceTurn.sequence_number)).where(VoiceTurn.call_id == call_id)) or 0)

@@ -32,6 +32,7 @@ class AppSettings:
     razorpay_key_id: str | None = None
     razorpay_key_secret: str | None = None
     razorpay_webhook_secret: str | None = None
+    razorpay_mode: str | None = None
     payment_timeout_seconds: float = 10.0
     payment_mode: str | None = None
     messaging_provider: str = "local"
@@ -70,6 +71,7 @@ def load_settings() -> AppSettings:
         razorpay_key_id=os.getenv("RAZORPAY_KEY_ID") or None,
         razorpay_key_secret=os.getenv("RAZORPAY_KEY_SECRET") or None,
         razorpay_webhook_secret=os.getenv("RAZORPAY_WEBHOOK_SECRET") or None,
+        razorpay_mode=os.getenv("RAZORPAY_MODE") or os.getenv("PAYMENT_MODE") or None,
         payment_timeout_seconds=float(os.getenv("PAYMENT_TIMEOUT_SECONDS", "10")),
         payment_mode=os.getenv("PAYMENT_MODE") or None,
         messaging_provider=os.getenv("MESSAGING_PROVIDER", "local"),

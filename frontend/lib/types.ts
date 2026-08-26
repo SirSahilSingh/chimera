@@ -269,6 +269,19 @@ export type DemoRecoveryResponse = {
   journey_url: string;
 };
 
+export type DemoRunResponse = {
+  scenario: "payment_recovery" | "technical_retry" | "voice_recovery" | "escalation";
+  case_id: string;
+  decision_id: string;
+  intervention_id: string;
+  selected_action: string;
+  current_status: string;
+  provider: string | null;
+  provider_mode: ProviderMode;
+  provider_mode_label: string;
+  journey_url: string;
+};
+
 export type RecoveryIntelligence = {
   case_id: string;
   detection: {

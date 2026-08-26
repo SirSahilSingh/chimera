@@ -21,6 +21,8 @@ from backend.app.schemas import (
     InterventionResponse,
     PaginatedCases,
     RecoveryCaseResponse,
+    DemoRunRequest,
+    DemoRunResponse,
 )
 from backend.app.services.case_service import CaseService
 from backend.app.services.intelligence_service import IntelligenceService
@@ -43,16 +45,18 @@ from backend.chimera_voice.schemas import (
     VoiceStartRequest,
     VoiceTurnResponse,
     VoiceWebhookEvent,
+    VoiceScenario,
 )
 from backend.chimera_voice.service import VoiceService
 from backend.chimera_payments.errors import PaymentError, PaymentNotFoundError, PaymentProviderError, PaymentWebhookError
-from backend.chimera_payments.schemas import PaymentDemoRequest, PaymentEventResponse, PaymentAttemptResponse, PaymentLinkResponse, PaymentListResponse
+from backend.chimera_payments.schemas import PaymentDemoRequest, PaymentDemoScenario, PaymentEventResponse, PaymentAttemptResponse, PaymentLinkResponse, PaymentListResponse
 from backend.chimera_payments.service import PaymentService
 from backend.chimera_messaging.schemas import MessageListResponse, MessageAttemptResponse, MessagingEventResponse, RetryAttemptResponse, ScheduledRetryResponse
 from backend.chimera_messaging.service import MessagingService
 from backend.chimera_orchestration.schemas import EscalationCreateRequest, EscalationEventResponse, EscalationResponse, EscalationStatus
 from backend.chimera_orchestration.service import RecoveryOrchestrator
 from backend.chimera_retry.service import RetryService
+from backend.provider_modes import ProviderMode, mode_label
 
 
 def build_router(*, session_factory, service_factory, health_factory, intelligence_service_factory, recovery_intelligence_service_factory, intervention_service_factory, voice_service_factory, payment_service_factory, orchestration_service_factory) -> APIRouter:
@@ -246,6 +250,59 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
         except DomainError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except (ValueError, PaymentError, VoiceDomainError) as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @router.post("/demo/run", response_model=DemoRunResponse, status_code=201)
+    def demo_run(
+        payload: DemoRunRequest,
+        case_service: CaseService = Depends(service),
+        interventions: InterventionService = Depends(intervention_service),
+        orchestration: RecoveryOrchestrator = Depends(orchestration_service),
+    ):
+        """Run a named local demo through the real persisted lifecycle."""
+        if payload.provider_mode != ProviderMode.LOCAL.value:
+            raise HTTPException(status_code=409, detail="demo_requires_local_provider_mode")
+        try:
+            case = case_service.create_case(payload.case_payload())
+            decision = case_service.decide(case)
+            intervention, _ = interventions.create_from_decision(decision.id)
+            if decision.selected_action != payload.expected_action:
+                raise HTTPException(status_code=409, detail="scenario_not_available_for_observable_input")
+            interventions.queue(intervention.id)
+            if payload.scenario.value == "payment_recovery":
+                payment = orchestration.payments.create_payment_link(intervention.id)
+                result = orchestration.payments.demo_complete(payment.id, PaymentDemoScenario.PAYMENT_SUCCESS)
+            elif payload.scenario.value == "technical_retry":
+                result = orchestration.retry.schedule(intervention.id)
+            elif payload.scenario.value == "voice_recovery":
+                call = orchestration.voice.run_demo(intervention.id, VoiceScenario.CUSTOMER_REQUESTS_PAYMENT_LINK)
+                payments = orchestration.payments.list_for_intervention(intervention.id)
+                result = orchestration.payments.demo_complete(payments[-1].id, PaymentDemoScenario.PAYMENT_SUCCESS) if payments else call
+            else:
+                result = orchestration.escalations.create(intervention.id, "Operator review requested by demo scenario")
+            provider_mode = getattr(result, "provider_mode", ProviderMode.LOCAL.value)
+            provider_name = getattr(result, "provider", None)
+            if payload.scenario.value == "voice_recovery":
+                provider_name = "voice"
+            elif payload.scenario.value == "technical_retry":
+                provider_name = orchestration.retry.provider.name
+            elif provider_name is None:
+                provider_name = "local"
+            return DemoRunResponse(
+                scenario=payload.scenario,
+                case_id=case.id,
+                decision_id=decision.id,
+                intervention_id=intervention.id,
+                selected_action=decision.selected_action,
+                current_status=getattr(result, "status", intervention.status),
+                provider=getattr(result, "provider", None),
+                provider_mode=provider_mode,
+                provider_mode_label=mode_label(provider_mode, provider_name),
+                journey_url=f"/api/v1/recovery-cases/{case.id}/journey",
+            )
+        except HTTPException:
+            raise
+        except (DomainError, ValueError, PaymentError, VoiceDomainError) as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @router.get("/recovery-cases/{case_id}/journey")

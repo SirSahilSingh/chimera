@@ -125,6 +125,7 @@ class VoiceEventResponse(BaseModel):
     source: str
     provider_mode: str = "LOCAL"
     payload_json: dict
+    provider_event_hash: str | None = None
     input_hash: str | None
     transcript_hash: str | None
     voice_agent_version: str
