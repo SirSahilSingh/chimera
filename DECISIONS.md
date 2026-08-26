@@ -622,3 +622,54 @@ the adapter supports the chat-completions JSON response shape only.
 
 Version/affected component: `backend/chimera_intelligence/provider.py`,
 `.env.example`.
+
+## D-032 — Gate 7 operator frontend boundary
+
+Decision: Gate 7 is a presentation and operator workflow layer over the
+persisted Gate 5 and Gate 6 backend contracts.
+
+Date: 2026-08-25
+
+Context: Operators need to inspect cases, understand stored deterministic
+decisions, review optional explanations, and execute only eligible actions
+without moving financial logic into the browser.
+
+Chosen approach: Build a Next.js/TypeScript frontend with Command Center,
+Recovery Cases, and Decision Room routes. Use a centralized typed API client;
+render actual case, decision, candidate, explanation, and execution response
+fields; and call the existing backend endpoints for decision generation,
+explanation generation, and execution.
+
+Alternatives considered: Duplicate expected-value logic in the frontend;
+recompute candidate rankings client-side; call providers directly from the
+browser; add a second backend.
+
+Why this approach: The backend remains authoritative and the operator can
+audit the exact stored trace that governs execution. The browser remains safe
+to deploy without provider credentials and cannot alter deterministic behavior.
+
+Trade-offs: Aggregate dashboard metrics are limited to data returned by the
+current list API. Historical context, recovery reconciliation, authentication,
+and richer analytics remain backend/product work for later gates.
+
+Version/affected component: `frontend/`, `docs/frontend.md`,
+`docs/architecture.md`. No simulator, model, engine, or Gate 0–6 authority
+boundary changed.
+
+## D-033 — Gate 7 recovery control-room redesign
+
+Decision: Reframe the frontend around the recovery lifecycle and observable operational work instead of generic dashboard metrics.
+
+Date: 2026-08-25
+
+Context: The first frontend pass presented cases and stored decisions, but did not make the agent's detect → diagnose → decide → intervene → recover workflow immediately legible.
+
+Chosen approach: Use a dark incident-response control room with meaningful revenue-at-risk metrics, active-problem flow, observed failure/root-cause views, stored activity milestones, ranked candidate action cards, explicit policy constraints, intervention status, recovery outcome truth states, and dedicated intelligence/audit routes.
+
+Alternatives considered: Retain the existing admin-style table dashboard; add fabricated charts, trends, or recovery events; move decision calculations into the browser.
+
+Why this approach: It matches the operator's actual task while preserving the backend as the sole authority for probabilities, economics, policies, execution, and outcomes. Missing backend facts remain honest empty or pending states.
+
+Trade-offs: Friendly REC-### IDs, true historical trends, customer names, granular audit events, and recovered amounts are not invented because the current API does not provide them. The UI uses external event IDs, stored timestamps, case status, and stored amounts instead.
+
+Version/affected component: `frontend/`, `DESIGN.md`, `docs/frontend.md`. Gate 0–6 behavior and API contracts unchanged.

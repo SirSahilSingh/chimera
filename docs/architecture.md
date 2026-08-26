@@ -34,6 +34,10 @@ The deterministic path must complete when the LLM is unavailable. Any LLM action
 
 For Gate 6 explanations, the stored `Decision` and `DecisionCandidate` rows are the source of truth. The backend builds an allowlisted intelligence context, calls an optional server-side provider, validates structured output, and persists an append-only explanation record. Provider failures use deterministic fallback text. The explanation layer cannot modify a decision or execution.
 
+## Operator frontend boundary
+
+Gate 7 adds a Next.js/TypeScript operator frontend under `frontend/`. The browser consumes the existing `/api/v1` contracts for the Command Center, Recovery Cases list, and Decision Room. The frontend never calculates or selects recovery actions; it renders stored candidate economics and statuses, requests deterministic decisions from the backend, requests optional Gate 6 explanations, and asks the existing execution endpoint to perform an eligible stored action. Provider credentials, hidden state, future outcomes, and counterfactual truth never cross into frontend payloads.
+
 ## Local-first implementation gates
 
 1. Gate 0: document decisions and freeze the simulator specification.
