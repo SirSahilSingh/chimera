@@ -13,6 +13,7 @@ class MessageAttemptResponse(BaseModel):
     intervention_id: str
     decision_id: str
     provider: str
+    provider_mode: str = "LOCAL"
     idempotency_key: str
     attempt_number: int
     template_key: str
@@ -31,6 +32,7 @@ class MessagingEventResponse(BaseModel):
     id: str
     message_attempt_id: str
     provider: str
+    provider_mode: str = "LOCAL"
     provider_event_id: str
     event_type: str
     delivery_state: str
@@ -64,6 +66,7 @@ class RetryAttemptResponse(BaseModel):
     idempotency_key: str
     attempt_number: int
     provider: str
+    provider_mode: str = "LOCAL"
     provider_reference: str | None
     status: str
     request_hash: str
@@ -86,6 +89,7 @@ class ScheduledRetryResponse(BaseModel):
     schedule_reason: str
     eligibility_status: str
     execution_status: str
+    provider_mode: str = "LOCAL"
     executed_at: datetime | None
     created_at: datetime
 

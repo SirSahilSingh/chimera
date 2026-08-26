@@ -25,6 +25,7 @@ class EscalationResponse(BaseModel):
     priority: int
     idempotency_key: str
     status: str
+    provider_mode: str = "LOCAL"
     created_at: datetime
     updated_at: datetime
     events: list["EscalationEventResponse"] = []

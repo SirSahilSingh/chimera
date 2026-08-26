@@ -29,6 +29,7 @@ class VoiceCallStartResult:
 
 class VoiceProvider:
     name = "base"
+    mode = "LIVE"
 
     def start_call(self, context: VoiceContext, *, idempotency_key: str, scenario: VoiceScenario) -> VoiceCallStartResult:
         raise NotImplementedError
@@ -46,6 +47,7 @@ class VoiceProvider:
 
 class LocalDeterministicVoiceProvider(VoiceProvider):
     name = "local"
+    mode = "LOCAL"
 
     def start_call(self, context: VoiceContext, *, idempotency_key: str, scenario: VoiceScenario) -> VoiceCallStartResult:
         if scenario == VoiceScenario.PROVIDER_FAILURE:
@@ -63,6 +65,7 @@ class LiveHttpVoiceProvider(VoiceProvider):
     """Provider-neutral HTTP adapter; vendor-specific configuration stays outside CHIMERA."""
 
     name = "live"
+    mode = "LIVE"
 
     def __init__(self, *, enabled: bool, base_url: str | None, api_key: str | None, agent_id: str | None, phone_number: str | None, timeout_seconds: float) -> None:
         self.enabled = enabled

@@ -33,7 +33,7 @@ class RetryService:
         if existing is not None:
             return existing
         key = hashlib.sha256(f"chimera-retry-schedule-v1|{intervention.id}|{intervention.decision_id}".encode()).hexdigest()
-        row = ScheduledRetry(recovery_case_id=intervention.recovery_case_id, intervention_id=intervention.id, decision_id=intervention.decision_id, idempotency_key=key, attempt_number=1, scheduled_at=deterministic_retry_time(intervention.recovery_case.decision_timestamp), schedule_reason="deterministic_one_day_after_decision", eligibility_status="PENDING", execution_status="SCHEDULED")
+        row = ScheduledRetry(recovery_case_id=intervention.recovery_case_id, intervention_id=intervention.id, decision_id=intervention.decision_id, idempotency_key=key, attempt_number=1, scheduled_at=deterministic_retry_time(intervention.recovery_case.decision_timestamp), schedule_reason="deterministic_one_day_after_decision", eligibility_status="PENDING", execution_status="SCHEDULED", provider_mode=self.provider.mode)
         self.session.add(row)
         self.session.commit()
         return self.get_schedule(row.id)
@@ -93,7 +93,7 @@ class RetryService:
         except Exception as exc:
             provider_result = type("RetryFailure", (), {"provider_reference": "", "status": "FAILED", "validated_result": {"error_code": "provider_request_failed", "payment_recovery_confirmed": False}, "completed_at": self._now()})()
         result_json = dict(provider_result.validated_result)
-        row = RetryAttempt(recovery_case_id=intervention.recovery_case_id, intervention_id=intervention.id, decision_id=intervention.decision_id, action=intervention.action, idempotency_key=key, attempt_number=1, provider=self.provider.name, provider_reference=provider_result.provider_reference, status=provider_result.status, request_hash=hashlib.sha256(json.dumps(context.model_dump(), sort_keys=True).encode()).hexdigest(), result_hash=hashlib.sha256(json.dumps(result_json, sort_keys=True).encode()).hexdigest(), validated_result_json=result_json, started_at=started, completed_at=provider_result.completed_at)
+        row = RetryAttempt(recovery_case_id=intervention.recovery_case_id, intervention_id=intervention.id, decision_id=intervention.decision_id, action=intervention.action, idempotency_key=key, attempt_number=1, provider=self.provider.name, provider_mode=self.provider.mode, provider_reference=provider_result.provider_reference, status=provider_result.status, request_hash=hashlib.sha256(json.dumps(context.model_dump(), sort_keys=True).encode()).hexdigest(), result_hash=hashlib.sha256(json.dumps(result_json, sort_keys=True).encode()).hexdigest(), validated_result_json=result_json, started_at=started, completed_at=provider_result.completed_at)
         self.session.add(row)
         self.session.commit()
         return row

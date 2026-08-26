@@ -11,6 +11,7 @@ from .providers import MessageSendResult, MessagingProvider
 
 class LocalDeterministicMessagingProvider(MessagingProvider):
     name = "local"
+    mode = "LOCAL"
 
     def __init__(self, secret: str = "chimera-local-messaging-secret") -> None:
         self.secret = secret

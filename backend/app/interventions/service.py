@@ -165,6 +165,7 @@ class InterventionService:
             intervention_id=intervention.id,
             attempt_number=attempt_number,
             executor_type=result.executor_type,
+            provider_mode="LOCAL",
             status=result.status,
             idempotency_key=key,
             provider_reference=result.provider_reference,

@@ -51,13 +51,13 @@ class MessagingService:
             row = MessageAttempt(recovery_case_id=intervention.recovery_case_id, intervention_id=intervention.id, decision_id=intervention.decision_id, provider=self.provider.name, idempotency_key=key, attempt_number=1, template_key=template, template_version=version, rendered_content_hash=content_hash, provider_message_id=None, status="FAILED", delivery_state="FAILED", sent_at=self._now())
             self.session.add(row)
             self.session.flush()
-            self.session.add(MessagingEvent(message_attempt_id=row.id, provider=self.provider.name, provider_event_id=f"failed-{row.id}", event_type="message.failed", delivery_state="FAILED", signature_verified=False, occurred_at=row.sent_at, payload_hash=payload_hash({"delivery_state": "FAILED"}), payload_json={"delivery_state": "FAILED", "reason": "provider_request_failed"}))
+            self.session.add(MessagingEvent(message_attempt_id=row.id, provider=self.provider.name, provider_mode=self.provider.mode, provider_event_id=f"failed-{row.id}", event_type="message.failed", delivery_state="FAILED", signature_verified=False, occurred_at=row.sent_at, payload_hash=payload_hash({"delivery_state": "FAILED"}), payload_json={"delivery_state": "FAILED", "reason": "provider_request_failed"}))
             self.session.commit()
             raise ValueError("provider_request_failed") from exc
-        row = MessageAttempt(recovery_case_id=intervention.recovery_case_id, intervention_id=intervention.id, decision_id=intervention.decision_id, provider=self.provider.name, idempotency_key=key, attempt_number=1, template_key=template, template_version=version, rendered_content_hash=content_hash, provider_message_id=result.provider_message_id, status=result.status, delivery_state=result.delivery_state, sent_at=result.sent_at)
+        row = MessageAttempt(recovery_case_id=intervention.recovery_case_id, intervention_id=intervention.id, decision_id=intervention.decision_id, provider=self.provider.name, provider_mode=self.provider.mode, idempotency_key=key, attempt_number=1, template_key=template, template_version=version, rendered_content_hash=content_hash, provider_message_id=result.provider_message_id, status=result.status, delivery_state=result.delivery_state, sent_at=result.sent_at)
         self.session.add(row)
         self.session.flush()
-        self.session.add(MessagingEvent(message_attempt_id=row.id, provider=self.provider.name, provider_event_id=f"sent-{row.id}", event_type="message.sent", delivery_state=result.delivery_state, signature_verified=False, occurred_at=result.sent_at, payload_hash=payload_hash({"provider_message_id": result.provider_message_id, "delivery_state": result.delivery_state}), payload_json={"provider_message_id": result.provider_message_id, "delivery_state": result.delivery_state}))
+        self.session.add(MessagingEvent(message_attempt_id=row.id, provider=self.provider.name, provider_mode=self.provider.mode, provider_event_id=f"sent-{row.id}", event_type="message.sent", delivery_state=result.delivery_state, signature_verified=False, occurred_at=result.sent_at, payload_hash=payload_hash({"provider_message_id": result.provider_message_id, "delivery_state": result.delivery_state}), payload_json={"provider_message_id": result.provider_message_id, "delivery_state": result.delivery_state}))
         self.session.commit()
         return self.get_message(row.id)
 
@@ -78,7 +78,7 @@ class MessagingService:
         if existing is not None:
             return self.get_message(attempt.id)
         occurred = parsed.get("occurred_at")
-        self.session.add(MessagingEvent(message_attempt_id=attempt.id, provider=provider_name, provider_event_id=parsed["provider_event_id"], event_type=parsed["event_type"], delivery_state=parsed["delivery_state"], signature_verified=True, occurred_at=occurred, payload_hash=payload_hash(parsed), payload_json={"provider_message_id": parsed["provider_message_id"], "delivery_state": parsed["delivery_state"]}))
+        self.session.add(MessagingEvent(message_attempt_id=attempt.id, provider=provider_name, provider_mode=self.provider.mode, provider_event_id=parsed["provider_event_id"], event_type=parsed["event_type"], delivery_state=parsed["delivery_state"], signature_verified=True, occurred_at=occurred, payload_hash=payload_hash(parsed), payload_json={"provider_message_id": parsed["provider_message_id"], "delivery_state": parsed["delivery_state"]}))
         attempt.delivery_state = parsed["delivery_state"]
         self.session.commit()
         return self.get_message(attempt.id)

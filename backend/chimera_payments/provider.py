@@ -18,6 +18,7 @@ class PaymentLinkResult:
 
 class PaymentProvider(ABC):
     name: str
+    mode: str = "LOCAL"
 
     @abstractmethod
     def create_payment_link(self, context: PaymentContext) -> PaymentLinkResult: ...

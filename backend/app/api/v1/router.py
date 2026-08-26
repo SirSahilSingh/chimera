@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import text
@@ -24,6 +24,7 @@ from backend.app.schemas import (
 )
 from backend.app.services.case_service import CaseService
 from backend.app.services.intelligence_service import IntelligenceService
+from backend.app.services.journey_service import RecoveryJourneyService
 from backend.chimera_intelligence.schemas import ExplanationResponse
 from backend.app.interventions.errors import (
     DecisionNotFoundError,
@@ -83,6 +84,9 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
     def orchestration_service(session: Session = Depends(db)) -> RecoveryOrchestrator:
         return orchestration_service_factory(session)
 
+    def journey_service(session: Session = Depends(db)) -> RecoveryJourneyService:
+        return RecoveryJourneyService(session)
+
     def as_case(case) -> RecoveryCaseResponse:
         decisions = sorted(case.decisions, key=lambda item: item.created_at, reverse=True)
         executions = sorted(case.executions, key=lambda item: item.created_at, reverse=True)
@@ -136,6 +140,7 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
             intervention_id=call.intervention_id,
             recovery_case_id=call.recovery_case_id,
             provider=call.provider,
+            provider_mode=getattr(call, "provider_mode", "LOCAL"),
             provider_call_reference=call.provider_call_reference,
             status=call.status,
             scenario=call.scenario,
@@ -157,11 +162,11 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
         )
 
     def as_payment(link) -> PaymentLinkResponse:
-        attempts = sorted(link.attempts, key=lambda item: (item.first_seen_at, item.id))
-        events = sorted(link.events, key=lambda item: (item.occurred_at, item.id))
+        attempts = sorted(link.attempts, key=lambda item: ((item.first_seen_at if item.first_seen_at.tzinfo else item.first_seen_at.replace(tzinfo=timezone.utc)), item.id))
+        events = sorted(link.events, key=lambda item: ((item.occurred_at if item.occurred_at.tzinfo else item.occurred_at.replace(tzinfo=timezone.utc)), item.id))
         return PaymentLinkResponse(
             id=link.id, recovery_case_id=link.recovery_case_id, intervention_id=link.intervention_id, decision_id=link.decision_id,
-            provider=link.provider, provider_payment_link_id=link.provider_payment_link_id, short_url=link.short_url,
+            provider=link.provider, provider_mode=getattr(link, "provider_mode", "LOCAL"), provider_payment_link_id=link.provider_payment_link_id, short_url=link.short_url,
             amount_paise=link.amount_paise, currency=link.currency, status=link.status, idempotency_key=link.idempotency_key,
             request_hash=link.request_hash, result_hash=link.result_hash, expires_at=link.expires_at, created_at=link.created_at,
             updated_at=link.updated_at, attempts=[PaymentAttemptResponse.model_validate(item) for item in attempts],
@@ -169,10 +174,10 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
         )
 
     def as_message(message) -> MessageAttemptResponse:
-        events = sorted(message.events, key=lambda item: (item.occurred_at, item.id))
+        events = sorted(message.events, key=lambda item: ((item.occurred_at if item.occurred_at.tzinfo else item.occurred_at.replace(tzinfo=timezone.utc)), item.id))
         return MessageAttemptResponse(
             id=message.id, recovery_case_id=message.recovery_case_id, intervention_id=message.intervention_id,
-            decision_id=message.decision_id, provider=message.provider, idempotency_key=message.idempotency_key,
+            decision_id=message.decision_id, provider=message.provider, provider_mode=getattr(message, "provider_mode", "LOCAL"), idempotency_key=message.idempotency_key,
             attempt_number=message.attempt_number, template_key=message.template_key,
             template_version=message.template_version, rendered_content_hash=message.rendered_content_hash,
             provider_message_id=message.provider_message_id, status=message.status, delivery_state=message.delivery_state,
@@ -185,7 +190,7 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
         return EscalationResponse(
             id=row.id, recovery_case_id=row.recovery_case_id, intervention_id=row.intervention_id,
             decision_id=row.decision_id, escalation_reason=row.escalation_reason, context_json=row.context_json, priority=row.priority,
-            idempotency_key=row.idempotency_key, status=row.status, created_at=row.created_at,
+            idempotency_key=row.idempotency_key, status=row.status, provider_mode=getattr(row, "provider_mode", "LOCAL"), created_at=row.created_at,
             updated_at=row.updated_at, events=[EscalationEventResponse.model_validate(item) for item in events],
         )
 
@@ -206,6 +211,45 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
             return as_case(case_service.create_case(payload))
         except DomainError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @router.post("/demo/recovery", status_code=201)
+    def demo_recovery(
+        payload: CaseCreate,
+        case_service: CaseService = Depends(service),
+        interventions: InterventionService = Depends(intervention_service),
+        orchestration: RecoveryOrchestrator = Depends(orchestration_service),
+    ):
+        """Run one observable-only case through the existing decision and execution boundaries."""
+        try:
+            case = case_service.create_case(payload)
+            decision = case_service.decide(case)
+            intervention, _ = interventions.create_from_decision(decision.id)
+            if intervention.action != "DO_NOTHING":
+                interventions.queue(intervention.id)
+                result = orchestration.route(intervention.id)
+            else:
+                result = intervention
+            return {
+                "case_id": case.id,
+                "decision_id": decision.id,
+                "intervention_id": intervention.id,
+                "selected_action": decision.selected_action,
+                "status": getattr(result, "status", intervention.status),
+                "provider": getattr(result, "provider", None),
+                "provider_mode": getattr(result, "provider_mode", None),
+                "journey_url": f"/api/v1/recovery-cases/{case.id}/journey",
+            }
+        except DomainError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except (ValueError, PaymentError, VoiceDomainError) as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @router.get("/recovery-cases/{case_id}/journey")
+    def recovery_journey(case_id: str, service: RecoveryJourneyService = Depends(journey_service)):
+        try:
+            return service.get(case_id)
+        except DomainError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     @router.get("/recovery-cases", response_model=PaginatedCases)
     def list_cases(

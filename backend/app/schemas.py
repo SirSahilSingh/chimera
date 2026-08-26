@@ -74,6 +74,7 @@ class ExecutionResponse(BaseModel):
     recovery_case_id: str
     decision_id: str
     action: str
+    provider_mode: str = "LOCAL"
     status: str
     idempotency_key: str
     provider_reference: str | None
@@ -131,6 +132,7 @@ class InterventionExecutionResponse(BaseModel):
     intervention_id: str
     attempt_number: int
     executor_type: str
+    provider_mode: str = "LOCAL"
     status: str
     idempotency_key: str
     provider_reference: str | None

@@ -16,6 +16,7 @@ class MessageSendResult:
 
 class MessagingProvider(ABC):
     name: str
+    mode: str = "LOCAL"
 
     @abstractmethod
     def send_message(self, context: MessagingContext, content: str, idempotency_key: str) -> MessageSendResult: ...

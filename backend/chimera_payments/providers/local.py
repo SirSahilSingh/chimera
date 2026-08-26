@@ -9,10 +9,12 @@ from ..context import PaymentContext
 from ..errors import PaymentProviderError
 from ..provider import PaymentLinkResult, PaymentProvider
 from ..schemas import PaymentDemoScenario, PaymentStatus, PaymentWebhookEvent
+from backend.provider_modes import ProviderMode
 
 
 class LocalDeterministicPaymentProvider(PaymentProvider):
     name = "local"
+    mode = ProviderMode.LOCAL.value
 
     def __init__(self, secret: str = "chimera-local-payment-secret") -> None:
         self.secret = secret

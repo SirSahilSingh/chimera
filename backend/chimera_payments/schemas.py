@@ -56,6 +56,7 @@ class PaymentEventResponse(BaseModel):
     payment_link_id: str
     payment_attempt_id: str | None
     provider: str
+    provider_mode: str = "LOCAL"
     provider_event_id: str
     event_type: str
     status: str
@@ -88,6 +89,7 @@ class PaymentLinkResponse(BaseModel):
     intervention_id: str
     decision_id: str
     provider: str
+    provider_mode: str = "LOCAL"
     provider_payment_link_id: str
     short_url: str
     amount_paise: int

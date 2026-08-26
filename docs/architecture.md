@@ -113,3 +113,15 @@ boundary. It does not select an action. Messaging and retry providers record
 external-operation status separately from recovery outcomes; escalation status
 is an operator workflow. See `docs/orchestration.md` for local demos and
 configuration.
+
+## Gate 11 live provider and journey boundary
+
+Gate 11 adds explicit provider modes (`LOCAL`, `MOCK`, `TEST`, `LIVE`) to
+provider operation records. `POST /api/v1/demo/recovery` is a thin composition
+of `CaseService`, `InterventionService`, and `RecoveryOrchestrator`; it accepts
+only the observable `CaseCreate` contract and never accepts a client-selected
+action. `GET /api/v1/recovery-cases/{case_id}/journey` loads persisted records
+and returns a chronological, append-only projection without recomputing a
+decision. Razorpay, Twilio-compatible messaging, and the optional provider-
+neutral voice adapter remain server-side boundaries with bounded timeouts,
+signature verification, sanitized event payloads, and idempotent event handling.

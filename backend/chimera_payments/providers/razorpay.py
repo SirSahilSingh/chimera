@@ -12,14 +12,16 @@ from ..context import PaymentContext
 from ..errors import PaymentProviderError
 from ..provider import PaymentLinkResult, PaymentProvider
 from ..schemas import PaymentStatus, PaymentWebhookEvent
+from backend.provider_modes import resolve_mode
 
 
 class RazorpayPaymentProvider(PaymentProvider):
     name = "razorpay"
 
-    def __init__(self, key_id: str | None, key_secret: str | None, webhook_secret: str | None, *, enabled: bool, base_url: str = "https://api.razorpay.com/v1", timeout_seconds: float = 10.0) -> None:
+    def __init__(self, key_id: str | None, key_secret: str | None, webhook_secret: str | None, *, enabled: bool, base_url: str = "https://api.razorpay.com/v1", timeout_seconds: float = 10.0, mode: str | None = None) -> None:
         self.key_id, self.key_secret, self.webhook_secret = key_id, key_secret, webhook_secret
         self.enabled, self.base_url, self.timeout_seconds = enabled, base_url.rstrip("/"), timeout_seconds
+        self.mode = resolve_mode(self.name, mode)
 
     def _ensure_configured(self) -> None:
         if not self.enabled or not self.key_id or not self.key_secret:

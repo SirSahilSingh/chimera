@@ -22,6 +22,7 @@ from backend.chimera_messaging.twilio_provider import TwilioMessagingProvider
 from backend.chimera_messaging.service import MessagingService
 from backend.chimera_retry.provider import LocalDeterministicRetryProvider, UnavailableLiveRetryProvider
 from backend.chimera_retry.service import RetryService
+from backend.provider_modes import resolve_mode
 from backend.chimera_orchestration.service import RecoveryOrchestrator
 from backend.chimera_intelligence.agent import ExplanationAgent
 from backend.chimera_intelligence.provider import ExplanationProvider, provider_from_settings as explanation_provider_from_settings
@@ -49,12 +50,14 @@ def create_app(database_url: str | None = None, *, create_tables: bool = True, e
             voice_agent_id=settings.voice_agent_id,
             voice_phone_number=settings.voice_phone_number,
             voice_timeout_seconds=settings.voice_timeout_seconds,
+            voice_mode=settings.voice_mode,
             payment_provider=settings.payment_provider,
             payment_enabled=settings.payment_enabled,
             razorpay_key_id=settings.razorpay_key_id,
             razorpay_key_secret=settings.razorpay_key_secret,
             razorpay_webhook_secret=settings.razorpay_webhook_secret,
             payment_timeout_seconds=settings.payment_timeout_seconds,
+            payment_mode=settings.payment_mode,
             messaging_provider=settings.messaging_provider,
             messaging_enabled=settings.messaging_enabled,
             twilio_account_sid=settings.twilio_account_sid,
@@ -62,7 +65,9 @@ def create_app(database_url: str | None = None, *, create_tables: bool = True, e
             twilio_from_number=settings.twilio_from_number,
             twilio_to_number=settings.twilio_to_number,
             messaging_timeout_seconds=settings.messaging_timeout_seconds,
+            messaging_mode=settings.messaging_mode,
             retry_provider=settings.retry_provider,
+            retry_mode=settings.retry_mode,
         )
     engine = make_engine(settings.database_url)
     if create_tables:
@@ -71,15 +76,23 @@ def create_app(database_url: str | None = None, *, create_tables: bool = True, e
     simulator_config = SimulatorConfig.from_file(settings.simulator_config_path)
     agent = ExplanationAgent(explanation_provider if explanation_provider is not None else explanation_provider_from_settings(settings))
     configured_voice_provider = voice_provider if voice_provider is not None else voice_provider_from_settings(settings)
+    if settings.voice_mode:
+        configured_voice_provider.mode = resolve_mode(configured_voice_provider.name, settings.voice_mode)
     if settings.payment_provider == "razorpay":
-        configured_payment_provider: PaymentProvider = RazorpayPaymentProvider(settings.razorpay_key_id, settings.razorpay_key_secret, settings.razorpay_webhook_secret, enabled=settings.payment_enabled, timeout_seconds=settings.payment_timeout_seconds)
+        configured_payment_provider: PaymentProvider = RazorpayPaymentProvider(settings.razorpay_key_id, settings.razorpay_key_secret, settings.razorpay_webhook_secret, enabled=settings.payment_enabled, timeout_seconds=settings.payment_timeout_seconds, mode=settings.payment_mode)
     else:
         configured_payment_provider = LocalDeterministicPaymentProvider()
+        if settings.payment_mode:
+            configured_payment_provider.mode = resolve_mode(configured_payment_provider.name, settings.payment_mode)
     if settings.messaging_provider == "twilio":
-        configured_messaging_provider = TwilioMessagingProvider(settings.twilio_account_sid, settings.twilio_auth_token, settings.twilio_from_number, settings.twilio_to_number, enabled=settings.messaging_enabled, timeout_seconds=settings.messaging_timeout_seconds)
+        configured_messaging_provider = TwilioMessagingProvider(settings.twilio_account_sid, settings.twilio_auth_token, settings.twilio_from_number, settings.twilio_to_number, enabled=settings.messaging_enabled, timeout_seconds=settings.messaging_timeout_seconds, mode=settings.messaging_mode)
     else:
         configured_messaging_provider = LocalDeterministicMessagingProvider()
+        if settings.messaging_mode:
+            configured_messaging_provider.mode = resolve_mode(configured_messaging_provider.name, settings.messaging_mode)
     configured_retry_provider = UnavailableLiveRetryProvider() if settings.retry_provider == "live" else LocalDeterministicRetryProvider()
+    if settings.retry_mode:
+        configured_retry_provider.mode = resolve_mode(configured_retry_provider.name, settings.retry_mode)
 
     @lru_cache(maxsize=1)
     def compatibility_status() -> str:

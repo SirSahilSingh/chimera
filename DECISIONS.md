@@ -813,3 +813,40 @@ configured destination number for live operation; retry schedules use a simple
 Version/affected component: `backend/chimera_messaging/`,
 `backend/chimera_retry/`, `backend/chimera_orchestration/`, migration
 `0006_gate10_orchestration`, API routes, and `docs/orchestration.md`.
+
+## D-038 — Gate 11 provider modes and persisted journey projection
+
+Decision: Add explicit `LOCAL`, `MOCK`, `TEST`, and `LIVE` provider modes and
+compose the existing decision/intervention/orchestration services behind a
+demo endpoint and a persisted journey projection.
+
+Date: 2026-08-26
+
+Context: The buildathon demo must distinguish deterministic local execution
+from sandbox/live provider calls and show one complete recovery story without
+changing decision authority or the frozen simulator/model layers.
+
+Chosen approach: Persist `provider_mode` on each external-operation record and
+event. `POST /api/v1/demo/recovery` accepts the existing observable case schema,
+calls the existing services in order, and returns inspectable IDs.
+`RecoveryJourneyService` reads stored case, decision, candidates, intervention,
+provider, outcome, explanation, and audit rows; it sorts the append-only event
+projection by timestamp, event type, and ID.
+
+Alternatives considered: Add a queue/broker, create a second decision path,
+allow a client-supplied action, or infer historical state by rerunning the
+engine.
+
+Why this approach: It keeps the MVP local-first and auditable while allowing
+Razorpay/Twilio-compatible integrations to be enabled explicitly through
+server-side configuration.
+
+Trade-offs: A provider mode is an execution label, not proof that credentials
+were valid or a real transaction occurred. The local demo remains synthetic;
+live voice is unavailable until a safe provider endpoint and credentials are
+configured. Journey payloads intentionally expose sanitized provider records,
+not raw secrets or request bodies.
+
+Version/affected component: `backend/provider_modes.py`, provider services,
+`RecoveryJourneyService`, demo/journey routes, migration
+`0007_gate11_provider_modes`.

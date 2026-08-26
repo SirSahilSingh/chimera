@@ -123,6 +123,7 @@ class VoiceEventResponse(BaseModel):
     event_id: str
     event_type: str
     source: str
+    provider_mode: str = "LOCAL"
     payload_json: dict
     input_hash: str | None
     transcript_hash: str | None
@@ -139,6 +140,7 @@ class VoiceCallResponse(BaseModel):
     intervention_id: str
     recovery_case_id: str
     provider: str
+    provider_mode: str = "LOCAL"
     provider_call_reference: str | None
     status: str
     scenario: str

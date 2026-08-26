@@ -162,6 +162,7 @@ class CaseService:
             recovery_case_id=case.id,
             decision_id=decision.id,
             action=decision.selected_action,
+            provider_mode="LOCAL",
             status="PENDING",
             idempotency_key=key,
             request_json={"action": decision.selected_action, "amount_paise": case.amount_paise},

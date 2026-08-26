@@ -17,6 +17,7 @@ class RetryResult:
 
 class RetryProvider(ABC):
     name: str
+    mode: str = "LOCAL"
 
     @abstractmethod
     def retry(self, context: RetryContext) -> RetryResult: ...
@@ -24,6 +25,7 @@ class RetryProvider(ABC):
 
 class LocalDeterministicRetryProvider(RetryProvider):
     name = "local"
+    mode = "LOCAL"
 
     def retry(self, context: RetryContext) -> RetryResult:
         import hashlib
@@ -33,6 +35,7 @@ class LocalDeterministicRetryProvider(RetryProvider):
 
 class UnavailableLiveRetryProvider(RetryProvider):
     name = "live"
+    mode = "LIVE"
 
     def retry(self, context: RetryContext) -> RetryResult:
         raise RuntimeError("provider_not_configured")
