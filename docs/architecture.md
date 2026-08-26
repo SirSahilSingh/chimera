@@ -104,3 +104,12 @@ PostgreSQL becomes authoritative at Gate 5. Before then, the same domain service
 - Future timestamps cannot enter model features.
 - All demo data and transcripts are synthetic.
 - Razorpay and other provider secrets remain backend-only.
+
+## Gate 10 orchestration boundary
+
+`backend/chimera_orchestration/` routes the stored Gate 7 intervention action
+to the Gate 8 voice, Gate 9 payment, Gate 10 messaging, retry, or escalation
+boundary. It does not select an action. Messaging and retry providers record
+external-operation status separately from recovery outcomes; escalation status
+is an operator workflow. See `docs/orchestration.md` for local demos and
+configuration.

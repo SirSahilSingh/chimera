@@ -32,6 +32,14 @@ class AppSettings:
     razorpay_key_secret: str | None = None
     razorpay_webhook_secret: str | None = None
     payment_timeout_seconds: float = 10.0
+    messaging_provider: str = "local"
+    messaging_enabled: bool = True
+    twilio_account_sid: str | None = None
+    twilio_auth_token: str | None = None
+    twilio_from_number: str | None = None
+    twilio_to_number: str | None = None
+    messaging_timeout_seconds: float = 10.0
+    retry_provider: str = "local"
 
 
 def load_settings() -> AppSettings:
@@ -58,4 +66,12 @@ def load_settings() -> AppSettings:
         razorpay_key_secret=os.getenv("RAZORPAY_KEY_SECRET") or None,
         razorpay_webhook_secret=os.getenv("RAZORPAY_WEBHOOK_SECRET") or None,
         payment_timeout_seconds=float(os.getenv("PAYMENT_TIMEOUT_SECONDS", "10")),
+        messaging_provider=os.getenv("MESSAGING_PROVIDER", "local"),
+        messaging_enabled=os.getenv("MESSAGING_ENABLED", "true").casefold() in {"1", "true", "yes"},
+        twilio_account_sid=os.getenv("TWILIO_ACCOUNT_SID") or None,
+        twilio_auth_token=os.getenv("TWILIO_AUTH_TOKEN") or None,
+        twilio_from_number=os.getenv("TWILIO_FROM_NUMBER") or None,
+        twilio_to_number=os.getenv("TWILIO_TO_NUMBER") or None,
+        messaging_timeout_seconds=float(os.getenv("MESSAGING_TIMEOUT_SECONDS", "10")),
+        retry_provider=os.getenv("RETRY_PROVIDER", "local"),
     )

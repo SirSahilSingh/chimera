@@ -17,6 +17,12 @@ from backend.chimera_payments.providers.local import LocalDeterministicPaymentPr
 from backend.chimera_payments.providers.razorpay import RazorpayPaymentProvider
 from backend.chimera_payments.provider import PaymentProvider
 from backend.chimera_payments.service import PaymentService
+from backend.chimera_messaging.local_provider import LocalDeterministicMessagingProvider
+from backend.chimera_messaging.twilio_provider import TwilioMessagingProvider
+from backend.chimera_messaging.service import MessagingService
+from backend.chimera_retry.provider import LocalDeterministicRetryProvider, UnavailableLiveRetryProvider
+from backend.chimera_retry.service import RetryService
+from backend.chimera_orchestration.service import RecoveryOrchestrator
 from backend.chimera_intelligence.agent import ExplanationAgent
 from backend.chimera_intelligence.provider import ExplanationProvider, provider_from_settings as explanation_provider_from_settings
 from backend.chimera_model.benchmark import BenchmarkProbabilityModel, INTERACTION_FEATURE_SCHEMA_VERSION
@@ -49,6 +55,14 @@ def create_app(database_url: str | None = None, *, create_tables: bool = True, e
             razorpay_key_secret=settings.razorpay_key_secret,
             razorpay_webhook_secret=settings.razorpay_webhook_secret,
             payment_timeout_seconds=settings.payment_timeout_seconds,
+            messaging_provider=settings.messaging_provider,
+            messaging_enabled=settings.messaging_enabled,
+            twilio_account_sid=settings.twilio_account_sid,
+            twilio_auth_token=settings.twilio_auth_token,
+            twilio_from_number=settings.twilio_from_number,
+            twilio_to_number=settings.twilio_to_number,
+            messaging_timeout_seconds=settings.messaging_timeout_seconds,
+            retry_provider=settings.retry_provider,
         )
     engine = make_engine(settings.database_url)
     if create_tables:
@@ -61,6 +75,11 @@ def create_app(database_url: str | None = None, *, create_tables: bool = True, e
         configured_payment_provider: PaymentProvider = RazorpayPaymentProvider(settings.razorpay_key_id, settings.razorpay_key_secret, settings.razorpay_webhook_secret, enabled=settings.payment_enabled, timeout_seconds=settings.payment_timeout_seconds)
     else:
         configured_payment_provider = LocalDeterministicPaymentProvider()
+    if settings.messaging_provider == "twilio":
+        configured_messaging_provider = TwilioMessagingProvider(settings.twilio_account_sid, settings.twilio_auth_token, settings.twilio_from_number, settings.twilio_to_number, enabled=settings.messaging_enabled, timeout_seconds=settings.messaging_timeout_seconds)
+    else:
+        configured_messaging_provider = LocalDeterministicMessagingProvider()
+    configured_retry_provider = UnavailableLiveRetryProvider() if settings.retry_provider == "live" else LocalDeterministicRetryProvider()
 
     @lru_cache(maxsize=1)
     def compatibility_status() -> str:
@@ -88,6 +107,15 @@ def create_app(database_url: str | None = None, *, create_tables: bool = True, e
     def voice_service_factory(session):
         return VoiceService(session, configured_voice_provider, payment_service=payment_service_factory(session))
 
+    def messaging_service_factory(session):
+        return MessagingService(session, configured_messaging_provider, payment_service=payment_service_factory(session))
+
+    def retry_service_factory(session):
+        return RetryService(session, configured_retry_provider)
+
+    def orchestration_service_factory(session):
+        return RecoveryOrchestrator(session, messaging_service_factory(session), retry_service_factory(session), payment_service_factory(session), voice_service_factory(session))
+
     app = FastAPI(title="CHIMERA API", version="1.0.0")
     router = build_router(
         session_factory=session_factory,
@@ -97,6 +125,7 @@ def create_app(database_url: str | None = None, *, create_tables: bool = True, e
         intervention_service_factory=intervention_service_factory,
         voice_service_factory=voice_service_factory,
         payment_service_factory=payment_service_factory,
+        orchestration_service_factory=orchestration_service_factory,
     )
     app.include_router(router, prefix="/api/v1")
     app.include_router(router, prefix="")
@@ -106,6 +135,8 @@ def create_app(database_url: str | None = None, *, create_tables: bool = True, e
     app.state.explanation_agent = agent
     app.state.voice_provider = configured_voice_provider
     app.state.payment_provider = configured_payment_provider
+    app.state.messaging_provider = configured_messaging_provider
+    app.state.retry_provider = configured_retry_provider
     return app
 
 

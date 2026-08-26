@@ -46,9 +46,14 @@ from backend.chimera_voice.service import VoiceService
 from backend.chimera_payments.errors import PaymentError, PaymentNotFoundError, PaymentProviderError, PaymentWebhookError
 from backend.chimera_payments.schemas import PaymentDemoRequest, PaymentEventResponse, PaymentAttemptResponse, PaymentLinkResponse, PaymentListResponse
 from backend.chimera_payments.service import PaymentService
+from backend.chimera_messaging.schemas import MessageListResponse, MessageAttemptResponse, MessagingEventResponse, RetryAttemptResponse, ScheduledRetryResponse
+from backend.chimera_messaging.service import MessagingService
+from backend.chimera_orchestration.schemas import EscalationCreateRequest, EscalationEventResponse, EscalationResponse, EscalationStatus
+from backend.chimera_orchestration.service import RecoveryOrchestrator
+from backend.chimera_retry.service import RetryService
 
 
-def build_router(*, session_factory, service_factory, health_factory, intelligence_service_factory, intervention_service_factory, voice_service_factory, payment_service_factory) -> APIRouter:
+def build_router(*, session_factory, service_factory, health_factory, intelligence_service_factory, intervention_service_factory, voice_service_factory, payment_service_factory, orchestration_service_factory) -> APIRouter:
     router = APIRouter()
 
     def db() -> Session:
@@ -68,6 +73,15 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
 
     def payment_service(session: Session = Depends(db)) -> PaymentService:
         return payment_service_factory(session)
+
+    def messaging_service(session: Session = Depends(db)) -> MessagingService:
+        return orchestration_service_factory(session).messaging
+
+    def retry_service(session: Session = Depends(db)) -> RetryService:
+        return orchestration_service_factory(session).retry
+
+    def orchestration_service(session: Session = Depends(db)) -> RecoveryOrchestrator:
+        return orchestration_service_factory(session)
 
     def as_case(case) -> RecoveryCaseResponse:
         decisions = sorted(case.decisions, key=lambda item: item.created_at, reverse=True)
@@ -152,6 +166,27 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
             request_hash=link.request_hash, result_hash=link.result_hash, expires_at=link.expires_at, created_at=link.created_at,
             updated_at=link.updated_at, attempts=[PaymentAttemptResponse.model_validate(item) for item in attempts],
             events=[PaymentEventResponse.model_validate(item) for item in events],
+        )
+
+    def as_message(message) -> MessageAttemptResponse:
+        events = sorted(message.events, key=lambda item: (item.occurred_at, item.id))
+        return MessageAttemptResponse(
+            id=message.id, recovery_case_id=message.recovery_case_id, intervention_id=message.intervention_id,
+            decision_id=message.decision_id, provider=message.provider, idempotency_key=message.idempotency_key,
+            attempt_number=message.attempt_number, template_key=message.template_key,
+            template_version=message.template_version, rendered_content_hash=message.rendered_content_hash,
+            provider_message_id=message.provider_message_id, status=message.status, delivery_state=message.delivery_state,
+            sent_at=message.sent_at, created_at=message.created_at,
+            events=[MessagingEventResponse.model_validate(item) for item in events],
+        )
+
+    def as_escalation(row) -> EscalationResponse:
+        events = sorted(row.events, key=lambda item: (item.sequence_number, item.id))
+        return EscalationResponse(
+            id=row.id, recovery_case_id=row.recovery_case_id, intervention_id=row.intervention_id,
+            decision_id=row.decision_id, escalation_reason=row.escalation_reason, context_json=row.context_json, priority=row.priority,
+            idempotency_key=row.idempotency_key, status=row.status, created_at=row.created_at,
+            updated_at=row.updated_at, events=[EscalationEventResponse.model_validate(item) for item in events],
         )
 
     @router.get("/health", response_model=HealthResponse)
@@ -330,6 +365,118 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
         except PaymentNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except PaymentError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @router.post("/interventions/{intervention_id}/message/send", response_model=MessageAttemptResponse, status_code=201)
+    def send_message(intervention_id: str, service: MessagingService = Depends(messaging_service)):
+        try:
+            return as_message(service.send(intervention_id))
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @router.get("/interventions/{intervention_id}/messages", response_model=MessageListResponse)
+    def list_messages(intervention_id: str, service: MessagingService = Depends(messaging_service)):
+        try:
+            return MessageListResponse(items=[as_message(item) for item in service.list_messages(intervention_id)])
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @router.post("/messaging/webhook/{provider}", response_model=MessageAttemptResponse)
+    async def messaging_webhook(provider: str, request: Request, service: MessagingService = Depends(messaging_service)):
+        raw_body = await request.body()
+        signature = request.headers.get("x-twilio-signature") or request.headers.get("x-messaging-signature") or ""
+        try:
+            return as_message(service.handle_webhook(provider, raw_body, signature, request.headers.get("x-messaging-event-id"), str(request.url)))
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @router.post("/interventions/{intervention_id}/retry", status_code=201)
+    def retry_now(intervention_id: str, service: RetryService = Depends(retry_service)):
+        try:
+            intervention = service.interventions.get_intervention(intervention_id)
+            if intervention.action == "RETRY_LATER":
+                return ScheduledRetryResponse.model_validate(service.schedule(intervention_id))
+            return RetryAttemptResponse.model_validate(service.execute_now(intervention_id))
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @router.get("/interventions/{intervention_id}/retry", response_model=list[RetryAttemptResponse])
+    def retry_history(intervention_id: str, service: RetryService = Depends(retry_service)):
+        try:
+            return [RetryAttemptResponse.model_validate(item) for item in service.attempts(intervention_id)]
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @router.get("/retries/scheduled", response_model=list[ScheduledRetryResponse])
+    def scheduled_retries(service: RetryService = Depends(retry_service)):
+        return [ScheduledRetryResponse.model_validate(item) for item in service.list_scheduled()]
+
+    @router.post("/retries/{retry_id}/execute", response_model=RetryAttemptResponse)
+    def execute_scheduled_retry(retry_id: str, service: RetryService = Depends(retry_service)):
+        try:
+            return RetryAttemptResponse.model_validate(service.execute_scheduled(retry_id))
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @router.post("/interventions/{intervention_id}/escalate", response_model=EscalationResponse, status_code=201)
+    def escalate(intervention_id: str, payload: EscalationCreateRequest | None = Body(default=None), service: RecoveryOrchestrator = Depends(orchestration_service)):
+        request_payload = payload or EscalationCreateRequest()
+        try:
+            return as_escalation(service.escalations.create(intervention_id, request_payload.reason))
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @router.get("/escalations", response_model=list[EscalationResponse])
+    def list_escalations(service: RecoveryOrchestrator = Depends(orchestration_service)):
+        return [as_escalation(item) for item in service.escalations.list()]
+
+    @router.get("/escalations/{escalation_id}", response_model=EscalationResponse)
+    def get_escalation(escalation_id: str, service: RecoveryOrchestrator = Depends(orchestration_service)):
+        try:
+            return as_escalation(service.escalations.get(escalation_id))
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @router.post("/escalations/{escalation_id}/acknowledge", response_model=EscalationResponse)
+    def acknowledge_escalation(escalation_id: str, service: RecoveryOrchestrator = Depends(orchestration_service)):
+        try:
+            return as_escalation(service.escalations.transition(escalation_id, EscalationStatus.ACKNOWLEDGED))
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @router.post("/escalations/{escalation_id}/resolve", response_model=EscalationResponse)
+    def resolve_escalation(escalation_id: str, service: RecoveryOrchestrator = Depends(orchestration_service)):
+        try:
+            row = service.escalations.get(escalation_id)
+            if row.status == "OPEN":
+                service.escalations.transition(escalation_id, EscalationStatus.ACKNOWLEDGED)
+            row = service.escalations.get(escalation_id)
+            if row.status == "ACKNOWLEDGED":
+                service.escalations.transition(escalation_id, EscalationStatus.RESOLVED)
+            elif row.status == "IN_PROGRESS":
+                service.escalations.transition(escalation_id, EscalationStatus.RESOLVED)
+            return as_escalation(service.escalations.get(escalation_id))
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @router.post("/interventions/{intervention_id}/orchestrate")
+    def orchestrate(intervention_id: str, service: RecoveryOrchestrator = Depends(orchestration_service)):
+        try:
+            result = service.route(intervention_id)
+            if hasattr(result, "provider_message_id"):
+                return as_message(result)
+            if result.__class__.__name__ == "ScheduledRetry":
+                return ScheduledRetryResponse.model_validate(result)
+            if result.__class__.__name__ == "RetryAttempt":
+                return RetryAttemptResponse.model_validate(result)
+            if result.__class__.__name__ == "PaymentLink":
+                return as_payment(result)
+            if result.__class__.__name__ == "Escalation":
+                return as_escalation(result)
+            if result.__class__.__name__ == "VoiceCall":
+                return as_voice_call(result)
+            return as_intervention(result)
+        except (ValueError, PaymentError) as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @router.get("/interventions/{intervention_id}/payments", response_model=PaymentListResponse)

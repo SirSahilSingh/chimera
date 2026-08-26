@@ -779,3 +779,37 @@ creation is intentionally limited to the selected intervention action.
 Version/affected component: `backend/chimera_payments/`, payment tables,
 migration `0005_gate9_payments`, payment routes, Gate 8 payment-link handoff,
 `docs/payments.md`.
+
+## D-037 — Gate 10 provider-neutral recovery orchestration
+
+Decision: Route persisted interventions to messaging, retry, scheduling, or
+escalation services without introducing a second decision layer.
+
+Date: 2026-08-26
+
+Context: Gates 7–9 established lifecycle, voice, and payment boundaries, but
+`SEND_MESSAGE`, retry actions, and escalation still had no complete workflow.
+
+Chosen approach: Add `RecoveryOrchestrator` keyed only by
+`Intervention.action`; add deterministic local messaging/templates, a Twilio
+boundary, deterministic retry scheduling, a provider-neutral retry interface,
+and an append-only escalation event stream. Reuse active Gate 9 payment links
+and request a link through Gate 9 only for a SEND_MESSAGE workflow when none is
+active. Persist operation records and safe hashes; provider acceptance never
+means payment recovery.
+
+Alternatives considered: Recompute decisions during execution, let providers
+choose follow-up actions, add a queue broker, treat message delivery or retry
+acceptance as recovery, or make escalation a no-op audit line.
+
+Why this approach: It makes the selected intervention observable and
+executable while preserving deterministic decision authority and the existing
+payment/voice boundaries.
+
+Trade-offs: Local delivery and retry providers are synthetic; Twilio requires a
+configured destination number for live operation; retry schedules use a simple
+24-hour deterministic policy until a later gate defines richer scheduling.
+
+Version/affected component: `backend/chimera_messaging/`,
+`backend/chimera_retry/`, `backend/chimera_orchestration/`, migration
+`0006_gate10_orchestration`, API routes, and `docs/orchestration.md`.

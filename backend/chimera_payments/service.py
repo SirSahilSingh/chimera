@@ -51,6 +51,12 @@ class PaymentService:
             raise PaymentAuthorityError("voice payment link requires VOICE_RECOVERY")
         return self._create_for_intervention(intervention)
 
+    def create_for_message(self, intervention_id: str) -> PaymentLink:
+        intervention = self.interventions.get_intervention(intervention_id)
+        if intervention.action != "SEND_MESSAGE" or intervention.decision.selected_action != "SEND_MESSAGE":
+            raise PaymentAuthorityError("message payment link requires SEND_MESSAGE")
+        return self._create_for_intervention(intervention, allow_refresh=True)
+
     def get_payment(self, payment_id: str) -> PaymentLink:
         row = self.session.scalar(select(PaymentLink).options(selectinload(PaymentLink.attempts), selectinload(PaymentLink.events)).where(PaymentLink.id == payment_id))
         if row is None:
@@ -108,7 +114,7 @@ class PaymentService:
         event = PaymentWebhookEvent(provider_event_id=f"close-{link.id}", provider_payment_link_id=link.provider_payment_link_id, event_type="payment_link.expired", status=PaymentStatus.EXPIRED, amount_paise=link.amount_paise, currency=link.currency, occurred_at=self._now())
         return self._apply_event(self.provider.name, event, source="reconciliation", signature_verified=True)
 
-    def _create_for_intervention(self, intervention: Intervention) -> PaymentLink:
+    def _create_for_intervention(self, intervention: Intervention, *, allow_refresh: bool = False) -> PaymentLink:
         if not self.enabled:
             raise PaymentAuthorityError("payments_disabled")
         if intervention.status == InterventionStatus.READY.value:
@@ -117,9 +123,10 @@ class PaymentService:
         if intervention.status != InterventionStatus.AWAITING_OUTCOME.value:
             raise PaymentAuthorityError(f"payment link requires executable intervention, got {intervention.status}")
         existing = self.session.scalar(select(PaymentLink).where(PaymentLink.intervention_id == intervention.id))
-        if existing is not None:
+        if existing is not None and (not allow_refresh or existing.status in {PaymentStatus.ACTIVE.value, PaymentStatus.PAID.value}):
             return self.get_payment(existing.id)
-        key = payment_idempotency_key(intervention.id, intervention.decision_id, self.provider.name)
+        refresh_suffix = "initial" if existing is None else f"refresh-{len(self.list_for_intervention(intervention.id))}"
+        key = payment_idempotency_key(intervention.id, intervention.decision_id, f"{self.provider.name}|{refresh_suffix}")
         context = validate_payment_context(PaymentContext(
             recovery_case_id=intervention.recovery_case_id,
             intervention_id=intervention.id,
