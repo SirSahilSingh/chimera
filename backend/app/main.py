@@ -71,6 +71,7 @@ def create_app(database_url: str | None = None, *, create_tables: bool = True, e
             messaging_mode=settings.messaging_mode,
             retry_provider=settings.retry_provider,
             retry_mode=settings.retry_mode,
+            allow_live_execution=settings.allow_live_execution,
         )
     engine = make_engine(settings.database_url)
     if create_tables:
@@ -81,18 +82,24 @@ def create_app(database_url: str | None = None, *, create_tables: bool = True, e
     configured_voice_provider = voice_provider if voice_provider is not None else voice_provider_from_settings(settings)
     if settings.voice_mode:
         configured_voice_provider.mode = resolve_mode(configured_voice_provider.name, settings.voice_mode)
+    if configured_voice_provider.mode == "LIVE" and not settings.allow_live_execution and hasattr(configured_voice_provider, "enabled"):
+        configured_voice_provider.enabled = False
     if settings.payment_provider == "razorpay":
         configured_payment_provider: PaymentProvider = RazorpayPaymentProvider(settings.razorpay_key_id, settings.razorpay_key_secret, settings.razorpay_webhook_secret, enabled=settings.payment_enabled, timeout_seconds=settings.payment_timeout_seconds, mode=settings.razorpay_mode)
     else:
         configured_payment_provider = LocalDeterministicPaymentProvider()
         if settings.payment_mode:
             configured_payment_provider.mode = resolve_mode(configured_payment_provider.name, settings.payment_mode)
+    if configured_payment_provider.mode == "LIVE" and not settings.allow_live_execution and hasattr(configured_payment_provider, "enabled"):
+        configured_payment_provider.enabled = False
     if settings.messaging_provider == "twilio":
         configured_messaging_provider = TwilioMessagingProvider(settings.twilio_account_sid, settings.twilio_auth_token, settings.twilio_from_number, settings.twilio_to_number, enabled=settings.messaging_enabled, timeout_seconds=settings.messaging_timeout_seconds, mode=settings.messaging_mode)
     else:
         configured_messaging_provider = LocalDeterministicMessagingProvider()
         if settings.messaging_mode:
             configured_messaging_provider.mode = resolve_mode(configured_messaging_provider.name, settings.messaging_mode)
+    if configured_messaging_provider.mode == "LIVE" and not settings.allow_live_execution and hasattr(configured_messaging_provider, "enabled"):
+        configured_messaging_provider.enabled = False
     configured_retry_provider = UnavailableLiveRetryProvider() if settings.retry_provider == "live" else LocalDeterministicRetryProvider()
     if settings.retry_mode:
         configured_retry_provider.mode = resolve_mode(configured_retry_provider.name, settings.retry_mode)
@@ -135,6 +142,17 @@ def create_app(database_url: str | None = None, *, create_tables: bool = True, e
     def orchestration_service_factory(session):
         return RecoveryOrchestrator(session, messaging_service_factory(session), retry_service_factory(session), payment_service_factory(session), voice_service_factory(session))
 
+    def provider_health_service_factory(session):
+        from backend.chimera_provider_health.service import ProviderHealthService
+        return ProviderHealthService(
+            session,
+            settings=settings,
+            voice_provider=configured_voice_provider,
+            payment_provider=configured_payment_provider,
+            messaging_provider=configured_messaging_provider,
+            retry_provider=configured_retry_provider,
+        )
+
     app = FastAPI(title="CHIMERA API", version="1.0.0")
     router = build_router(
         session_factory=session_factory,
@@ -146,6 +164,7 @@ def create_app(database_url: str | None = None, *, create_tables: bool = True, e
         voice_service_factory=voice_service_factory,
         payment_service_factory=payment_service_factory,
         orchestration_service_factory=orchestration_service_factory,
+        provider_health_service_factory=provider_health_service_factory,
     )
     app.include_router(router, prefix="/api/v1")
     app.include_router(router, prefix="")

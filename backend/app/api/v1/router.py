@@ -57,9 +57,13 @@ from backend.chimera_orchestration.schemas import EscalationCreateRequest, Escal
 from backend.chimera_orchestration.service import RecoveryOrchestrator
 from backend.chimera_retry.service import RetryService
 from backend.provider_modes import ProviderMode, mode_label
+from backend.chimera_learning.schemas import LearningReportRequest, LearningReportResponse, LearningReportType
+from backend.chimera_learning.service import LearningService
+from backend.chimera_provider_health.schemas import ProviderReadinessResponse, ProviderTestRequest, ProviderVerificationResponse, ProviderVerifyRequest
+from backend.chimera_provider_health.service import ProviderHealthError, ProviderHealthService
 
 
-def build_router(*, session_factory, service_factory, health_factory, intelligence_service_factory, recovery_intelligence_service_factory, intervention_service_factory, voice_service_factory, payment_service_factory, orchestration_service_factory) -> APIRouter:
+def build_router(*, session_factory, service_factory, health_factory, intelligence_service_factory, recovery_intelligence_service_factory, intervention_service_factory, voice_service_factory, payment_service_factory, orchestration_service_factory, provider_health_service_factory) -> APIRouter:
     router = APIRouter()
 
     def db() -> Session:
@@ -94,6 +98,12 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
 
     def journey_service(session: Session = Depends(db)) -> RecoveryJourneyService:
         return RecoveryJourneyService(session)
+
+    def learning_service(session: Session = Depends(db)) -> LearningService:
+        return LearningService(session)
+
+    def provider_health_service(session: Session = Depends(db)) -> ProviderHealthService:
+        return provider_health_service_factory(session)
 
     def as_case(case) -> RecoveryCaseResponse:
         decisions = sorted(case.decisions, key=lambda item: item.created_at, reverse=True)
@@ -310,6 +320,83 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
         try:
             return service.get(case_id)
         except DomainError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @router.get("/learning/overview")
+    def learning_overview(provider_mode: str | None = None, service: LearningService = Depends(learning_service)):
+        return service.overview(provider_mode)
+
+    @router.get("/learning/actions")
+    def learning_actions(provider_mode: str | None = None, service: LearningService = Depends(learning_service)):
+        return service.action_report(provider_mode)
+
+    @router.get("/learning/failures")
+    def learning_failures(provider_mode: str | None = None, service: LearningService = Depends(learning_service)):
+        return service.failure_report(provider_mode)
+
+    @router.get("/learning/funnel")
+    def learning_funnel(provider_mode: str | None = None, service: LearningService = Depends(learning_service)):
+        return service.funnel_report(provider_mode)
+
+    @router.get("/learning/providers")
+    def learning_providers(provider_mode: str | None = None, service: LearningService = Depends(learning_service)):
+        return service.provider_report(provider_mode)
+
+    @router.get("/learning/calibration")
+    def learning_calibration(provider_mode: str | None = None, service: LearningService = Depends(learning_service)):
+        return service.calibration(provider_mode)
+
+    @router.get("/learning/drift")
+    def learning_drift(provider_mode: str | None = None, baseline_days: int = Query(30, ge=1, le=3650), current_days: int = Query(7, ge=1, le=3650), service: LearningService = Depends(learning_service)):
+        return service.drift(provider_mode, baseline_days, current_days)
+
+    @router.get("/learning/insights")
+    def learning_insights(provider_mode: str | None = None, service: LearningService = Depends(learning_service)):
+        return service.insights(provider_mode)
+
+    @router.get("/learning/recommendations")
+    def learning_recommendations(provider_mode: str | None = None, service: LearningService = Depends(learning_service)):
+        return service.recommendations(provider_mode)
+
+    @router.post("/learning/reports", response_model=LearningReportResponse, status_code=201)
+    def create_learning_report(payload: LearningReportRequest, service: LearningService = Depends(learning_service)):
+        return service.persist_report(payload.report_type, payload.provider_mode, payload.baseline_days, payload.current_days)
+
+    @router.get("/learning/reports", response_model=list[LearningReportResponse])
+    def list_learning_reports(service: LearningService = Depends(learning_service)):
+        return service.list_reports()
+
+    @router.get("/learning/reports/{report_id}", response_model=LearningReportResponse)
+    def get_learning_report(report_id: str, service: LearningService = Depends(learning_service)):
+        report = service.get_report(report_id)
+        if report is None:
+            raise HTTPException(status_code=404, detail="learning report not found")
+        return report
+
+    @router.get("/providers", response_model=list[ProviderReadinessResponse])
+    def list_providers(service: ProviderHealthService = Depends(provider_health_service)):
+        return service.list()
+
+    @router.get("/providers/{provider_name}", response_model=ProviderReadinessResponse)
+    def get_provider(provider_name: str, service: ProviderHealthService = Depends(provider_health_service)):
+        try:
+            return service.get(provider_name)
+        except ProviderHealthError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @router.post("/providers/{provider_name}/verify", response_model=ProviderVerificationResponse)
+    def verify_provider(provider_name: str, payload: ProviderVerifyRequest, service: ProviderHealthService = Depends(provider_health_service)):
+        del payload
+        try:
+            return service.verify(provider_name)
+        except ProviderHealthError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @router.post("/providers/{provider_name}/test", response_model=ProviderVerificationResponse)
+    def test_provider(provider_name: str, payload: ProviderTestRequest, service: ProviderHealthService = Depends(provider_health_service)):
+        try:
+            return service.test(provider_name, payload)
+        except ProviderHealthError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     @router.get("/recovery-cases/{case_id}/intelligence", response_model=RecoveryIntelligenceResponse)

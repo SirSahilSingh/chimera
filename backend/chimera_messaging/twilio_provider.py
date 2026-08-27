@@ -4,8 +4,10 @@ import hashlib
 import hmac
 import base64
 import json
+import socket
 from datetime import datetime, timezone
 from urllib.parse import parse_qsl, urlencode
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from backend.provider_modes import resolve_mode
 
@@ -34,6 +36,31 @@ class TwilioMessagingProvider(MessagingProvider):
             return MessageSendResult(str(payload["sid"]), "SENT", "QUEUED", datetime.now(timezone.utc))
         except Exception as exc:
             raise RuntimeError("provider_request_failed") from exc
+
+    def verify_connectivity(self) -> None:
+        if not self.enabled or not self.account_sid or not self.auth_token or not self.from_number or not self.to_number:
+            raise RuntimeError("provider_not_configured")
+        token = base64.b64encode(f"{self.account_sid}:{self.auth_token}".encode()).decode()
+        request = Request(
+            f"{self.base_url}/Accounts/{self.account_sid}.json",
+            headers={"Authorization": f"Basic {token}", "Accept": "application/json"},
+            method="GET",
+        )
+        try:
+            with urlopen(request, timeout=self.timeout_seconds) as response:
+                if response.status >= 400:
+                    raise RuntimeError("provider_unavailable")
+                response.read(1)
+        except RuntimeError:
+            raise
+        except (TimeoutError, socket.timeout):
+            raise RuntimeError("provider_timeout") from None
+        except HTTPError as exc:
+            if exc.code in {401, 403}:
+                raise RuntimeError("invalid_credentials") from None
+            raise RuntimeError("provider_unavailable") from None
+        except (URLError, OSError):
+            raise RuntimeError("provider_unavailable") from None
 
     def verify_webhook(self, raw_body: bytes, signature: str, webhook_url: str | None = None) -> bool:
         if not self.auth_token:

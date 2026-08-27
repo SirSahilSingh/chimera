@@ -282,6 +282,41 @@ export type DemoRunResponse = {
   journey_url: string;
 };
 
+export type LearningActionMetric = {
+  action: string;
+  selection_count: number;
+  selection_rate: number | null;
+  completed_count: number;
+  recovery_rate: number | null;
+  gross_recovered_value_paise: number;
+  net_recovered_value_paise: number;
+  average_predicted_probability: number | null;
+  average_expected_net_value_paise: number | null;
+  average_intervention_cost_paise: number | null;
+  average_fatigue_penalty_paise: number | null;
+  reliability: string;
+};
+
+export type LearningOverview = {
+  analysis_version: string;
+  provider_mode_filter: string | null;
+  provider_modes: string[];
+  sample_size: number;
+  data_warning: string | null;
+  overall: { total_cases: number; completed_cases: number; recovered_cases: number; unrecovered_cases: number; pending_cases: number; recovery_rate: number | null; gross_recovered_amount_paise: number; net_recovered_amount_paise: number; average_recovered_value_paise: number | null; average_time_to_outcome_seconds: number | null };
+  actions: LearningActionMetric[];
+  failures: { failure_reason: string; case_count: number; completed_count: number; recovery_rate: number | null; best_action: string | null; best_action_recovery_rate: number | null; recovered_value_paise: number; selected_action_distribution: Record<string, number> }[];
+  calibration: { status: string; sample_size: number; average_predicted: number | null; observed_recovery_rate: number | null; calibration_gap: number | null; brier_score: number | null; reliability_buckets: { bucket: string; sample_size: number; average_predicted: number; observed_recovery_rate: number; reliability: string }[] };
+  insights: { category: string; severity: string; title: string; evidence: string; sample_size: number; reliability: string; limitation: string }[];
+  recommendations: { category: string; recommendation: string; evidence: string; sample_size: number; limitation: string; review_requirement: string }[];
+};
+
+export type LearningFunnel = { stage: string; entered: number; completed: number; not_applicable: number; drop_off_rate: number | null; status: string }[];
+export type LearningProvider = { provider: string; provider_mode: string; attempt_count: number; successful_requests: number; failed_requests: number; timeout_count: number; retry_count: number; duplicate_suppression_count: number; average_latency_seconds: number | null; final_recovery_count: number; reliability: string };
+export type LearningDrift = { status: string; baseline_sample_size?: number; current_sample_size?: number; metrics: { metric: string; drift_score: number; severity: string; baseline_sample_size: number; current_sample_size: number; baseline_distribution?: Record<string, number>; current_distribution?: Record<string, number>; baseline_value?: number; current_value?: number }[] };
+
+export type ProviderReadiness = { provider_name: string; provider_type: string; implementation: string; provider_mode: string; readiness_status: string; last_verification_timestamp: string | null; last_verification_result: string; last_error_type: string | null; capabilities: string[]; limitations: string[]; verification_id: string | null; latency_ms: number | null; idempotency_status: string | null };
+
 export type RecoveryIntelligence = {
   case_id: string;
   detection: {

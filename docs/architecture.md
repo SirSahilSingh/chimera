@@ -136,3 +136,16 @@ provider/intervention state, outcome status, and descriptive post-outcome
 insights. It never invokes the model or decision engine, generates simulator
 outcomes, calls an LLM by default, or mutates lifecycle state. The consolidated
 endpoint is `GET /api/v1/recovery-cases/{case_id}/intelligence`.
+
+## Gate 16 provider readiness boundary
+
+`backend/chimera_provider_health/` wraps the existing voice, Razorpay,
+Twilio-compatible, retry, and escalation provider objects. It exposes
+readiness and explicit, side-effect-free verification probes without
+duplicating execution logic. Verification records are append-only and store
+only controlled statuses, capabilities, latency, safe error categories, and
+hashes. `LOCAL`, `MOCK`, `TEST`, `SANDBOX`, and `LIVE` remain distinct; live
+providers are disabled unless `CHIMERA_ALLOW_LIVE_EXECUTION=true`, and a live
+status is never inferred from credentials or mocked tests. The intervention
+lifecycle remains the sole execution boundary, and providers cannot alter
+`Decision.selected_action`, economics, constraints, or terminal outcomes.

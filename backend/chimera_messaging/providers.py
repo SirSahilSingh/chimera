@@ -26,3 +26,6 @@ class MessagingProvider(ABC):
 
     @abstractmethod
     def parse_webhook(self, raw_body: bytes, provider_event_id: str | None = None) -> dict: ...
+
+    def verify_connectivity(self) -> None:
+        raise RuntimeError("unsupported_capability")

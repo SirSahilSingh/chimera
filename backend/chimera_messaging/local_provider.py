@@ -20,6 +20,9 @@ class LocalDeterministicMessagingProvider(MessagingProvider):
         reference = hashlib.sha256(f"local-message-v1|{idempotency_key}|{content}".encode()).hexdigest()[:24]
         return MessageSendResult(f"local_msg_{reference}", "SENT", "DELIVERED", datetime(2026, 1, 1, tzinfo=timezone.utc))
 
+    def verify_connectivity(self) -> None:
+        return None
+
     def verify_webhook(self, raw_body: bytes, signature: str, webhook_url: str | None = None) -> bool:
         expected = hmac.new(self.secret.encode(), raw_body, hashlib.sha256).hexdigest()
         return hmac.compare_digest(expected, signature)

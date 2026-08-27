@@ -20,6 +20,44 @@ class Base(DeclarativeBase):
     pass
 
 
+class LearningReport(Base):
+    """Immutable, versioned learning snapshot; never used by decisioning."""
+
+    __tablename__ = "learning_reports"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    report_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    analysis_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    baseline_window: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    current_window: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    input_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    output_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    structured_report: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+
+
+class ProviderVerification(Base):
+    """Append-only safe provider readiness and verification record."""
+
+    __tablename__ = "provider_verifications"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    provider_name: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    provider_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    provider_mode: Mapped[str] = mapped_column(String(16), nullable=False)
+    operation: Mapped[str] = mapped_column(String(32), nullable=False)
+    readiness_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    verification_result: Mapped[str] = mapped_column(String(32), nullable=False)
+    verification_result_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    capabilities: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    error_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    idempotency_status: Mapped[str] = mapped_column(String(32), nullable=False, default="NOT_APPLICABLE")
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    input_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    output_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
 class RecoveryCase(Base):
     __tablename__ = "recovery_cases"
     __table_args__ = (UniqueConstraint("external_event_id", name="uq_recovery_cases_external_event_id"),)

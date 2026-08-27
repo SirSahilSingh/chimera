@@ -44,6 +44,10 @@ class VoiceProvider:
         del event
         return False
 
+    def verify_connectivity(self) -> None:
+        """Optional side-effect-free provider readiness probe."""
+        raise VoiceProviderError("unsupported_capability")
+
 
 class LocalDeterministicVoiceProvider(VoiceProvider):
     name = "local"
@@ -59,6 +63,9 @@ class LocalDeterministicVoiceProvider(VoiceProvider):
     def verify_webhook(self, event: VoiceWebhookEvent) -> bool:
         expected = sign_webhook_event(event)
         return hmac.compare_digest(expected, event.signature)
+
+    def verify_connectivity(self) -> None:
+        return None
 
 
 class LiveHttpVoiceProvider(VoiceProvider):
@@ -117,6 +124,29 @@ class LiveHttpVoiceProvider(VoiceProvider):
             return False
         expected = hmac.new(self.api_key.encode("utf-8"), canonical_webhook(event).encode("utf-8"), hashlib.sha256).hexdigest()
         return hmac.compare_digest(expected, event.signature)
+
+    def verify_connectivity(self) -> None:
+        self._require_configuration()
+        request = Request(
+            f"{self.base_url}/health",
+            headers={"Authorization": f"Bearer {self.api_key}", "Accept": "application/json"},
+            method="GET",
+        )
+        try:
+            with urlopen(request, timeout=self.timeout_seconds) as response:
+                if response.status >= 400:
+                    raise VoiceProviderError("provider_unavailable")
+                response.read(1)
+        except VoiceProviderError:
+            raise
+        except (TimeoutError, socket.timeout):
+            raise VoiceProviderError("provider_timeout") from None
+        except HTTPError as exc:
+            if exc.code in {401, 403}:
+                raise VoiceProviderError("invalid_credentials") from None
+            raise VoiceProviderError("provider_unavailable") from None
+        except (URLError, OSError):
+            raise VoiceProviderError("provider_unavailable") from None
 
 
 def canonical_webhook(event: VoiceWebhookEvent) -> str:

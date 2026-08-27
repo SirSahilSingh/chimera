@@ -40,6 +40,10 @@ class RazorpayPaymentProvider(PaymentProvider):
         except (KeyError, TypeError) as exc:
             raise PaymentProviderError("provider_invalid_response") from exc
 
+    def verify_connectivity(self) -> None:
+        self._ensure_configured()
+        self._request("GET", "/payment_links?count=1", None)
+
     def get_payment_status(self, provider_payment_link_id: str) -> PaymentWebhookEvent:
         self._ensure_configured()
         data = self._request("GET", f"/payment_links/{provider_payment_link_id}", None)

@@ -25,6 +25,9 @@ class LocalDeterministicPaymentProvider(PaymentProvider):
         token = hashlib.sha256(f"local-payment-v1|{context.idempotency_key}".encode()).hexdigest()[:24]
         return PaymentLinkResult(f"local_plink_{token}", f"https://demo.chimera.local/payment/{token}", PaymentStatus.ACTIVE, context.expires_at)
 
+    def verify_connectivity(self) -> None:
+        return None
+
     def get_payment_status(self, provider_payment_link_id: str) -> PaymentWebhookEvent:
         return self._event(provider_payment_link_id, PaymentDemoScenario.PAYMENT_PENDING)
 

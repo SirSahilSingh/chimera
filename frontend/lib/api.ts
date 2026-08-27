@@ -1,4 +1,4 @@
-import type { Decision, DemoRecoveryResponse, DemoRunResponse, Explanation, PaginatedCases, RecoveryCase, Execution, RecoveryIntelligence, RecoveryJourney } from "./types";
+import type { Decision, DemoRecoveryResponse, DemoRunResponse, Explanation, LearningDrift, LearningFunnel, LearningOverview, LearningProvider, PaginatedCases, ProviderReadiness, RecoveryCase, Execution, RecoveryIntelligence, RecoveryJourney } from "./types";
 
 // Prefer the same-origin Next.js proxy locally so the browser does not need a
 // separate CORS policy. An explicit public base remains available for a
@@ -54,4 +54,9 @@ export const api = {
   getIntelligence: (caseId: string) => request<RecoveryIntelligence>(`/recovery-cases/${caseId}/intelligence`),
   runRecoveryDemo: (payload: { external_event_id: string; payment_id: string; customer_id: string; amount_paise: number; currency: "INR"; failure_reason: string; incident_flag: boolean; payment_method: "card" | "upi" | "netbanking"; decision_timestamp: string }) => request<DemoRecoveryResponse>("/demo/recovery", { method: "POST", body: JSON.stringify(payload) }),
   runDemo: (payload: { scenario: DemoRunResponse["scenario"]; provider_mode: "LOCAL" }) => request<DemoRunResponse>("/demo/run", { method: "POST", body: JSON.stringify(payload) }),
+  learningOverview: (providerMode?: string) => request<LearningOverview>(`/learning/overview${providerMode ? `?provider_mode=${encodeURIComponent(providerMode)}` : ""}`),
+  learningFunnel: (providerMode?: string) => request<{ funnel: { stages: LearningFunnel; largest_bottleneck: LearningFunnel[number] | null } }>(`/learning/funnel${providerMode ? `?provider_mode=${encodeURIComponent(providerMode)}` : ""}`),
+  learningProviders: (providerMode?: string) => request<{ providers: LearningProvider[] }>(`/learning/providers${providerMode ? `?provider_mode=${encodeURIComponent(providerMode)}` : ""}`),
+  learningDrift: (providerMode?: string) => request<LearningDrift>(`/learning/drift${providerMode ? `?provider_mode=${encodeURIComponent(providerMode)}` : ""}`),
+  providerReadiness: () => request<ProviderReadiness[]>("/providers"),
 };

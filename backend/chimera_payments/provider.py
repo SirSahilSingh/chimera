@@ -38,3 +38,6 @@ class PaymentProvider(ABC):
 
     @abstractmethod
     def expire_or_close_link(self, provider_payment_link_id: str) -> PaymentLinkResult: ...
+
+    def verify_connectivity(self) -> None:
+        raise PaymentProviderError("unsupported_capability")

@@ -887,3 +887,38 @@ not merchant risk policy.
 
 Version/affected component: `backend/chimera_intelligence/`, intelligence
 endpoint, Decision Room, `docs/recovery_intelligence.md`.
+
+## D-040 — Gate 16 explicit provider readiness and live safety
+
+Decision: Add a provider-health boundary that reports configured provider
+capabilities and persists append-only verification attempts without granting
+provider execution or decision authority.
+
+Date: 2026-08-27
+
+Context: Provider adapters exist for local demos and optional external
+execution, but credentials or mock tests must not be presented as real-world
+verification.
+
+Chosen approach: Reuse existing provider objects and add only
+side-effect-free connectivity probes. Classify `LOCAL`/`MOCK` as
+`MOCK_VERIFIED`, `TEST` and `SANDBOX` only after a successful explicit probe,
+and `LIVE` only after a successful probe with
+`CHIMERA_ALLOW_LIVE_EXECUTION=true`. Persist controlled results and hashes in
+`provider_verifications`; never persist secrets or raw provider errors.
+
+Alternatives considered: Treat credentials as verified, invoke a customer
+action during readiness checks, add a provider SDK, or create a second
+execution path.
+
+Why this approach: It gives operators honest integration posture while
+preserving the intervention lifecycle and deterministic decision authority.
+
+Trade-offs: The voice adapter remains provider-neutral and requires a
+vendor-compatible `/health` endpoint. No external provider can be claimed
+verified until credentials are supplied and the appropriate probe is
+deliberately run.
+
+Version/affected component: `backend/chimera_provider_health/`, provider
+readiness APIs, `provider_verifications`, migration `0010_gate16_provider_health`,
+and the Command Center provider posture panel.

@@ -1,0 +1,2 @@
+LEARNING_ANALYSIS_VERSION = "learning_v1.0.0"
+LEARNING_SCHEMA_VERSION = "learning_schema_v1.0.0"

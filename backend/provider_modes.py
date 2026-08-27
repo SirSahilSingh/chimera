@@ -7,6 +7,7 @@ class ProviderMode(StrEnum):
     LOCAL = "LOCAL"
     MOCK = "MOCK"
     TEST = "TEST"
+    SANDBOX = "SANDBOX"
     LIVE = "LIVE"
 
 
@@ -14,6 +15,7 @@ PROVIDER_MODE_LABELS = {
     ProviderMode.LOCAL.value: "Demo Voice Agent",
     ProviderMode.MOCK.value: "Simulated Payment Provider",
     ProviderMode.TEST.value: "Provider Test Mode",
+    ProviderMode.SANDBOX.value: "Provider Sandbox Mode",
     ProviderMode.LIVE.value: "Live Provider Execution",
 }
 

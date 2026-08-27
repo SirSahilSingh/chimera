@@ -45,6 +45,7 @@ class AppSettings:
     messaging_mode: str | None = None
     retry_provider: str = "local"
     retry_mode: str | None = None
+    allow_live_execution: bool = False
 
 
 def load_settings() -> AppSettings:
@@ -84,4 +85,5 @@ def load_settings() -> AppSettings:
         messaging_mode=os.getenv("MESSAGING_MODE") or None,
         retry_provider=os.getenv("RETRY_PROVIDER", "local"),
         retry_mode=os.getenv("RETRY_MODE") or None,
+        allow_live_execution=os.getenv("CHIMERA_ALLOW_LIVE_EXECUTION", "false").casefold() in {"1", "true", "yes"},
     )

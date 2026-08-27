@@ -7,7 +7,7 @@ import { AlertIcon, AuditIcon, GridIcon, ListIcon, ShieldIcon, SearchIcon } from
 
 const navGroups = [
   { label: "Operations", items: [{ href: "/", label: "Command Center", icon: GridIcon }, { href: "/cases", label: "Recovery Cases", icon: ListIcon }, { href: "/cases?status=DECIDED", label: "Intervention Queue", icon: AlertIcon }] },
-  { label: "Intelligence", items: [{ href: "/intelligence/failures", label: "Failure Intelligence", icon: SearchIcon }, { href: "/intelligence/performance", label: "Recovery Performance", icon: ShieldIcon }] },
+  { label: "Intelligence", items: [{ href: "/intelligence/failures", label: "Failure Intelligence", icon: SearchIcon }, { href: "/intelligence/performance", label: "Recovery Performance", icon: ShieldIcon }, { href: "/learn", label: "Learn from outcomes", icon: SearchIcon }] },
   { label: "System", items: [{ href: "/audit", label: "Audit Trail", icon: AuditIcon }, { href: "/?view=engine", label: "Decision Engine", icon: ShieldIcon }] },
 ];
 
@@ -26,6 +26,7 @@ function pageName(pathname: string) {
   if (pathname === "/cases") return "Recovery Cases";
   if (pathname.startsWith("/intelligence/failures")) return "Failure Intelligence";
   if (pathname.startsWith("/intelligence/performance")) return "Recovery Performance";
+  if (pathname.startsWith("/learn")) return "Learn from outcomes";
   if (pathname.startsWith("/audit")) return "Audit Trail";
   return "Command Center";
 }
@@ -57,7 +58,7 @@ export function Button({ children, kind = "primary", onClick, disabled, type = "
 }
 
 export function StatusBadge({ status }: { status: string }) {
-  const tone = status === "RECOVERED" || status === "ACTION_EXECUTED" ? "success" : status === "NEW" ? "neutral" : status === "DECIDED" ? "info" : status === "CLOSED" || status === "UNRECOVERED" ? "muted" : "warning";
+  const tone = status === "RECOVERED" || status === "ACTION_EXECUTED" || status.endsWith("_VERIFIED") ? "success" : status === "NEW" || status === "NOT_CONFIGURED" ? "neutral" : status === "DECIDED" || status === "CONFIGURED" || status === "TEST_READY" ? "info" : status === "CLOSED" || status === "UNRECOVERED" ? "muted" : "warning";
   return <span className={`status-badge ${tone}`}><span className="status-dot" />{status.replaceAll("_", " ")}</span>;
 }
 
