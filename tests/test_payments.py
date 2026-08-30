@@ -163,6 +163,8 @@ class PaymentTests(unittest.TestCase):
             result = provider.create_payment_link(context)
         request = mocked.call_args.args[0]
         self.assertIn(b'"amount": 12500', request.data)
+        self.assertLessEqual(len(json.loads(request.data)["reference_id"]), 40)
+        self.assertTrue(json.loads(request.data)["reference_id"].startswith("chimera-"))
         self.assertNotIn(b"secret", request.data)
         with patch("backend.chimera_payments.providers.razorpay.urlopen", side_effect=[TimeoutError(), FakeResponse({"id": "plink_1", "short_url": "https://rzp.io/i/1", "status": "issued"})]) as retried:
             provider.create_payment_link(context)

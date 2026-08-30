@@ -29,7 +29,11 @@ class RazorpayPaymentProvider(PaymentProvider):
 
     def create_payment_link(self, context: PaymentContext) -> PaymentLinkResult:
         self._ensure_configured()
-        body = {"amount": context.amount_paise, "currency": context.currency, "description": context.description, "reference_id": context.idempotency_key}
+        # Razorpay caps reference_id at 40 characters. Keep CHIMERA's full
+        # idempotency key internally, but send a deterministic provider-safe
+        # reference derived from it.
+        provider_reference_id = f"chimera-{context.idempotency_key[:32]}"
+        body = {"amount": context.amount_paise, "currency": context.currency, "description": context.description, "reference_id": provider_reference_id}
         if context.expires_at:
             body["expire_by"] = int(context.expires_at.timestamp())
         if context.customer_email or context.customer_phone:
