@@ -18,6 +18,7 @@ export function DemoLauncher() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stage, setStage] = useState<number | null>(null);
   const [scenario, setScenario] = useState<(typeof scenarios)[number]["value"]>("payment_recovery");
   const selected = scenarios.find((item) => item.value === scenario) ?? scenarios[0];
 
@@ -27,11 +28,16 @@ export function DemoLauncher() {
     setError(null);
     try {
       const result = await api.runDemo({ scenario, provider_mode: "LOCAL" });
+      for (const index of [0, 1, 2, 3, 4]) {
+        setStage(index);
+        await new Promise((resolve) => window.setTimeout(resolve, 500));
+      }
       router.push(`/cases/${result.case_id}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.detail : "The recovery demo could not be started.");
     } finally {
       setBusy(false);
+      setStage(null);
     }
   };
 
@@ -40,7 +46,8 @@ export function DemoLauncher() {
     {open && <form className="demo-form" onSubmit={submit}>
       <label><span>Scenario</span><select value={scenario} onChange={(event) => setScenario(event.target.value as typeof scenario)}>{scenarios.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select><small>{selected.note}</small></label>
       <label><span>Provider mode</span><select value="LOCAL" disabled><option value="LOCAL">LOCAL · Demo Provider Execution</option></select><small>Safe local mode; no external provider call is made.</small></label>
-      <Button type="submit" disabled={busy}>{busy ? "Starting…" : "Launch scenario"}<ArrowRightIcon size={15} /></Button>
+      <Button type="submit" disabled={busy}>{busy ? "Walking through recovery…" : "Launch scenario"}<ArrowRightIcon size={15} /></Button>
+      {stage !== null && <div className="demo-stage-progress" aria-live="polite"><span>Live walkthrough</span><div>{["Detect", "Diagnose", "Decide", "Intervene", "Recover"].map((label, index) => <span className={index <= stage ? "complete" : ""} key={label}><i>{index < stage ? "✓" : index + 1}</i>{label}</span>)}</div></div>}
       {error && <p className="demo-error" role="alert">{error}</p>}
     </form>}
   </section>;

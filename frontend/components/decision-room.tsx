@@ -8,9 +8,8 @@ import { formatAction, formatDate, formatPaise } from "../lib/formatters";
 import type { Decision, Explanation, Execution, RecoveryCase, RecoveryIntelligence, RecoveryJourney } from "../lib/types";
 import { AlertIcon, ArrowRightIcon, CheckIcon, ChevronDownIcon, ClockIcon, ExternalIcon, RefreshIcon, ShieldIcon, XIcon } from "./icons";
 import { Button, ErrorState, StatusBadge } from "./shell";
-import { CandidateActionComparison, ConstraintList, DecisionReasoning, FailureDiagnosis, InterventionStatus, RecoveryLifecycle, RecoveryOutcome } from "./operational";
+import { CandidateActionComparison, ConstraintList, DecisionReasoning, FailureDiagnosis, InterventionStatus, RecoveryOutcome } from "./operational";
 import { PersistedJourneyTimeline, ProviderJourney } from "./recovery-journey";
-import { RecoveryIntelligenceNarrative } from "./recovery-intelligence";
 
 export function DecisionRoom({ initialCase }: { initialCase: RecoveryCase }) {
   const [caseData, setCaseData] = useState(initialCase);
@@ -21,7 +20,9 @@ export function DecisionRoom({ initialCase }: { initialCase: RecoveryCase }) {
   const [history, setHistory] = useState<Explanation[]>([]);
   const [journey, setJourney] = useState<RecoveryJourney | null>(null);
   const [intelligence, setIntelligence] = useState<RecoveryIntelligence | null>(null);
+  const [activeStage, setActiveStage] = useState("Detect");
   const decision = caseData.latest_decision;
+  const stages = ["Detect", "Diagnose", "Decide", "Intervene", "Recover", "Learn"];
 
   const refresh = async () => {
     const nextCase = await api.getCase(caseData.id);
@@ -54,6 +55,13 @@ export function DecisionRoom({ initialCase }: { initialCase: RecoveryCase }) {
   };
 
   const canExecute = caseData.status === "DECIDED" && Boolean(decision);
+  const stageContent = activeStage === "Detect" ? <FailureDiagnosis caseData={caseData} decision={decision} />
+    : activeStage === "Diagnose" ? <DiagnosisTab caseData={caseData} intelligence={intelligence} />
+    : activeStage === "Decide" ? <div className="stage-stack">{decision ? <><DecisionReasoning decision={decision} explanation={explanation} /><CandidateActionComparison decision={decision} currency={caseData.currency} /><ConstraintList decision={decision} /></> : <DecisionEmpty busy={busy === "decide"} onDecide={() => run("decide")} />}</div>
+    : activeStage === "Intervene" ? <div className="stage-stack">{decision ? <InterventionStatus caseData={caseData} decision={decision} execution={caseData.latest_execution} canExecute={canExecute} onExecute={() => setConfirmOpen(true)} /> : <DecisionEmpty busy={busy === "decide"} onDecide={() => run("decide")} />}{journey && <ProviderJourney journey={journey} />}</div>
+    : activeStage === "Recover" ? <div className="stage-stack"><RecoveryOutcome caseData={caseData} />{journey && <ProviderJourney journey={journey} />}</div>
+    : <div className="stage-stack">{decision ? <ExplanationSection decision={decision} explanation={explanation} history={history} busy={busy === "explain"} onExplain={() => run("explain")} /> : <DecisionEmpty busy={busy === "decide"} onDecide={() => run("decide")} />}{intelligence && <LearningTab intelligence={intelligence} />}</div>;
+
   return <div className="decision-room">
     <div className="detail-hero">
       <div>
@@ -64,17 +72,19 @@ export function DecisionRoom({ initialCase }: { initialCase: RecoveryCase }) {
       <div className="risk-readout"><span>Revenue at risk</span><strong>{formatPaise(caseData.amount_paise, caseData.currency)}</strong><small>Payment {caseData.payment_id} · {formatDate(caseData.decision_timestamp)}</small></div>
     </div>
     {error && <ErrorState message={error} onRetry={() => setError(null)} />}
-    <RecoveryLifecycle caseData={caseData} />
-    {intelligence ? <RecoveryIntelligenceNarrative intelligence={intelligence} /> : <section className="intelligence-narrative intelligence-loading"><div className="inline-empty"><span className="loader" /><span>Loading case intelligence…</span></div></section>}
-    <div className="detail-grid"><FailureDiagnosis caseData={caseData} decision={decision} />{decision ? <DecisionReasoning decision={decision} explanation={explanation} /> : <DecisionEmpty busy={busy === "decide"} onDecide={() => run("decide")} />}</div>
-    {decision ? <>
-      <CandidateActionComparison decision={decision} currency={caseData.currency} />
-      <div className="detail-grid lower"><ExplanationSection decision={decision} explanation={explanation} history={history} busy={busy === "explain"} onExplain={() => run("explain")} /><ConstraintList decision={decision} /></div>
-      <div className="detail-grid lower"><InterventionStatus caseData={caseData} decision={decision} execution={caseData.latest_execution} canExecute={canExecute} onExecute={() => setConfirmOpen(true)} /><RecoveryOutcome caseData={caseData} /></div>
-    {journey ? <><ProviderJourney journey={journey} /><PersistedJourneyTimeline journey={journey} /></> : <section className="journey-panel"><div className="inline-empty"><span className="loader" /><span>Loading persisted recovery journey…</span></div></section>}
-    </> : <div className="detail-grid lower"><RecoveryOutcome caseData={caseData} /></div>}
+    <section className="decision-tabs" aria-label="Decision lifecycle"><div className="decision-tab-list" role="tablist">{stages.map((stage) => <button key={stage} role="tab" aria-selected={activeStage === stage} className={`decision-tab ${activeStage === stage ? "active" : ""}`} onClick={() => setActiveStage(stage)}><span>{stages.indexOf(stage) + 1}</span>{stage}</button>)}</div><div className="decision-tab-content">{stageContent}</div></section>
+    {journey ? <details className="raw-audit-accordion"><summary>View raw audit trail ({journey.audit_trail.length} events)<ChevronDownIcon size={16} /></summary><PersistedJourneyTimeline journey={journey} /></details> : <section className="journey-panel"><div className="inline-empty"><span className="loader" /><span>Loading persisted recovery journey…</span></div></section>}
     {confirmOpen && decision && <ConfirmDialog caseData={caseData} decision={decision} onCancel={() => setConfirmOpen(false)} onConfirm={() => run("execute")} busy={busy === "execute"} />}
   </div>;
+}
+
+function DiagnosisTab({ caseData, intelligence }: { caseData: RecoveryCase; intelligence: RecoveryIntelligence | null }) {
+  if (!intelligence) return <FailureDiagnosis caseData={caseData} decision={caseData.latest_decision} />;
+  return <section className="diagnosis-tab"><div className="panel-heading"><div><span className="section-overline">Diagnose</span><h2>{intelligence.diagnosis.primary_cause}</h2></div><StatusBadge status={intelligence.diagnosis.confidence.toUpperCase()} /></div><p className="diagnosis-statement">{intelligence.diagnosis.statement}</p><div className="diagnosis-facts">{intelligence.diagnosis.evidence.map((item) => <div key={item.field}><span>{item.field.replaceAll("_", " ")}</span><strong>{item.interpretation}</strong></div>)}</div></section>;
+}
+
+function LearningTab({ intelligence }: { intelligence: RecoveryIntelligence }) {
+  return <section className="learning-tab"><div className="panel-heading"><div><span className="section-overline">Learn</span><h2>What this case adds to the operating picture</h2></div></div>{intelligence.insights.length ? <div className="insight-list">{intelligence.insights.map((item) => <div className="insight-row" key={`${item.type}-${item.message}`}><StatusBadge status={item.type.toUpperCase()} /><p>{item.message}</p></div>)}</div> : <p>No additional case-level learning signal is available.</p>}</section>;
 }
 
 function DecisionEmpty({ busy, onDecide }: { busy: boolean; onDecide: () => void }) {

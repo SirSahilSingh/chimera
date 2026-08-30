@@ -23,6 +23,8 @@ from backend.app.schemas import (
     RecoveryCaseResponse,
     DemoRunRequest,
     DemoRunResponse,
+    ArenaRunRequest,
+    ArenaResponse,
 )
 from backend.app.services.case_service import CaseService
 from backend.app.services.intelligence_service import IntelligenceService
@@ -63,7 +65,7 @@ from backend.chimera_provider_health.schemas import ProviderReadinessResponse, P
 from backend.chimera_provider_health.service import ProviderHealthError, ProviderHealthService
 
 
-def build_router(*, session_factory, service_factory, health_factory, intelligence_service_factory, recovery_intelligence_service_factory, intervention_service_factory, voice_service_factory, payment_service_factory, orchestration_service_factory, provider_health_service_factory) -> APIRouter:
+def build_router(*, session_factory, service_factory, health_factory, intelligence_service_factory, recovery_intelligence_service_factory, intervention_service_factory, voice_service_factory, payment_service_factory, orchestration_service_factory, provider_health_service_factory, arena_service_factory) -> APIRouter:
     router = APIRouter()
 
     def db() -> Session:
@@ -104,6 +106,9 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
 
     def provider_health_service(session: Session = Depends(db)) -> ProviderHealthService:
         return provider_health_service_factory(session)
+
+    def arena_service():
+        return arena_service_factory()
 
     def as_case(case) -> RecoveryCaseResponse:
         decisions = sorted(case.decisions, key=lambda item: item.created_at, reverse=True)
@@ -313,6 +318,13 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
         except HTTPException:
             raise
         except (DomainError, ValueError, PaymentError, VoiceDomainError) as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @router.post("/arena/run", response_model=ArenaResponse)
+    def run_arena(payload: ArenaRunRequest, service = Depends(arena_service)):
+        try:
+            return service.run(seeds=payload.seeds, count_per_seed=payload.count_per_seed)
+        except (ValueError, OSError) as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @router.get("/recovery-cases/{case_id}/journey")

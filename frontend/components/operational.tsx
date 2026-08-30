@@ -29,8 +29,8 @@ export function RecoveryLifecycle({ caseData }: { caseData: RecoveryCase }) {
 
 export function FailureDiagnosis({ caseData, decision }: { caseData: RecoveryCase; decision: Decision | null }) {
   return <section className="diagnosis-panel dark-panel">
-    <div className="panel-heading"><div><span className="section-overline">Diagnose</span><h2>Observed failure pattern</h2></div><span className={`signal-chip ${caseData.incident_flag ? "warning" : "quiet"}`}><span />{caseData.incident_flag ? "Incident signal" : "No incident signal"}</span></div>
-    <div className="diagnosis-main"><div className="diagnosis-mark"><AlertIcon size={22} /></div><div><strong>{formatFailureReason(caseData.failure_reason)}</strong><p>CHIMERA is working from the observable payment context only. Hidden simulator state and future outcomes are never surfaced here.</p></div></div>
+    <div className="panel-heading"><div><span className="section-overline">Detect</span><h2>Payment failure detected</h2></div><span className={`signal-chip ${caseData.incident_flag ? "warning" : "quiet"}`}><span />{caseData.incident_flag ? "Incident signal" : "No incident signal"}</span></div>
+    <div className="diagnosis-main"><div className="diagnosis-mark"><AlertIcon size={22} /></div><div><strong>{formatFailureReason(caseData.failure_reason)}</strong><p>Failure recorded at decision time with the observable payment context attached.</p></div></div>
     <div className="diagnosis-facts"><div><span>Payment method</span><strong>{caseData.payment_method.toUpperCase()}</strong></div><div><span>Amount at risk</span><strong>{formatPaise(caseData.amount_paise, caseData.currency)}</strong></div><div><span>Stored response</span><strong>{decision ? formatAction(decision.selected_action) : "Awaiting decision"}</strong></div></div>
   </section>;
 }
@@ -60,7 +60,7 @@ export function InterventionStatus({ caseData, decision, execution, canExecute, 
 export function RecoveryOutcome({ caseData }: { caseData: RecoveryCase }) {
   const recovered = isRecovered(caseData);
   const unresolved = caseData.status === "UNRECOVERED";
-  return <section className={`outcome-panel ${recovered ? "recovered" : unresolved ? "unresolved" : "pending"}`}><div className="outcome-icon">{recovered ? <CheckIcon size={20} /> : unresolved ? <AlertIcon size={20} /> : <ClockIcon size={20} />}</div><div><span className="section-overline">Recover</span><h2>{recovered ? "Recovered" : unresolved ? "Unresolved" : "Recovery in progress"}</h2><p>{recovered ? `The backend reports ${formatPaise(caseData.amount_paise, caseData.currency)} recovered.` : unresolved ? "The backend reports no recovery outcome for this case." : "Outcome pending. CHIMERA does not claim recovery until the backend records it."}</p></div><StatusBadge status={caseData.status} /></section>;
+  return <section className={`outcome-panel ${recovered ? "recovered" : unresolved ? "unresolved" : "pending"}`}><div className="outcome-icon">{recovered ? <CheckIcon size={20} /> : unresolved ? <AlertIcon size={20} /> : <ClockIcon size={20} />}</div><div><span className="section-overline">Recover</span><h2>{recovered ? "Recovered" : unresolved ? "Unresolved" : "Recovery in progress"}</h2><p>{recovered ? `The backend reports ${formatPaise(caseData.amount_paise, caseData.currency)} recovered.` : unresolved ? "No recovery outcome was recorded for this case." : "Outcome pending; recovery is still in progress."}</p></div><StatusBadge status={caseData.status} /></section>;
 }
 
 type ActivityEvent = { label: string; detail: string; timestamp: string; tone?: "mint" | "amber" | "red" };

@@ -92,6 +92,41 @@ class DemoRunResponse(BaseModel):
     journey_url: str
 
 
+class ArenaRunRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    seeds: list[StrictInt] = Field(default_factory=lambda: [400000], min_length=1, max_length=5)
+    count_per_seed: StrictInt = Field(default=25, ge=1, le=1000)
+
+
+class ArenaStrategySummary(BaseModel):
+    strategy: str
+    policy_name: str
+    recovered_revenue_paise: int
+    net_value_paise: int
+    interventions: int
+    policy_violations: int
+    recovery_rate: float
+    bar_percent: float
+
+
+class ArenaBatchSummary(BaseModel):
+    label: str
+    total_events: int
+    value_at_risk_paise: int
+    seeds: list[int]
+    count_per_seed: int
+
+
+class ArenaResponse(BaseModel):
+    batch: ArenaBatchSummary
+    rows: list[ArenaStrategySummary]
+    methodology: str
+    same_event_batch_across_policies: bool
+    simulator_version: str
+    config_hash: str
+
+
 class CandidateResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     action: str

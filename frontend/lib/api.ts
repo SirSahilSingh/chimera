@@ -1,4 +1,4 @@
-import type { Decision, DemoRecoveryResponse, DemoRunResponse, Explanation, LearningDrift, LearningFunnel, LearningOverview, LearningProvider, PaginatedCases, ProviderReadiness, RecoveryCase, Execution, RecoveryIntelligence, RecoveryJourney } from "./types";
+import type { ArenaResponse, Decision, DemoRecoveryResponse, DemoRunResponse, Escalation, Explanation, LearningDrift, LearningFunnel, LearningOverview, LearningProvider, PaginatedCases, ProviderReadiness, ProviderVerificationResponse, RecoveryCase, Execution, RecoveryIntelligence, RecoveryJourney, ScheduledRetry, SystemHealth } from "./types";
 
 // Prefer the same-origin Next.js proxy locally so the browser does not need a
 // separate CORS policy. An explicit public base remains available for a
@@ -59,4 +59,12 @@ export const api = {
   learningProviders: (providerMode?: string) => request<{ providers: LearningProvider[] }>(`/learning/providers${providerMode ? `?provider_mode=${encodeURIComponent(providerMode)}` : ""}`),
   learningDrift: (providerMode?: string) => request<LearningDrift>(`/learning/drift${providerMode ? `?provider_mode=${encodeURIComponent(providerMode)}` : ""}`),
   providerReadiness: () => request<ProviderReadiness[]>("/providers"),
+  verifyProvider: (providerName: string) => request<ProviderVerificationResponse>(`/providers/${encodeURIComponent(providerName)}/verify`, { method: "POST", body: JSON.stringify({}) }),
+  systemHealth: () => request<SystemHealth>("/health"),
+  listEscalations: () => request<Escalation[]>("/escalations"),
+  acknowledgeEscalation: (escalationId: string) => request<Escalation>(`/escalations/${encodeURIComponent(escalationId)}/acknowledge`, { method: "POST" }),
+  resolveEscalation: (escalationId: string) => request<Escalation>(`/escalations/${encodeURIComponent(escalationId)}/resolve`, { method: "POST" }),
+  listScheduledRetries: () => request<ScheduledRetry[]>("/retries/scheduled"),
+  executeScheduledRetry: (retryId: string) => request<Execution>(`/retries/${encodeURIComponent(retryId)}/execute`, { method: "POST" }),
+  runArena: (payload: { seeds?: number[]; count_per_seed?: number } = {}) => request<ArenaResponse>("/arena/run", { method: "POST", body: JSON.stringify({ seeds: payload.seeds ?? [400000], count_per_seed: payload.count_per_seed ?? 25 }) }),
 };

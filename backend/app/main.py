@@ -30,6 +30,7 @@ from backend.chimera_intelligence.provider import ExplanationProvider, provider_
 from backend.chimera_intelligence.service import RecoveryIntelligenceService
 from backend.chimera_model.benchmark import BenchmarkProbabilityModel, INTERACTION_FEATURE_SCHEMA_VERSION
 from backend.chimera_simulator.config import SimulatorConfig
+from backend.chimera_arena import ArenaComparisonService
 
 
 def create_app(database_url: str | None = None, *, create_tables: bool = True, explanation_provider: ExplanationProvider | None = None, voice_provider: VoiceProvider | None = None) -> FastAPI:
@@ -153,6 +154,9 @@ def create_app(database_url: str | None = None, *, create_tables: bool = True, e
             retry_provider=configured_retry_provider,
         )
 
+    def arena_service_factory():
+        return ArenaComparisonService(simulator_config, settings.model_artifact_path)
+
     app = FastAPI(title="CHIMERA API", version="1.0.0")
     router = build_router(
         session_factory=session_factory,
@@ -165,6 +169,7 @@ def create_app(database_url: str | None = None, *, create_tables: bool = True, e
         payment_service_factory=payment_service_factory,
         orchestration_service_factory=orchestration_service_factory,
         provider_health_service_factory=provider_health_service_factory,
+        arena_service_factory=arena_service_factory,
     )
     app.include_router(router, prefix="/api/v1")
     app.include_router(router, prefix="")

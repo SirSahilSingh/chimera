@@ -115,6 +115,49 @@ export type PaginatedCases = {
 
 export type ProviderMode = "LOCAL" | "MOCK" | "TEST" | "LIVE" | string;
 
+export type ScheduledRetry = {
+  id: string;
+  recovery_case_id: string;
+  intervention_id: string;
+  decision_id: string;
+  idempotency_key: string;
+  attempt_number: number;
+  scheduled_at: string;
+  schedule_reason: string;
+  eligibility_status: string;
+  execution_status: string;
+  provider_mode: ProviderMode;
+  executed_at: string | null;
+  created_at: string;
+};
+
+export type EscalationEvent = {
+  id: string;
+  escalation_id: string;
+  event_type: string;
+  status: string;
+  actor: string;
+  payload_json: Record<string, unknown>;
+  sequence_number: number;
+  created_at: string;
+};
+
+export type Escalation = {
+  id: string;
+  recovery_case_id: string;
+  intervention_id: string;
+  decision_id: string;
+  escalation_reason: string;
+  context_json: Record<string, unknown>;
+  priority: number;
+  idempotency_key: string;
+  status: string;
+  provider_mode: ProviderMode;
+  created_at: string;
+  updated_at: string;
+  events: EscalationEvent[];
+};
+
 export type JourneyEvent = {
   id: string;
   event_type: string;
@@ -316,6 +359,10 @@ export type LearningProvider = { provider: string; provider_mode: string; attemp
 export type LearningDrift = { status: string; baseline_sample_size?: number; current_sample_size?: number; metrics: { metric: string; drift_score: number; severity: string; baseline_sample_size: number; current_sample_size: number; baseline_distribution?: Record<string, number>; current_distribution?: Record<string, number>; baseline_value?: number; current_value?: number }[] };
 
 export type ProviderReadiness = { provider_name: string; provider_type: string; implementation: string; provider_mode: string; readiness_status: string; last_verification_timestamp: string | null; last_verification_result: string; last_error_type: string | null; capabilities: string[]; limitations: string[]; verification_id: string | null; latency_ms: number | null; idempotency_status: string | null };
+export type ProviderVerificationResponse = ProviderReadiness & { operation: string; verification_result: string; error_type: string | null; message: string; input_hash: string; output_hash: string; verification_record: Record<string, unknown> | null };
+export type SystemHealth = { status: string; database: string; model_compatibility: string; api_environment: string };
+export type ArenaStrategySummary = { strategy: string; policy_name: string; recovered_revenue_paise: number; net_value_paise: number; interventions: number; policy_violations: number; recovery_rate: number; bar_percent: number };
+export type ArenaResponse = { batch: { label: string; total_events: number; value_at_risk_paise: number; seeds: number[]; count_per_seed: number }; rows: ArenaStrategySummary[]; methodology: string; same_event_batch_across_policies: boolean; simulator_version: string; config_hash: string };
 
 export type RecoveryIntelligence = {
   case_id: string;
