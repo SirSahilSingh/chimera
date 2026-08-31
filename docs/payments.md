@@ -23,6 +23,7 @@ CHIMERA separates the initial merchant checkout from recovery payment links.
 - Razorpay sends signed `payment.failed` or `payment.captured` webhooks to `/api/v1/payments/webhook/razorpay`.
 - A failed initial order is persisted first, then CHIMERA creates the recovery case, runs the deterministic decision engine, and routes the selected intervention.
 - Payment Links remain a recovery action. Their paid/expired/failed outcomes continue through the existing `PaymentLink` lifecycle.
+- When `PAYMENT_LINK` is selected, the orchestrator creates the recovery link and then attempts to deliver that exact URL through the configured messaging provider. The delivery is recorded as a `MessageAttempt` under the same intervention and is idempotent.
 - The webhook handler is idempotent by provider event ID. The order is correlated by `order_id`, so the initial failure does not depend on a hosted Payment Link exposing a link ID.
 
 The initial checkout API never returns a provider secret. It stores customer contact data on the order so the recovery case can inherit it when a failure event arrives.

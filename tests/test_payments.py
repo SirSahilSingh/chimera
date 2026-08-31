@@ -261,6 +261,16 @@ class PaymentTests(unittest.TestCase):
         self.assertEqual(session.query(PaymentOrder).one().status, "FAILED")
         session.close()
 
+    def test_payment_link_action_delivers_generated_link_through_messaging_boundary(self):
+        intervention, link = self.create_link(suffix="payment-link-delivery")
+        self.assertEqual(self.client.get(f"/api/v1/recovery-cases/{intervention['recovery_case_id']}/journey").json()["messages"], [])
+        response = self.client.post(f"/api/v1/interventions/{intervention['id']}/orchestrate")
+        self.assertEqual(response.status_code, 200, response.text)
+        journey = self.client.get(f"/api/v1/recovery-cases/{intervention['recovery_case_id']}/journey").json()
+        self.assertEqual(len(journey["payments"]), 1)
+        self.assertEqual(len(journey["messages"]), 1)
+        self.assertEqual(journey["messages"][0]["delivery_state"], "DELIVERED")
+
     def test_razorpay_order_payload_uses_paise_and_checkout_key(self):
         provider = RazorpayPaymentProvider("rzp_test_key", "secret", "webhook", enabled=True)
         context = PaymentOrderCreate(

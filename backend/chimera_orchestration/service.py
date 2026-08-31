@@ -108,7 +108,14 @@ class RecoveryOrchestrator:
         if action == "RETRY_LATER":
             return self.retry.schedule(intervention_id)
         if action == "PAYMENT_LINK":
-            return self.payments.create_payment_link(intervention_id)
+            payment = self.payments.create_payment_link(intervention_id)
+            try:
+                self.messaging.send_for_payment_link(intervention_id, payment.short_url)
+            except ValueError:
+                # The payment artifact remains usable and the failed delivery
+                # is persisted by MessagingService for operator visibility.
+                pass
+            return payment
         if action == "VOICE_RECOVERY":
             return self.voice.start(intervention_id, VoiceScenario.CUSTOMER_AGREES_TO_PAY)[0]
         if action == "ESCALATE":

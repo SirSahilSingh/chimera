@@ -61,6 +61,56 @@ class MessagingService:
         self.session.commit()
         return self.get_message(row.id)
 
+    def send_for_payment_link(self, intervention_id: str, payment_link: str) -> MessageAttempt:
+        """Deliver the generated recovery link for a PAYMENT_LINK action.
+
+        Link creation and delivery are separate persisted provider boundaries,
+        but one recovery action owns both steps. This keeps the selected
+        decision as PAYMENT_LINK while making WhatsApp delivery observable.
+        """
+        intervention = self.interventions.get_intervention(intervention_id)
+        if intervention.action != "PAYMENT_LINK" or intervention.decision.selected_action != "PAYMENT_LINK":
+            raise ValueError("payment-link delivery requires stored PAYMENT_LINK intervention")
+        context = validate_messaging_context(MessagingContext(
+            intervention_id=intervention.id,
+            recovery_case_id=intervention.recovery_case_id,
+            decision_id=intervention.decision_id,
+            selected_action="PAYMENT_LINK",
+            customer_id=intervention.recovery_case.customer_id,
+            customer_phone=intervention.recovery_case.customer_phone,
+            language="en",
+            amount_paise=intervention.recovery_case.amount_paise,
+            currency=intervention.recovery_case.currency,
+            payment_method=intervention.recovery_case.payment_method,
+            failure_reason=intervention.recovery_case.failure_reason,
+            incident_flag=intervention.recovery_case.incident_flag,
+            payment_link=payment_link,
+        ))
+        existing = self.session.scalar(select(MessageAttempt).where(
+            MessageAttempt.intervention_id == intervention.id,
+            MessageAttempt.template_key != "voice_recovery_link",
+        ).order_by(MessageAttempt.attempt_number.asc(), MessageAttempt.id.asc()))
+        if existing is not None:
+            return self.get_message(existing.id)
+        key = __import__("hashlib").sha256(f"chimera-message-v1|payment-link|{intervention.id}|{self.provider.name}".encode()).hexdigest()
+        template, version, content, content_hash = render_message(context)
+        try:
+            result = self.provider.send_message(context, content, key)
+        except Exception as exc:
+            now = self._now()
+            row = MessageAttempt(recovery_case_id=intervention.recovery_case_id, intervention_id=intervention.id, decision_id=intervention.decision_id, provider=self.provider.name, provider_mode=self.provider.mode, idempotency_key=key, attempt_number=1, template_key=template, template_version=version, rendered_content_hash=content_hash, provider_message_id=None, status="FAILED", delivery_state="FAILED", sent_at=now)
+            self.session.add(row)
+            self.session.flush()
+            self.session.add(MessagingEvent(message_attempt_id=row.id, provider=self.provider.name, provider_mode=self.provider.mode, provider_event_id=f"failed-{row.id}", event_type="message.failed", delivery_state="FAILED", signature_verified=False, occurred_at=now, payload_hash=payload_hash({"delivery_state": "FAILED"}), payload_json={"delivery_state": "FAILED", "failure_classification": "provider_request_failed", "processing_result": "failed", "source": "payment_link_delivery"}))
+            self.session.commit()
+            raise ValueError("provider_request_failed") from exc
+        row = MessageAttempt(recovery_case_id=intervention.recovery_case_id, intervention_id=intervention.id, decision_id=intervention.decision_id, provider=self.provider.name, provider_mode=self.provider.mode, idempotency_key=key, attempt_number=1, template_key=template, template_version=version, rendered_content_hash=content_hash, provider_message_id=result.provider_message_id, status=result.status, delivery_state=result.delivery_state, sent_at=result.sent_at)
+        self.session.add(row)
+        self.session.flush()
+        self.session.add(MessagingEvent(message_attempt_id=row.id, provider=self.provider.name, provider_mode=self.provider.mode, provider_event_id=f"sent-{row.id}", event_type="message.sent", delivery_state=result.delivery_state, signature_verified=False, occurred_at=result.sent_at, payload_hash=payload_hash({"provider_message_id": result.provider_message_id, "delivery_state": result.delivery_state}), payload_json={"provider_message_id": result.provider_message_id, "delivery_state": result.delivery_state, "source": "payment_link_delivery"}))
+        self.session.commit()
+        return self.get_message(row.id)
+
     def send_for_voice_link(self, intervention_id: str, payment_link: str) -> MessageAttempt:
         """Send a generated voice-call payment link through the configured channel."""
         intervention = self.interventions.get_intervention(intervention_id)
