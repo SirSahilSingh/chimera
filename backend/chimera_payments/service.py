@@ -164,7 +164,14 @@ class PaymentService:
     def _apply_event(self, provider_name: str, event: PaymentWebhookEvent, *, source: str, signature_verified: bool) -> PaymentLink:
         if provider_name != self.provider.name:
             raise PaymentWebhookError("provider is not configured for this boundary")
-        link = self.session.scalar(select(PaymentLink).where(PaymentLink.provider == provider_name, PaymentLink.provider_payment_link_id == event.provider_payment_link_id))
+        link = self.session.scalar(select(PaymentLink).where(PaymentLink.provider == provider_name, PaymentLink.provider_payment_link_id == event.provider_payment_link_id)) if event.provider_payment_link_id else None
+        if link is None and provider_name == "razorpay":
+            resolver = getattr(self.provider, "resolve_payment_link_id", None)
+            if callable(resolver):
+                resolved_link_id = resolver(provider_order_id=event.provider_order_id, provider_reference_id=event.provider_reference_id)
+                if resolved_link_id:
+                    event = event.model_copy(update={"provider_payment_link_id": resolved_link_id})
+                    link = self.session.scalar(select(PaymentLink).where(PaymentLink.provider == provider_name, PaymentLink.provider_payment_link_id == resolved_link_id))
         if link is None:
             raise PaymentNotFoundError("payment link not found for provider reference")
         case = self.session.get(RecoveryCase, link.recovery_case_id)
@@ -176,7 +183,7 @@ class PaymentService:
         validate_provider_amount_currency(event.amount_paise, event.currency, link.amount_paise, link.currency)
         existing_attempt = self.session.scalar(select(PaymentAttempt).where(PaymentAttempt.payment_link_id == link.id).order_by(PaymentAttempt.last_seen_at.desc(), PaymentAttempt.id.desc()))
         if link.status in {PaymentStatus.PAID.value, PaymentStatus.EXPIRED.value, PaymentStatus.CANCELLED.value, PaymentStatus.FAILED.value}:
-            self.session.add(PaymentEvent(payment_link_id=link.id, payment_attempt_id=existing_attempt.id if existing_attempt else None, provider=provider_name, provider_mode=self.provider.mode, provider_event_id=event.provider_event_id, event_type=event.event_type, status=event.status.value, amount_paise=event.amount_paise, currency=event.currency, signature_verified=signature_verified, source=source, occurred_at=event.occurred_at, payload_hash=sha256_json(event.model_dump(mode="json")), payload_json={"provider_event_id": event.provider_event_id, "provider_payment_link_id": event.provider_payment_link_id, "provider_payment_id": event.provider_payment_id, "status": event.status.value, "processing_result": "ignored_terminal_state"}))
+            self.session.add(PaymentEvent(payment_link_id=link.id, payment_attempt_id=existing_attempt.id if existing_attempt else None, provider=provider_name, provider_mode=self.provider.mode, provider_event_id=event.provider_event_id, event_type=event.event_type, status=event.status.value, amount_paise=event.amount_paise, currency=event.currency, signature_verified=signature_verified, source=source, occurred_at=event.occurred_at, payload_hash=sha256_json(event.model_dump(mode="json")), payload_json={"provider_event_id": event.provider_event_id, "provider_payment_link_id": event.provider_payment_link_id, "provider_order_id": event.provider_order_id, "provider_reference_id": event.provider_reference_id, "provider_payment_id": event.provider_payment_id, "status": event.status.value, "processing_result": "ignored_terminal_state"}))
             self.session.commit()
             return self.get_payment(link.id)
         target = event.status
@@ -189,7 +196,7 @@ class PaymentService:
             attempt.provider_payment_id = attempt.provider_payment_id or event.provider_payment_id
             attempt.status = target.value
             attempt.last_seen_at = self._now()
-        event_row = PaymentEvent(payment_link_id=link.id, payment_attempt_id=attempt.id, provider=provider_name, provider_mode=self.provider.mode, provider_event_id=event.provider_event_id, event_type=event.event_type, status=target.value, amount_paise=event.amount_paise, currency=event.currency, signature_verified=signature_verified, source=source, occurred_at=event.occurred_at, payload_hash=sha256_json(event.model_dump(mode="json")), payload_json={"provider_event_id": event.provider_event_id, "provider_payment_link_id": event.provider_payment_link_id, "provider_payment_id": event.provider_payment_id, "status": target.value, "processing_result": "applied"})
+        event_row = PaymentEvent(payment_link_id=link.id, payment_attempt_id=attempt.id, provider=provider_name, provider_mode=self.provider.mode, provider_event_id=event.provider_event_id, event_type=event.event_type, status=target.value, amount_paise=event.amount_paise, currency=event.currency, signature_verified=signature_verified, source=source, occurred_at=event.occurred_at, payload_hash=sha256_json(event.model_dump(mode="json")), payload_json={"provider_event_id": event.provider_event_id, "provider_payment_link_id": event.provider_payment_link_id, "provider_order_id": event.provider_order_id, "provider_reference_id": event.provider_reference_id, "provider_payment_id": event.provider_payment_id, "status": target.value, "processing_result": "applied"})
         self.session.add(event_row)
         if link.status == PaymentStatus.PAID.value:
             self.session.commit()

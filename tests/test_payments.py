@@ -203,6 +203,20 @@ class PaymentTests(unittest.TestCase):
             event = provider.reconcile_payment("plink_created")
         self.assertEqual(event.status.value, "ACTIVE")
 
+    def test_razorpay_failed_payment_webhook_keeps_order_correlation(self):
+        provider = RazorpayPaymentProvider("key", "secret", "webhook", enabled=True)
+        webhook = json.dumps({"event": "payment.failed", "created_at": 1767225600, "payload": {"payment": {"entity": {"id": "pay_failed", "amount": 100000, "currency": "INR", "order_id": "order_1", "contact": "+919999999999", "status": "failed"}}}}).encode()
+        parsed = provider.parse_webhook(webhook, "rzp-failed-1")
+        self.assertIsNone(parsed.provider_payment_link_id)
+        self.assertEqual(parsed.provider_order_id, "order_1")
+        self.assertEqual(parsed.status.value, "FAILED")
+
+    def test_razorpay_resolves_payment_link_from_order(self):
+        provider = RazorpayPaymentProvider("key", "secret", "webhook", enabled=True)
+        with patch("backend.chimera_payments.providers.razorpay.urlopen", return_value=FakeResponse({"items": [{"id": "plink_1", "order_id": "order_1", "reference_id": "ref_1"}]})):
+            resolved = provider.resolve_payment_link_id(provider_order_id="order_1")
+        self.assertEqual(resolved, "plink_1")
+
 
 if __name__ == "__main__":
     unittest.main()

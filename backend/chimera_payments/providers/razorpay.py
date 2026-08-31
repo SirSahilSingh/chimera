@@ -52,7 +52,31 @@ class RazorpayPaymentProvider(PaymentProvider):
         self._ensure_configured()
         data = self._request("GET", f"/payment_links/{provider_payment_link_id}", None)
         status = _map_status(data.get("status"))
-        return PaymentWebhookEvent(provider_event_id=f"reconcile-{provider_payment_link_id}-{status.value}", provider_payment_link_id=provider_payment_link_id, provider_payment_id=None, event_type="reconciliation", status=status, amount_paise=int(data.get("amount", 0)), currency=str(data.get("currency", "INR")), occurred_at=datetime.now(timezone.utc))
+        return PaymentWebhookEvent(provider_event_id=f"reconcile-{provider_payment_link_id}-{status.value}", provider_payment_link_id=provider_payment_link_id, provider_order_id=str(data.get("order_id")) if data.get("order_id") else None, provider_reference_id=str(data.get("reference_id")) if data.get("reference_id") else None, provider_payment_id=None, event_type="reconciliation", status=status, amount_paise=int(data.get("amount", 0)), currency=str(data.get("currency", "INR")), occurred_at=datetime.now(timezone.utc))
+
+    def resolve_payment_link_id(self, *, provider_order_id: str | None = None, provider_reference_id: str | None = None) -> str | None:
+        """Resolve a generic payment webhook back to a Payment Link.
+
+        Razorpay's generic ``payment.failed`` payload identifies the payment
+        and order, while Payment Link webhooks identify the link. Recent links
+        are queried because the Payment Link API exposes the order/reference
+        association needed to bridge those two webhook shapes.
+        """
+        self._ensure_configured()
+        if not provider_order_id and not provider_reference_id:
+            return None
+        data = self._request("GET", "/payment_links?count=100", None)
+        items = data.get("items", []) if isinstance(data, dict) else []
+        if not isinstance(items, list):
+            return None
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            if provider_order_id and str(item.get("order_id") or "") == provider_order_id:
+                return str(item.get("id")) if item.get("id") else None
+            if provider_reference_id and str(item.get("reference_id") or "") == provider_reference_id:
+                return str(item.get("id")) if item.get("id") else None
+        return None
 
     def verify_webhook(self, raw_body: bytes, signature: str) -> bool:
         if not self.webhook_secret:
@@ -64,14 +88,18 @@ class RazorpayPaymentProvider(PaymentProvider):
         try:
             body = json.loads(raw_body.decode("utf-8"))
             event_name = str(body.get("event", "payment_link.pending"))
-            payment_link = body.get("payload", {}).get("payment_link", {}).get("entity", {})
-            payment = body.get("payload", {}).get("payment", {}).get("entity", {})
-            link_id = str(payment_link.get("id") or payment.get("reference_id") or "")
+            payload = body.get("payload", {})
+            payment_link = payload.get("payment_link", {}).get("entity", {})
+            payment = payload.get("payment", {}).get("entity", {})
+            nested_payment_link = payment.get("payment_link") or {}
+            link_id = str(payment_link.get("id") or payment.get("payment_link_id") or nested_payment_link.get("id") or "")
+            order_id = payment_link.get("order_id") or payment.get("order_id")
+            reference_id = payment_link.get("reference_id") or payment.get("reference_id")
             amount = int(payment_link.get("amount") or payment.get("amount") or 0)
             currency = str(payment_link.get("currency") or payment.get("currency") or "INR")
             contact = payment.get("contact") or payment.get("customer_contact")
             email = payment.get("email")
-            return PaymentWebhookEvent(provider_event_id=provider_event_id or f"razorpay-event-{hashlib.sha256(raw_body).hexdigest()[:32]}", provider_payment_link_id=link_id, provider_payment_id=payment.get("id"), event_type=event_name, status=_event_status(event_name, payment_link.get("status")), amount_paise=amount, currency=currency, customer_phone=str(contact) if contact else None, customer_email=str(email) if email else None, occurred_at=_timestamp(body.get("created_at")) or datetime.now(timezone.utc))
+            return PaymentWebhookEvent(provider_event_id=provider_event_id or f"razorpay-event-{hashlib.sha256(raw_body).hexdigest()[:32]}", provider_payment_link_id=link_id or None, provider_order_id=str(order_id) if order_id else None, provider_reference_id=str(reference_id) if reference_id else None, provider_payment_id=payment.get("id"), event_type=event_name, status=_event_status(event_name, payment_link.get("status") or payment.get("status")), amount_paise=amount, currency=currency, customer_phone=str(contact) if contact else None, customer_email=str(email) if email else None, occurred_at=_timestamp(body.get("created_at")) or datetime.now(timezone.utc))
         except (UnicodeDecodeError, json.JSONDecodeError, TypeError, ValueError) as exc:
             raise PaymentProviderError("provider_invalid_webhook") from exc
 

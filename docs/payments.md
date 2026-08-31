@@ -10,7 +10,7 @@ Local mode is the default and never contacts Razorpay. Create a queued intervent
 
 ## Razorpay configuration
 
-Set `PAYMENT_PROVIDER=razorpay`, `PAYMENT_ENABLED=true`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, and optionally `PAYMENT_TIMEOUT_SECONDS`. Razorpay test keys must be used for development. The adapter calls the Payment Links API using Basic authentication, stores only provider references and sanitized hashes, and verifies the raw webhook body with HMAC-SHA256 and the configured webhook secret. Configure Razorpay to send payment-link events to `/api/v1/payments/webhook/razorpay` and pass the signature in `X-Razorpay-Signature`.
+Set `PAYMENT_PROVIDER=razorpay`, `PAYMENT_ENABLED=true`, `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, and optionally `PAYMENT_TIMEOUT_SECONDS`. Razorpay test keys must be used for development. The adapter calls the Payment Links API using Basic authentication, stores only provider references and sanitized hashes, and verifies the raw webhook body with HMAC-SHA256 and the configured webhook secret. Configure Razorpay to send payment-link events to `/api/v1/payments/webhook/razorpay` and pass the signature in `X-Razorpay-Signature`. Standard Payment Links remain in the `created` state while awaiting payment; a failed checkout is handled from the `payment.failed` event and correlated using its `order_id` or reference association.
 
 ## Recovery boundary
 

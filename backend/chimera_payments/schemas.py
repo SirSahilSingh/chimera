@@ -29,7 +29,9 @@ class PaymentWebhookEvent(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
     provider_event_id: str = Field(min_length=1, max_length=255)
-    provider_payment_link_id: str = Field(min_length=1, max_length=255)
+    provider_payment_link_id: str | None = Field(default=None, max_length=255)
+    provider_order_id: str | None = Field(default=None, max_length=255)
+    provider_reference_id: str | None = Field(default=None, max_length=255)
     provider_payment_id: str | None = Field(default=None, max_length=255)
     event_type: str = Field(min_length=1, max_length=64)
     status: PaymentStatus
