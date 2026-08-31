@@ -36,7 +36,7 @@ class MessagingService:
         active_link = self._active_payment_link(intervention_id)
         if active_link is None and self.payment_service is not None:
             active_link = self.payment_service.create_for_message(intervention_id)
-        context = validate_messaging_context(MessagingContext(intervention_id=intervention.id, recovery_case_id=intervention.recovery_case_id, decision_id=intervention.decision_id, selected_action=intervention.action, customer_id=intervention.recovery_case.customer_id, language="en", amount_paise=intervention.recovery_case.amount_paise, currency=intervention.recovery_case.currency, payment_method=intervention.recovery_case.payment_method, failure_reason=intervention.recovery_case.failure_reason, incident_flag=intervention.recovery_case.incident_flag, payment_link=active_link.short_url if active_link else None))
+        context = validate_messaging_context(MessagingContext(intervention_id=intervention.id, recovery_case_id=intervention.recovery_case_id, decision_id=intervention.decision_id, selected_action=intervention.action, customer_id=intervention.recovery_case.customer_id, customer_phone=intervention.recovery_case.customer_phone, language="en", amount_paise=intervention.recovery_case.amount_paise, currency=intervention.recovery_case.currency, payment_method=intervention.recovery_case.payment_method, failure_reason=intervention.recovery_case.failure_reason, incident_flag=intervention.recovery_case.incident_flag, payment_link=active_link.short_url if active_link else None))
         if intervention.status == "READY":
             self.interventions.execute(intervention.id)
             intervention = self.interventions.get_intervention(intervention.id)
@@ -58,6 +58,25 @@ class MessagingService:
         self.session.add(row)
         self.session.flush()
         self.session.add(MessagingEvent(message_attempt_id=row.id, provider=self.provider.name, provider_mode=self.provider.mode, provider_event_id=f"sent-{row.id}", event_type="message.sent", delivery_state=result.delivery_state, signature_verified=False, occurred_at=result.sent_at, payload_hash=payload_hash({"provider_message_id": result.provider_message_id, "delivery_state": result.delivery_state}), payload_json={"provider_message_id": result.provider_message_id, "delivery_state": result.delivery_state}))
+        self.session.commit()
+        return self.get_message(row.id)
+
+    def send_for_voice_link(self, intervention_id: str, payment_link: str) -> MessageAttempt:
+        """Send a generated voice-call payment link through the configured channel."""
+        intervention = self.interventions.get_intervention(intervention_id)
+        if intervention.action != "VOICE_RECOVERY" or intervention.decision.selected_action != "VOICE_RECOVERY":
+            raise ValueError("voice link notification requires stored VOICE_RECOVERY intervention")
+        context = validate_messaging_context(MessagingContext(intervention_id=intervention.id, recovery_case_id=intervention.recovery_case_id, decision_id=intervention.decision_id, selected_action="SEND_MESSAGE", customer_id=intervention.recovery_case.customer_id, customer_phone=intervention.recovery_case.customer_phone, language="en", amount_paise=intervention.recovery_case.amount_paise, currency=intervention.recovery_case.currency, payment_method=intervention.recovery_case.payment_method, failure_reason=intervention.recovery_case.failure_reason, incident_flag=intervention.recovery_case.incident_flag, payment_link=payment_link))
+        key = __import__("hashlib").sha256(f"chimera-message-v1|voice-link|{intervention.id}|{self.provider.name}".encode()).hexdigest()
+        existing = self.session.scalar(select(MessageAttempt).where(MessageAttempt.idempotency_key == key))
+        if existing is not None:
+            return self.get_message(existing.id)
+        template, version, content, content_hash = render_message(context)
+        result = self.provider.send_message(context, content, key)
+        row = MessageAttempt(recovery_case_id=intervention.recovery_case_id, intervention_id=intervention.id, decision_id=intervention.decision_id, provider=self.provider.name, provider_mode=self.provider.mode, idempotency_key=key, attempt_number=1, template_key=template, template_version=version, rendered_content_hash=content_hash, provider_message_id=result.provider_message_id, status=result.status, delivery_state=result.delivery_state, sent_at=result.sent_at)
+        self.session.add(row)
+        self.session.flush()
+        self.session.add(MessagingEvent(message_attempt_id=row.id, provider=self.provider.name, provider_mode=self.provider.mode, provider_event_id=f"sent-{row.id}", event_type="message.sent", delivery_state=result.delivery_state, signature_verified=False, occurred_at=result.sent_at, payload_hash=payload_hash({"provider_message_id": result.provider_message_id, "delivery_state": result.delivery_state}), payload_json={"provider_message_id": result.provider_message_id, "delivery_state": result.delivery_state, "source": "voice_agent"}))
         self.session.commit()
         return self.get_message(row.id)
 

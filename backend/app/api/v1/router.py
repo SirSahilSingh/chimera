@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, Response
+from fastapi.responses import PlainTextResponse
+from urllib.parse import parse_qsl
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -50,6 +52,7 @@ from backend.chimera_voice.schemas import (
     VoiceScenario,
 )
 from backend.chimera_voice.service import VoiceService
+from backend.chimera_voice.sarvam_provider import SarvamSpeechProvider
 from backend.chimera_payments.errors import PaymentError, PaymentNotFoundError, PaymentProviderError, PaymentWebhookError
 from backend.chimera_payments.schemas import PaymentDemoRequest, PaymentDemoScenario, PaymentEventResponse, PaymentAttemptResponse, PaymentLinkResponse, PaymentListResponse
 from backend.chimera_payments.service import PaymentService
@@ -592,10 +595,19 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    @router.get("/messaging/webhook/{provider}", response_class=PlainTextResponse)
+    def messaging_webhook_verification(provider: str, mode: str = Query("", alias="hub.mode"), token: str = Query("", alias="hub.verify_token"), challenge: str = Query("", alias="hub.challenge"), service: MessagingService = Depends(messaging_service)):
+        if provider != service.provider.name or not hasattr(service.provider, "verify_challenge"):
+            raise HTTPException(status_code=404, detail="provider webhook verification is not supported")
+        verified = service.provider.verify_challenge(mode, token, challenge)
+        if verified is None:
+            raise HTTPException(status_code=403, detail="invalid webhook verification")
+        return PlainTextResponse(verified)
+
     @router.post("/messaging/webhook/{provider}", response_model=MessageAttemptResponse)
     async def messaging_webhook(provider: str, request: Request, service: MessagingService = Depends(messaging_service)):
         raw_body = await request.body()
-        signature = request.headers.get("x-twilio-signature") or request.headers.get("x-messaging-signature") or ""
+        signature = request.headers.get("x-twilio-signature") or request.headers.get("x-hub-signature-256") or request.headers.get("x-messaging-signature") or ""
         try:
             return as_message(service.handle_webhook(provider, raw_body, signature, request.headers.get("x-messaging-event-id"), str(request.url)))
         except ValueError as exc:
@@ -773,6 +785,61 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
             return as_voice_call(service.handle_webhook(provider, payload))
         except VoiceNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except VoiceDomainError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @router.api_route("/voice/twilio/twiml", methods=["GET", "POST"], response_class=PlainTextResponse)
+    def twilio_twiml(intervention_id: str, service: VoiceService = Depends(voice_service)):
+        try:
+            return PlainTextResponse(service.twilio_twiml(intervention_id), media_type="application/xml")
+        except VoiceDomainError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @router.get("/voice/sarvam/audio/{token}")
+    def sarvam_audio(token: str):
+        audio = SarvamSpeechProvider.audio_bytes(token)
+        if audio is None:
+            raise HTTPException(status_code=404, detail="speech audio not found or expired")
+        return Response(content=audio, media_type="audio/wav", headers={"Cache-Control": "no-store"})
+
+    @router.post("/voice/twilio/record", response_class=PlainTextResponse)
+    async def twilio_record(intervention_id: str, request: Request, service: VoiceService = Depends(voice_service)):
+        body = await request.body()
+        values = dict(parse_qsl(body.decode("utf-8"), keep_blank_values=True))
+        provider = service.provider
+        if not hasattr(provider, "public_base_url"):
+            raise HTTPException(status_code=404, detail="twilio voice provider is not configured")
+        callback_url = f"{provider.public_base_url}{request.url.path}"
+        if request.url.query:
+            callback_url = f"{callback_url}?{request.url.query}"
+        try:
+            twiml = service.handle_twilio_record(intervention_id, values.get("RecordingUrl"), values, request.headers.get("x-twilio-signature", ""), callback_url)
+            return PlainTextResponse(twiml, media_type="application/xml")
+        except VoiceDomainError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @router.post("/voice/twilio/gather", response_class=PlainTextResponse)
+    async def twilio_gather(intervention_id: str, request: Request, service: VoiceService = Depends(voice_service)):
+        body = await request.body()
+        values = dict(parse_qsl(body.decode("utf-8"), keep_blank_values=True))
+        try:
+            return PlainTextResponse(service.handle_twilio_gather(intervention_id, values.get("SpeechResult"), values.get("Digits")), media_type="application/xml")
+        except VoiceDomainError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @router.post("/voice/twilio/status", response_class=PlainTextResponse)
+    async def twilio_status(intervention_id: str, request: Request, service: VoiceService = Depends(voice_service)):
+        body = await request.body()
+        values = dict(parse_qsl(body.decode("utf-8"), keep_blank_values=True))
+        provider = service.provider
+        if not hasattr(provider, "public_base_url"):
+            raise HTTPException(status_code=404, detail="twilio voice provider is not configured")
+        callback_url = f"{provider.public_base_url}{request.url.path}"
+        if request.url.query:
+            callback_url = f"{callback_url}?{request.url.query}"
+        try:
+            service.handle_twilio_status(intervention_id, values.get("CallSid"), values.get("CallStatus", ""), values, request.headers.get("x-twilio-signature", ""), callback_url)
+            return PlainTextResponse("OK")
         except VoiceDomainError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 

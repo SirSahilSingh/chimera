@@ -16,6 +16,7 @@ class CaseCreate(BaseModel):
     external_event_id: str = Field(min_length=1, max_length=255)
     payment_id: str = Field(min_length=1, max_length=255)
     customer_id: str = Field(min_length=1, max_length=255)
+    customer_phone: str | None = Field(default=None, max_length=32)
     amount_paise: StrictInt = Field(ge=0)
     currency: Literal["INR"]
     failure_reason: Literal["issuer_decline", "expired_method", "technical_degradation", "insufficient_funds", "abandonment", "other"]
@@ -43,6 +44,7 @@ class DemoRunRequest(BaseModel):
 
     scenario: DemoScenario
     provider_mode: Literal["LOCAL", "MOCK", "TEST", "LIVE"] = "LOCAL"
+    customer_phone: str | None = Field(default=None, max_length=32)
 
     @property
     def expected_action(self) -> str:
@@ -73,6 +75,7 @@ class DemoRunRequest(BaseModel):
             failure_reason=failure_reason,
             incident_flag=incident_flag,
             payment_method=payment_method,
+            customer_phone=self.customer_phone,
             decision_timestamp=datetime(2026, 8, 26, hour, tzinfo=timezone.utc),
         )
 

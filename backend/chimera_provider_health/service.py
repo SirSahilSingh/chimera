@@ -31,10 +31,10 @@ class ProviderHealthError(ValueError):
 class ProviderHealthService:
     """Reports provider readiness and runs only explicit, side-effect-free probes."""
 
-    def __init__(self, session: Session, *, settings, voice_provider, payment_provider, messaging_provider, retry_provider) -> None:
+    def __init__(self, session: Session, *, settings, voice_provider, payment_provider, messaging_provider, retry_provider, escalation_provider=None, speech_provider=None) -> None:
         self.session = session
         self.settings = settings
-        self.specs = build_provider_specs(settings, voice_provider=voice_provider, payment_provider=payment_provider, messaging_provider=messaging_provider, retry_provider=retry_provider)
+        self.specs = build_provider_specs(settings, voice_provider=voice_provider, payment_provider=payment_provider, messaging_provider=messaging_provider, retry_provider=retry_provider, escalation_provider=escalation_provider, speech_provider=speech_provider)
 
     @staticmethod
     def _now() -> datetime:
@@ -145,4 +145,3 @@ class ProviderHealthService:
 
     def latest_records(self) -> list[ProviderVerification]:
         return list(self.session.scalars(select(ProviderVerification).order_by(ProviderVerification.generated_at.desc(), ProviderVerification.id.desc())))
-

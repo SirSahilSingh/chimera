@@ -12,22 +12,22 @@ amount, claim a payment succeeded, or expose hidden decision/model data.
 
 def opening_message(context: VoiceContext) -> str:
     amount = f"INR {context.payment_amount_paise / 100:.2f}"
-    return f"Hello. I am calling about a recent payment of {amount} that could not be completed. Would you like to resolve it now, receive a payment link, or try again later?"
+    return f"नमस्ते। आपके recent {amount} payment के बारे में call है, जो complete नहीं हो पाया। क्या आप अभी payment करना चाहेंगे, payment link लेना चाहेंगे, या बाद में try करेंगे?"
 
 
 def response_for_intent(intent: VoiceIntent, *, payment_link: str | None = None) -> str:
     if intent == VoiceIntent.PAY_NOW:
-        return "Thank you. I recorded that you are ready to resolve it now. The payment is not marked recovered until the payment system confirms success."
+        return "धन्यवाद। आप अभी payment करने के लिए ready हैं, यह record कर लिया है। Payment successful confirm होने के बाद ही recovery mark होगी।"
     if intent == VoiceIntent.SEND_PAYMENT_LINK:
-        return f"I recorded your request for a payment link. Here is the demo link: {payment_link}" if payment_link else "I recorded your request for a payment link. The appropriate team can provide it through the approved channel."
+        return f"Payment link के लिए आपकी request record कर ली है। यह link है: {payment_link}" if payment_link else "Payment link के लिए आपकी request record कर ली है। Approved channel से link share किया जाएगा।"
     if intent == VoiceIntent.RETRY_LATER:
-        return "I recorded that you would prefer to try again later. No payment has been marked recovered."
+        return "आप बाद में try करना चाहते हैं, यह request record कर ली है। अभी payment recovered mark नहीं हुआ है।"
     if intent == VoiceIntent.ALREADY_PAID:
-        return "Thank you. I recorded that you already paid. The payment team will verify it; I will not mark recovery from this conversation alone."
+        return "धन्यवाद। आपने payment कर दिया है, यह record कर लिया है। Payment team verify करेगी; सिर्फ इस call से recovery mark नहीं होगी।"
     if intent == VoiceIntent.CALLBACK_REQUEST:
-        return "I recorded your callback request for the appropriate team."
+        return "आपकी callback request record कर ली है। Team आपसे approved channel पर contact करेगी।"
     if intent == VoiceIntent.DECLINE:
-        return "Understood. I will record that you do not want to continue."
+        return "समझ गया। आप continue नहीं करना चाहते, यह record कर लिया है।"
     if intent == VoiceIntent.WRONG_PERSON:
-        return "Understood. I will record that this is the wrong number and end the call."
-    return "I do not want to give you incorrect information. I can record your response and have the appropriate team follow up."
+        return "समझ गया। यह गलत number है, मैं call end कर रहा हूँ।"
+    return "Main incorrect information nahi dena chahta. Aapka response record kar liya hai aur team follow up karegi."

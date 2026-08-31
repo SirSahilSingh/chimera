@@ -22,9 +22,10 @@ from .schemas import EscalationStatus
 
 
 class EscalationService:
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, provider=None) -> None:
         self.session = session
         self.interventions = InterventionService(session)
+        self.provider = provider
 
     def create(self, intervention_id: str, reason: str) -> Escalation:
         intervention = self.interventions.get_intervention(intervention_id)
@@ -39,12 +40,22 @@ class EscalationService:
         if intervention.status != InterventionStatus.AWAITING_OUTCOME.value:
             raise ValueError(f"escalation requires executable intervention, got {intervention.status}")
         key = hashlib.sha256(f"chimera-escalation-v1|{intervention.id}|{intervention.decision_id}".encode()).hexdigest()
-        row = Escalation(recovery_case_id=intervention.recovery_case_id, intervention_id=intervention.id, decision_id=intervention.decision_id, escalation_reason=reason, context_json={"customer_id": intervention.recovery_case.customer_id, "amount_paise": intervention.recovery_case.amount_paise, "currency": intervention.recovery_case.currency, "failure_reason": intervention.recovery_case.failure_reason, "payment_method": intervention.recovery_case.payment_method, "incident_flag": intervention.recovery_case.incident_flag, "decision_id": intervention.decision_id, "selected_action": intervention.action}, priority=intervention.priority, idempotency_key=key, status=EscalationStatus.OPEN.value, provider_mode="LOCAL")
+        provider_mode = getattr(self.provider, "mode", "LOCAL")
+        row = Escalation(recovery_case_id=intervention.recovery_case_id, intervention_id=intervention.id, decision_id=intervention.decision_id, escalation_reason=reason, context_json={"customer_id": intervention.recovery_case.customer_id, "amount_paise": intervention.recovery_case.amount_paise, "currency": intervention.recovery_case.currency, "failure_reason": intervention.recovery_case.failure_reason, "payment_method": intervention.recovery_case.payment_method, "incident_flag": intervention.recovery_case.incident_flag, "decision_id": intervention.decision_id, "selected_action": intervention.action, "notification": {"provider": getattr(self.provider, "name", "internal")}}, priority=intervention.priority, idempotency_key=key, status=EscalationStatus.OPEN.value, provider_mode=provider_mode)
         self.session.add(row)
         self.session.flush()
         self._event(row, "ESCALATION_OPENED", {"reason": reason})
         self.session.add(AuditLog(recovery_case_id=row.recovery_case_id, decision_id=row.decision_id, event_type="ESCALATION_OPENED", actor="escalation_service", payload_json={"escalation_id": row.id, "status": row.status}))
         self.session.commit()
+        if self.provider is not None:
+            try:
+                notification = self.provider.notify(row, reason)
+                row.context_json = {**row.context_json, "notification": {"provider": notification.provider, "provider_reference": notification.provider_reference, "status": notification.status}}
+                self._event(row, "ESCALATION_NOTIFICATION_SENT", {"provider": notification.provider, "provider_reference": notification.provider_reference, "status": notification.status})
+                self.session.commit()
+            except Exception as exc:
+                self._event(row, "ESCALATION_NOTIFICATION_FAILED", {"provider": getattr(self.provider, "name", "unknown"), "error": str(exc)[:128]})
+                self.session.commit()
         return self.get(row.id)
 
     def get(self, escalation_id: str) -> Escalation:
@@ -80,11 +91,11 @@ class EscalationService:
 class RecoveryOrchestrator:
     """Routes a persisted intervention; it has no decision-selection authority."""
 
-    def __init__(self, session: Session, messaging: MessagingService, retry: RetryService, payments: PaymentService, voice: VoiceService, case_service: CaseService | None = None) -> None:
+    def __init__(self, session: Session, messaging: MessagingService, retry: RetryService, payments: PaymentService, voice: VoiceService, case_service: CaseService | None = None, escalation_provider=None) -> None:
         self.session = session
         self.interventions = InterventionService(session)
         self.messaging, self.retry, self.payments, self.voice = messaging, retry, payments, voice
-        self.escalations = EscalationService(session)
+        self.escalations = EscalationService(session, escalation_provider)
         self.case_service = case_service
 
     def route(self, intervention_id: str):

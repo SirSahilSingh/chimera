@@ -9,7 +9,7 @@ Every operation is labelled `LOCAL`, `MOCK`, `TEST`, or `LIVE` and the value is 
 Server-side variables are listed in `.env.example`:
 
 - Razorpay: `PAYMENT_PROVIDER=razorpay`, `PAYMENT_MODE=TEST` (or `LIVE`), `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`.
-- Twilio-compatible messaging: `MESSAGING_PROVIDER=twilio`, `MESSAGING_MODE=TEST` (or `LIVE`), `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`, and `TWILIO_TO_NUMBER`.
+- Twilio WhatsApp: `MESSAGING_PROVIDER=twilio`, `MESSAGING_CHANNEL=whatsapp`, `MESSAGING_MODE=TEST`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM_NUMBER`, `TWILIO_WHATSAPP_TO_NUMBER`, and `TWILIO_WHATSAPP_CONTENT_SID`.
 - Optional voice HTTP adapter: `VOICE_PROVIDER=live`, `VOICE_MODE=TEST` (or `LIVE`), `VOICE_ENABLED=true`, `VOICE_BASE_URL`, `VOICE_API_KEY`, `VOICE_AGENT_ID`, and `VOICE_PHONE_NUMBER`.
 
 Credentials stay on the server. Provider adapters bound timeouts, verify webhook signatures, retain only sanitized payloads/hashes, and deduplicate provider event IDs.
@@ -24,6 +24,10 @@ Run the API locally with the repository runtime, then submit observable-only cas
 
 The script calls `POST /api/v1/demo/recovery`, which creates the case, invokes the existing deterministic decision, authorizes the intervention, and routes the stored action. Inspect the result with `GET /api/v1/recovery-cases/{case_id}/journey`. A local link becomes `RECOVERED` only after a valid signed local payment event; message delivery, retry acceptance, and voice agreement remain non-payment outcomes.
 
-For Razorpay, configure `/api/v1/payments/webhook/razorpay`; for Twilio use `/api/v1/messaging/webhook/twilio`. Use provider test credentials and a test customer only. If credentials are absent, report the run as `LOCAL`; never label it live.
+For Razorpay, configure `/api/v1/payments/webhook/razorpay`. For Twilio
+WhatsApp, use `/api/v1/messaging/webhook/twilio`; for Twilio voice, use the generated
+`/api/v1/voice/twilio/status` and `/api/v1/voice/twilio/twiml` callbacks. Use
+provider test credentials and a test customer only. If credentials are absent,
+report the run as `LOCAL`; never label it live.
 
 Scenarios A–E are reproducible by submitting cases with the corresponding observable failure context and following the stored selected action. The journey endpoint exposes detection, diagnosis, intervention, provider records, outcomes, and a deterministic chronological audit stream.

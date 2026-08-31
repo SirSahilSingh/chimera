@@ -13,6 +13,7 @@ class MessagingContext(BaseModel):
     decision_id: str = Field(min_length=1, max_length=36)
     selected_action: str = Field(min_length=1, max_length=32)
     customer_id: str = Field(min_length=1, max_length=255)
+    customer_phone: str | None = Field(default=None, max_length=32)
     language: str = Field(min_length=2, max_length=16)
     amount_paise: StrictInt = Field(gt=0)
     currency: str = Field(min_length=3, max_length=3)

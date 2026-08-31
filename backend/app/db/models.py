@@ -66,6 +66,7 @@ class RecoveryCase(Base):
     external_event_id: Mapped[str] = mapped_column(String(255), nullable=False)
     payment_id: Mapped[str] = mapped_column(String(255), nullable=False)
     customer_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    customer_phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
     amount_paise: Mapped[int] = mapped_column(Integer, nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     failure_reason: Mapped[str] = mapped_column(String(64), nullable=False)

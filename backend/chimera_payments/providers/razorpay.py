@@ -69,7 +69,9 @@ class RazorpayPaymentProvider(PaymentProvider):
             link_id = str(payment_link.get("id") or payment.get("reference_id") or "")
             amount = int(payment_link.get("amount") or payment.get("amount") or 0)
             currency = str(payment_link.get("currency") or payment.get("currency") or "INR")
-            return PaymentWebhookEvent(provider_event_id=provider_event_id or f"razorpay-event-{hashlib.sha256(raw_body).hexdigest()[:32]}", provider_payment_link_id=link_id, provider_payment_id=payment.get("id"), event_type=event_name, status=_event_status(event_name, payment_link.get("status")), amount_paise=amount, currency=currency, occurred_at=_timestamp(body.get("created_at")) or datetime.now(timezone.utc))
+            contact = payment.get("contact") or payment.get("customer_contact")
+            email = payment.get("email")
+            return PaymentWebhookEvent(provider_event_id=provider_event_id or f"razorpay-event-{hashlib.sha256(raw_body).hexdigest()[:32]}", provider_payment_link_id=link_id, provider_payment_id=payment.get("id"), event_type=event_name, status=_event_status(event_name, payment_link.get("status")), amount_paise=amount, currency=currency, customer_phone=str(contact) if contact else None, customer_email=str(email) if email else None, occurred_at=_timestamp(body.get("created_at")) or datetime.now(timezone.utc))
         except (UnicodeDecodeError, json.JSONDecodeError, TypeError, ValueError) as exc:
             raise PaymentProviderError("provider_invalid_webhook") from exc
 

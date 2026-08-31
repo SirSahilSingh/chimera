@@ -32,6 +32,7 @@ SAFE_PROVIDER_FAILURE_CODES = frozenset({
     "payment_service_unavailable",
     "voice_disabled",
     "missing_configuration",
+    "missing_customer_phone",
     "demo_requires_local_provider",
     "provider_failure",
 })

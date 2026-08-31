@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from backend.app.db.models import AuditLog, Intervention, PaymentAttempt, PaymentEvent, PaymentLink
+from backend.app.db.models import AuditLog, Intervention, PaymentAttempt, PaymentEvent, PaymentLink, RecoveryCase
 from backend.app.interventions.service import InterventionService
 from backend.app.interventions.state_machine import InterventionStatus
 from backend.app.schemas import InterventionOutcomeCreate
@@ -138,6 +138,7 @@ class PaymentService:
             amount_paise=intervention.recovery_case.amount_paise,
             currency=intervention.recovery_case.currency,
             description=f"CHIMERA recovery {intervention.recovery_case.payment_id}",
+            customer_phone=intervention.recovery_case.customer_phone,
             idempotency_key=key,
         ))
         request_hash = sha256_json(context.model_dump(mode="json"))
@@ -166,6 +167,9 @@ class PaymentService:
         link = self.session.scalar(select(PaymentLink).where(PaymentLink.provider == provider_name, PaymentLink.provider_payment_link_id == event.provider_payment_link_id))
         if link is None:
             raise PaymentNotFoundError("payment link not found for provider reference")
+        case = self.session.get(RecoveryCase, link.recovery_case_id)
+        if case is not None and event.customer_phone and not case.customer_phone:
+            case.customer_phone = event.customer_phone[:32]
         existing = self.session.scalar(select(PaymentEvent).where(PaymentEvent.provider == provider_name, PaymentEvent.provider_event_id == event.provider_event_id))
         if existing is not None:
             return self.get_payment(link.id)

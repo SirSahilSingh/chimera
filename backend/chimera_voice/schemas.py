@@ -39,6 +39,7 @@ class VoiceContext(BaseModel):
     intervention_id: str = Field(min_length=1, max_length=36)
     recovery_case_id: str = Field(min_length=1, max_length=36)
     decision_id: str = Field(min_length=1, max_length=36)
+    customer_phone: str | None = Field(default=None, max_length=32)
     selected_action: Literal["VOICE_RECOVERY"]
     payment_amount_paise: StrictInt = Field(ge=0)
     currency: Literal["INR"]

@@ -27,22 +27,22 @@ class VoiceAgent:
         )
 
     def classify_customer_text(self, text: str) -> VoiceIntent:
-        normalized = text.casefold()
-        if "wrong number" in normalized or "wrong person" in normalized or "not me" in normalized:
+        normalized = " ".join(text.casefold().replace("।", ".").split())
+        if any(phrase in normalized for phrase in ("wrong number", "wrong no", "wrong person", "not me", "galat number", "galat no", "yeh mera number nahi", "ye mera number nahi", "यह मेरा नंबर नहीं")):
             return VoiceIntent.WRONG_PERSON
-        if "already paid" in normalized or "paid already" in normalized:
+        if any(phrase in normalized for phrase in ("already paid", "paid already", "maine pay kar diya", "maine payment kar diya", "payment kar diya", "paisa de diya", "paid kar diya", "pehle hi pay", "पहले ही भुगतान", "भुगतान कर दिया")):
             return VoiceIntent.ALREADY_PAID
-        if "payment link" in normalized or "send the link" in normalized or "link" in normalized:
+        if any(phrase in normalized for phrase in ("payment link", "send the link", "send link", "link bhej", "link bhejo", "link bhej do", "link send", "whatsapp par", "व्हाट्सऐप पर", "लिंक भेज")):
             return VoiceIntent.SEND_PAYMENT_LINK
-        if "later" in normalized or "tomorrow" in normalized or "retry" in normalized:
+        if any(phrase in normalized for phrase in ("later", "tomorrow", "retry", "baad mein", "baad me", "kal", "thodi der", "phir try", "बाद में", "कल", "फिर कोशिश")):
             return VoiceIntent.RETRY_LATER
-        if "call back" in normalized or "callback" in normalized:
+        if any(phrase in normalized for phrase in ("call back", "callback", "call karna", "wapas call", "वापस कॉल", "बाद में कॉल")):
             return VoiceIntent.CALLBACK_REQUEST
-        if "not interested" in normalized or "do not want" in normalized or normalized.strip() in {"no", "no thanks"}:
+        if any(phrase in normalized for phrase in ("not interested", "do not want", "nahi chahiye", "nahin chahiye", "mat karo", "cancel", "नहीं चाहिए", "मत करो")) or normalized.strip() in {"no", "no thanks", "nahi", "nahin", "नहीं"}:
             return VoiceIntent.DECLINE
-        if "yes" in normalized or "pay now" in normalized or "i can pay" in normalized:
+        if any(phrase in normalized for phrase in ("yes", "pay now", "i can pay", "haan", "han", "ji haan", "abhi pay", "abhi payment", "pay kar", "payment karunga", "payment karungi", "kar deta", "kar dunga", "कर दूंगा", "अभी भुगतान")):
             return VoiceIntent.PAY_NOW
-        if "?" in text or normalized.startswith(("why", "how", "what")):
+        if "?" in text or normalized.startswith(("why", "how", "what", "kyun", "kyon", "kaise", "kya", "क्यों", "कैसे", "क्या")):
             return VoiceIntent.QUESTION
         return VoiceIntent.UNKNOWN
 

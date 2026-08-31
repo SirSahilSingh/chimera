@@ -21,6 +21,10 @@ The versioned API is under `/api/v1`; `/health` and `/api/v1/health` expose data
 
 `recovery_cases` move through an explicit state machine. Decisions and candidate traces are immutable records. Audit rows are append-only by application design; no update or delete endpoint is exposed.
 
-## Gate 5 limitations
+## Current integration boundary
 
-This Gate 5 foundation does not add authentication, frontend views, real payment-provider calls, webhook ingestion, voice integrations, or recovery-outcome reconciliation. Gate 6 adds the optional explanation provider and append-only explanation records described in `docs/intelligence.md`. The API case contract currently has no historical-payment table, so an application-created case is evaluated with an empty observable history; this is explicit rather than inferred hidden data. PostgreSQL migrations are supplied, while SQLite is used only for tests.
+The optional WhatsApp, Twilio trial voice, and Telegram escalation adapters are
+documented in `docs/free-demo-integrations.md`. The API case contract accepts a
+customer phone number, and Razorpay payment webhooks capture the payment
+contact when it becomes available. Apply `alembic upgrade head` before using a
+deployment with the new contact field. SQLite remains a test-only database.

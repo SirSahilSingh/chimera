@@ -5,11 +5,13 @@ import hmac
 import json
 import os
 import socket
+import base64
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+from urllib.parse import urlencode
 
 from .context import context_hash
 from .schemas import VoiceContext, VoiceScenario, VoiceWebhookEvent
@@ -114,6 +116,7 @@ class LiveHttpVoiceProvider(VoiceProvider):
             raise VoiceProviderError("provider_timeout") from None
         except (HTTPError, URLError, OSError, ValueError):
             raise VoiceProviderError("provider_unavailable") from None
+
         reference = data.get("call_id") or data.get("id") or data.get("reference")
         if not isinstance(reference, str) or not reference:
             raise VoiceProviderError("provider_invalid_response")
@@ -149,6 +152,112 @@ class LiveHttpVoiceProvider(VoiceProvider):
             raise VoiceProviderError("provider_unavailable") from None
 
 
+class TwilioVoiceProvider(VoiceProvider):
+    """Twilio trial voice adapter for the controlled CHIMERA call flow."""
+
+    name = "twilio"
+    mode = "LIVE"
+
+    def __init__(self, account_sid: str | None, auth_token: str | None, from_number: str | None, public_base_url: str | None, *, enabled: bool, timeout_seconds: float = 10.0, language: str = "hi-IN", mode: str | None = None) -> None:
+        self.account_sid = account_sid
+        self.auth_token = auth_token
+        self.from_number = from_number
+        self.public_base_url = public_base_url.rstrip("/") if public_base_url else None
+        self.enabled = enabled
+        self.timeout_seconds = timeout_seconds
+        self.language = language
+        self.mode = resolve_mode(self.name, mode)
+
+    def _require_configuration(self, context: VoiceContext | None = None) -> str | None:
+        if not self.enabled:
+            raise VoiceProviderError("voice_disabled")
+        if not self.account_sid or not self.auth_token or not self.from_number or not self.public_base_url:
+            raise VoiceProviderError("missing_configuration")
+        phone = context.customer_phone if context else None
+        if context is not None and not phone:
+            raise VoiceProviderError("missing_customer_phone")
+        return phone
+
+    def start_call(self, context: VoiceContext, *, idempotency_key: str, scenario: VoiceScenario) -> VoiceCallStartResult:
+        phone = self._require_configuration(context)
+        callback = f"{self.public_base_url}/api/v1/voice/twilio/status?intervention_id={context.intervention_id}"
+        twiml_url = f"{self.public_base_url}/api/v1/voice/twilio/twiml?intervention_id={context.intervention_id}"
+        fields = {
+            "To": phone,
+            "From": self.from_number,
+            "Url": twiml_url,
+            "Method": "POST",
+            "StatusCallback": callback,
+            "StatusCallbackMethod": "POST",
+            "StatusCallbackEvent": "initiated ringing answered completed",
+            "MachineDetection": "Enable",
+        }
+        token = base64.b64encode(f"{self.account_sid}:{self.auth_token}".encode()).decode()
+        request = Request(f"https://api.twilio.com/2010-04-01/Accounts/{self.account_sid}/Calls.json", data=urlencode(fields).encode(), headers={"Authorization": f"Basic {token}", "Content-Type": "application/x-www-form-urlencoded", "Idempotency-Key": idempotency_key}, method="POST")
+        try:
+            with urlopen(request, timeout=self.timeout_seconds) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+            reference = str(payload["sid"])
+        except (TimeoutError, socket.timeout):
+            raise VoiceProviderError("provider_timeout") from None
+        except HTTPError as exc:
+            if exc.code in {401, 403}:
+                raise VoiceProviderError("invalid_credentials") from None
+            raise VoiceProviderError("provider_request_failed") from None
+        except (URLError, OSError, ValueError, KeyError):
+            raise VoiceProviderError("provider_request_failed") from None
+        return VoiceCallStartResult(provider=self.name, provider_call_reference=reference[:255])
+
+    def verify_connectivity(self) -> None:
+        self._require_configuration()
+        token = base64.b64encode(f"{self.account_sid}:{self.auth_token}".encode()).decode()
+        request = Request(f"https://api.twilio.com/2010-04-01/Accounts/{self.account_sid}.json", headers={"Authorization": f"Basic {token}", "Accept": "application/json"}, method="GET")
+        try:
+            with urlopen(request, timeout=self.timeout_seconds) as response:
+                if response.status >= 400:
+                    raise VoiceProviderError("provider_unavailable")
+                response.read(1)
+        except VoiceProviderError:
+            raise
+        except HTTPError as exc:
+            if exc.code in {401, 403}:
+                raise VoiceProviderError("invalid_credentials") from None
+            raise VoiceProviderError("provider_unavailable") from None
+        except (TimeoutError, socket.timeout):
+            raise VoiceProviderError("provider_timeout") from None
+        except (URLError, OSError):
+            raise VoiceProviderError("provider_unavailable") from None
+
+    def fetch_recording(self, recording_url: str) -> bytes:
+        """Fetch a Twilio recording for server-side transcription."""
+        if not self.account_sid or not self.auth_token:
+            raise VoiceProviderError("missing_configuration")
+        url = recording_url if recording_url.endswith((".wav", ".mp3")) else f"{recording_url}.wav"
+        token = base64.b64encode(f"{self.account_sid}:{self.auth_token}".encode()).decode()
+        request = Request(url, headers={"Authorization": f"Basic {token}", "Accept": "audio/wav"}, method="GET")
+        try:
+            with urlopen(request, timeout=self.timeout_seconds) as response:
+                audio = response.read()
+        except (TimeoutError, socket.timeout):
+            raise VoiceProviderError("provider_timeout") from None
+        except HTTPError as exc:
+            if exc.code in {401, 403}:
+                raise VoiceProviderError("invalid_credentials") from None
+            raise VoiceProviderError("provider_request_failed") from None
+        except (URLError, OSError):
+            raise VoiceProviderError("provider_unavailable") from None
+        if not audio:
+            raise VoiceProviderError("empty_recording")
+        return audio
+
+    def verify_twilio_request(self, url: str, fields: dict[str, str], signature: str) -> bool:
+        if not self.auth_token or not signature:
+            return False
+        message = url + "".join(key + fields[key] for key in sorted(fields))
+        expected = base64.b64encode(hmac.new(self.auth_token.encode(), message.encode(), hashlib.sha1).digest()).decode()
+        return hmac.compare_digest(expected, signature)
+
+
 def canonical_webhook(event: VoiceWebhookEvent) -> str:
     return json.dumps({
         "event_id": event.event_id,
@@ -164,6 +273,17 @@ def sign_webhook_event(event: VoiceWebhookEvent) -> str:
 
 def provider_from_settings(settings) -> VoiceProvider:
     provider_name = getattr(settings, "voice_provider", os.getenv("VOICE_PROVIDER", "local")).casefold()
+    if provider_name == "twilio":
+        return TwilioVoiceProvider(
+            getattr(settings, "twilio_account_sid", None),
+            getattr(settings, "twilio_auth_token", None),
+            getattr(settings, "voice_phone_number", None),
+            getattr(settings, "voice_public_base_url", None),
+            enabled=getattr(settings, "voice_enabled", False),
+            timeout_seconds=getattr(settings, "voice_timeout_seconds", 10.0),
+            language=getattr(settings, "voice_language", "hi-IN"),
+            mode=getattr(settings, "voice_mode", None),
+        )
     if provider_name == "live":
         return LiveHttpVoiceProvider(
             enabled=getattr(settings, "voice_enabled", False),

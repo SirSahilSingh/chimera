@@ -28,7 +28,7 @@ Simulator / Razorpay webhook
 
 ## LLM boundary
 
-The LLM is not on the primary decision path and is not called for every event. It is invoked only for ambiguous or unstructured root-cause interpretation, customer-response interpretation, Hinglish voice interactions, and explanations.
+The LLM is not on the primary decision path and is not called for every event. The free recovery voice path uses a controlled Hinglish intent classifier; an LLM is optional only for future ambiguous or unstructured interpretation and explanations.
 
 The deterministic path must complete when the LLM is unavailable. Any LLM action request is a proposal routed through the same policy engine; the LLM cannot execute a financial or outreach action directly. LLM self-reported confidence is not trusted for safety.
 

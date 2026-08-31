@@ -33,15 +33,27 @@ customer segments, environment state, probabilities, model internals, future
 outcomes, credentials, and arbitrary action requests are rejected or never
 constructed. Agent text is checked for unapproved numeric claims.
 
+## Hinglish behavior
+
+The recovery call is designed for practical Hinglish rather than English-only
+speech. Twilio is the phone carrier; Sarvam Saaras v3 transcribes the caller's
+recording in `codemix` mode and Sarvam Bulbul v3 speaks the response at an
+8kHz WAV rate suitable for telephony. Prompts use native Hindi script mixed
+with payment terms, while the controlled intent classifier accepts both Roman
+Hindi and Devanagari phrases such as `haan`, `baad mein`, `link bhej do`,
+`maine payment kar diya`, and `galat number`. This is deterministic and does
+not require an LLM key.
+
 ## Providers
 
-Local mode is the default and needs no credentials. Set `VOICE_PROVIDER=live`,
-`VOICE_ENABLED=true`, `VOICE_BASE_URL`, `VOICE_API_KEY`, `VOICE_AGENT_ID`, and
-`VOICE_PHONE_NUMBER` to use the provider-neutral HTTP adapter. The adapter
-expects `POST {VOICE_BASE_URL}/calls` and a response containing `call_id`,
-`id`, or `reference`; vendor-specific translation belongs outside the
-intervention lifecycle. Secrets are used only in memory and are not persisted
-or returned.
+Local mode is the default and needs no credentials. For a free/trial real call,
+set `VOICE_PROVIDER=twilio`, `VOICE_ENABLED=true`, `VOICE_MODE=TEST`,
+`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `VOICE_PHONE_NUMBER`,
+`VOICE_PUBLIC_BASE_URL`, `VOICE_LANGUAGE=hi-IN`, `SARVAM_ENABLED=true`, and
+`SARVAM_API_KEY`. The adapter starts a Twilio call, records the customer,
+transcribes the recording through Sarvam, serves the controlled CHIMERA intent
+loop, and creates a payment link without claiming recovery. The older
+provider-neutral HTTP adapter remains available with `VOICE_PROVIDER=live`.
 
 ## Demo
 

@@ -35,6 +35,8 @@ class PaymentWebhookEvent(BaseModel):
     status: PaymentStatus
     amount_paise: StrictInt = Field(ge=0)
     currency: str = Field(min_length=3, max_length=3)
+    customer_phone: str | None = Field(default=None, max_length=32)
+    customer_email: str | None = Field(default=None, max_length=255)
     occurred_at: datetime
 
     @field_validator("occurred_at")

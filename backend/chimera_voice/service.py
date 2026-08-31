@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
@@ -18,7 +19,8 @@ from backend.provider_modes import safe_failure_code
 from .agent import VoiceAgent
 from .context import build_voice_context, context_hash
 from .errors import InvalidVoiceWebhookError, VoiceActionNotAllowedError, VoiceDuplicateError, VoiceNotFoundError, VoiceProviderFailure
-from .provider import VoiceProvider, VoiceProviderError
+from .provider import TwilioVoiceProvider, VoiceProvider, VoiceProviderError
+from .sarvam_provider import SarvamSpeechError, SarvamSpeechProvider
 from .schemas import ConversationTurn, VoiceContext, VoiceIntent, VoiceScenario, VoiceWebhookEvent
 from .state_machine import TERMINAL_VOICE_STATUSES, VoiceCallStatus, validate_voice_transition
 from .transcript import payload_hash, transcript_hash
@@ -28,11 +30,13 @@ from .versions import VOICE_AGENT_VERSION, VOICE_PROMPT_VERSION
 class VoiceService:
     """Coordinates a voice call without decision or policy authority."""
 
-    def __init__(self, session: Session, provider: VoiceProvider, intervention_service: InterventionService | None = None, payment_service=None) -> None:
+    def __init__(self, session: Session, provider: VoiceProvider, intervention_service: InterventionService | None = None, payment_service=None, messaging_service=None, speech_provider: SarvamSpeechProvider | None = None) -> None:
         self.session = session
         self.provider = provider
         self.interventions = intervention_service or InterventionService(session)
         self.payment_service = payment_service
+        self.messaging_service = messaging_service
+        self.speech_provider = speech_provider
 
     @staticmethod
     def _now() -> datetime:
@@ -168,6 +172,12 @@ class VoiceService:
             payment_link = payment.short_url
             call.payment_link = payment_link
             self._event(call, "PAYMENT_LINK_ATTACHED", "payment_service", {"payment_id": payment.id, "provider": payment.provider})
+            if self.messaging_service is not None:
+                try:
+                    message = self.messaging_service.send_for_voice_link(call.intervention_id, payment_link)
+                    self._event(call, "PAYMENT_LINK_NOTIFIED", "messaging_service", {"message_id": message.id, "provider": message.provider, "provider_message_id": message.provider_message_id})
+                except Exception as exc:
+                    self._event(call, "PAYMENT_LINK_NOTIFICATION_FAILED", "messaging_service", {"provider": getattr(self.messaging_service.provider, "name", "unknown"), "error": str(exc)[:128]})
         response = agent.response_turn(intent or VoiceIntent.UNKNOWN, self._demo_timestamp(call, 2), payment_link=payment_link)
         self._record_turn(call, response, context)
         if intent in {VoiceIntent.DECLINE, VoiceIntent.WRONG_PERSON}:
@@ -186,6 +196,156 @@ class VoiceService:
             self._complete(call, VoiceCallStatus.COMPLETED, "CALL_COMPLETED", {"intent": (intent.value if intent else VoiceIntent.UNKNOWN.value), "payment_link_attached": payment_link is not None})
         self.session.commit()
         return self.get_call(call.id)
+
+    def twilio_twiml(self, intervention_id: str) -> str:
+        """Return the first TwiML turn for a real trial call."""
+        call = self.get_call_for_intervention(intervention_id)
+        if call.status in TERMINAL_VOICE_STATUSES:
+            return self._twiml_say("This recovery call is already complete. Thank you. Goodbye.")
+        context = build_voice_context(call.intervention)
+        if not call.turns:
+            self._record_turn(call, VoiceAgent(context).opening_turn(self._now()), context)
+            self.session.commit()
+        self._bring_to_conversation(call)
+        self.session.commit()
+        prompt = "नमस्ते। आपके recent payment में problem आई थी। क्या आप अभी payment link लेना चाहेंगे, या बाद में try करेंगे?"
+        return self._twiml_record(prompt, intervention_id)
+
+    def handle_twilio_gather(self, intervention_id: str, speech: str | None, digits: str | None) -> str:
+        """Persist one spoken/DTMF turn and return the next TwiML response."""
+        call = self.get_call_for_intervention(intervention_id)
+        if call.status in TERMINAL_VOICE_STATUSES:
+            return self._twiml_say("This recovery call is already complete. Goodbye.")
+        self._bring_to_conversation(call)
+        text = speech or ("yes" if digits == "1" else "later" if digits == "2" else "")
+        text = text.strip()
+        if not text:
+            return self._twiml_record("कृपया payment link, बाद में, already paid, या no thanks बोलिए।", intervention_id)
+        context = build_voice_context(call.intervention)
+        agent = VoiceAgent(context)
+        turn = agent.customer_turn(text, self._now())
+        self._record_turn(call, turn, context)
+        self._advance(call, VoiceCallStatus.AWAITING_RESOLUTION, "AWAITING_RESOLUTION", "twilio")
+        intent = turn.intent or VoiceIntent.UNKNOWN
+        call.outcome_intent = intent.value
+        payment_link = None
+        if intent in {VoiceIntent.PAY_NOW, VoiceIntent.SEND_PAYMENT_LINK}:
+            if self.payment_service is None:
+                raise VoiceProviderFailure("payment_service_unavailable")
+            payment = self.payment_service.create_for_voice_intent(call.intervention_id, "SEND_PAYMENT_LINK")
+            payment_link = payment.short_url
+            call.payment_link = payment_link
+            self._event(call, "PAYMENT_LINK_ATTACHED", "payment_service", {"payment_id": payment.id, "provider": payment.provider})
+            if self.messaging_service is not None:
+                try:
+                    message = self.messaging_service.send_for_voice_link(call.intervention_id, payment_link)
+                    self._event(call, "PAYMENT_LINK_NOTIFIED", "messaging_service", {"message_id": message.id, "provider": message.provider, "provider_message_id": message.provider_message_id})
+                except Exception as exc:
+                    self._event(call, "PAYMENT_LINK_NOTIFICATION_FAILED", "messaging_service", {"provider": getattr(self.messaging_service.provider, "name", "unknown"), "error": str(exc)[:128]})
+        response_text = {
+            VoiceIntent.PAY_NOW: "Payment link ready है। कृपया अभी complete कीजिए। Razorpay success confirm करेगा, तभी recovery mark होगी।",
+            VoiceIntent.SEND_PAYMENT_LINK: "Payment link ready है और approved message channel के लिए request record हो गई है। Payment confirm होने के बाद ही recovery mark होगी।",
+            VoiceIntent.RETRY_LATER: "बाद में try करने की request record हो गई है। अभी payment recovered mark नहीं हुआ है।",
+            VoiceIntent.ALREADY_PAID: "आपकी payment claim record हो गई है। Recovery से पहले payment team verify करेगी।",
+            VoiceIntent.DECLINE: "समझ गया। आप continue नहीं करना चाहते, यह record कर लिया है।",
+            VoiceIntent.WRONG_PERSON: "समझ गया। यह गलत number है, मैं call end कर रहा हूँ।",
+        }.get(intent, "मैं incorrect information नहीं देना चाहता। आपका response record कर लिया है और team follow up करेगी।")
+        response = agent.response_turn(intent, self._now(), payment_link=None)
+        response = response.model_copy(update={"text": response_text})
+        self._record_turn(call, response, context)
+        if intent in {VoiceIntent.DECLINE, VoiceIntent.WRONG_PERSON}:
+            self._complete(call, VoiceCallStatus.DECLINED, "CALL_DECLINED", {"intent": intent.value})
+            self.interventions.record_outcome(call.intervention_id, InterventionOutcomeCreate(status="NOT_RECOVERED", recovered_amount_paise=0, currency=call.intervention.recovery_case.currency, occurred_at=self._now(), source="voice_agent"))
+            return self._twiml_say(response_text)
+        self._complete(call, VoiceCallStatus.COMPLETED, "CALL_COMPLETED", {"intent": intent.value, "payment_link_attached": payment_link is not None})
+        self.session.commit()
+        return self._twiml_say(response_text)
+
+    def handle_twilio_record(self, intervention_id: str, recording_url: str | None, fields: dict[str, str], signature: str, callback_url: str) -> str:
+        """Transcribe a caller recording with Sarvam, then run the normal intent loop."""
+        if not isinstance(self.provider, TwilioVoiceProvider) or not self.provider.verify_twilio_request(callback_url, fields, signature):
+            raise InvalidVoiceWebhookError("invalid webhook signature")
+        if self.speech_provider is None:
+            raise VoiceProviderFailure("sarvam_unavailable")
+        if not recording_url:
+            return self._twiml_record("मुझे आपकी आवाज़ clear नहीं सुनाई दी। कृपया फिर से बोलिए।", intervention_id)
+        try:
+            audio = self.provider.fetch_recording(recording_url)
+            transcript = self.speech_provider.transcribe(audio, content_type="audio/wav")
+        except (VoiceProviderError, SarvamSpeechError) as exc:
+            call = self.get_call_for_intervention(intervention_id)
+            self._event(call, "SPEECH_TRANSCRIPTION_FAILED", "sarvam", {"failure_code": getattr(exc, "code", "provider_request_failed")})
+            self.session.commit()
+            return self._twiml_record("मुझे आपकी आवाज़ clear नहीं सुनाई दी। कृपया payment link, बाद में, या already paid बोलिए।", intervention_id)
+        call = self.get_call_for_intervention(intervention_id)
+        self._event(call, "SPEECH_TRANSCRIBED", "sarvam", {"transcript_length": len(transcript), "language_code": self.speech_provider.language_code, "model": self.speech_provider.stt_model})
+        self.session.commit()
+        return self.handle_twilio_gather(intervention_id, transcript, None)
+
+    def handle_twilio_status(self, intervention_id: str, provider_call_reference: str | None, status: str, fields: dict[str, str], signature: str, callback_url: str) -> VoiceCall:
+        if not isinstance(self.provider, TwilioVoiceProvider) or not self.provider.verify_twilio_request(callback_url, fields, signature):
+            raise InvalidVoiceWebhookError("invalid webhook signature")
+        call = self.get_call_for_intervention(intervention_id)
+        reference = provider_call_reference or call.provider_call_reference
+        if reference and call.provider_call_reference and reference != call.provider_call_reference:
+            raise VoiceNotFoundError("voice call not found for provider reference")
+        mapping = {"initiated": VoiceCallStatus.CALL_INITIATED, "ringing": VoiceCallStatus.RINGING, "in-progress": VoiceCallStatus.CONNECTED, "answered": VoiceCallStatus.CONNECTED, "completed": VoiceCallStatus.COMPLETED, "busy": VoiceCallStatus.FAILED, "failed": VoiceCallStatus.FAILED, "no-answer": VoiceCallStatus.NO_ANSWER, "canceled": VoiceCallStatus.CANCELLED}
+        target = mapping.get(status.casefold())
+        if target and call.status != target.value:
+            try:
+                if target == VoiceCallStatus.COMPLETED and call.status == VoiceCallStatus.CONNECTED:
+                    self._advance(call, VoiceCallStatus.CONVERSATION, "CONVERSATION_STARTED", "twilio")
+                    self._advance(call, VoiceCallStatus.AWAITING_RESOLUTION, "AWAITING_RESOLUTION", "twilio")
+                self._transition(call, target)
+                self._event(call, f"PROVIDER_{status.upper().replace('-', '_')}", "twilio", {"provider_call_reference": reference, "status": status})
+                if target in TERMINAL_VOICE_STATUSES:
+                    call.completed_at = self._now()
+                self.session.commit()
+            except VoiceDomainError:
+                self.session.rollback()
+        return self.get_call(call.id)
+
+    def _bring_to_conversation(self, call: VoiceCall) -> None:
+        if call.status == VoiceCallStatus.CALL_INITIATED.value:
+            self._advance(call, VoiceCallStatus.RINGING, "CALL_RINGING", "twilio")
+        if call.status == VoiceCallStatus.RINGING.value:
+            self._advance(call, VoiceCallStatus.CONNECTED, "CALL_CONNECTED", "twilio")
+        if call.status == VoiceCallStatus.CONNECTED.value:
+            self._advance(call, VoiceCallStatus.CONVERSATION, "CONVERSATION_STARTED", "twilio")
+
+    def _twiml_say(self, text: str) -> str:
+        language = html.escape(str(getattr(self.provider, "language", "hi-IN")), quote=True)
+        audio_url = self._speech_audio_url(text)
+        if audio_url:
+            return f'<?xml version="1.0" encoding="UTF-8"?><Response><Play>{html.escape(audio_url)}</Play><Hangup/></Response>'
+        return f'<?xml version="1.0" encoding="UTF-8"?><Response><Say language="{language}">{html.escape(text)}</Say><Hangup/></Response>'
+
+    def _twiml_gather(self, prompt: str, intervention_id: str) -> str:
+        language = html.escape(str(getattr(self.provider, "language", "hi-IN")), quote=True)
+        action = html.escape(f"/api/v1/voice/twilio/gather?intervention_id={intervention_id}", quote=True)
+        return f'<?xml version="1.0" encoding="UTF-8"?><Response><Gather input="speech dtmf" language="{language}" action="{action}" method="POST" timeout="5" numDigits="1"><Say language="{language}">{html.escape(prompt)}</Say></Gather><Say language="{language}">I did not hear a response. Goodbye.</Say><Hangup/></Response>'
+
+    def _twiml_record(self, prompt: str, intervention_id: str) -> str:
+        """Speak with Sarvam and capture caller audio for Saaras transcription."""
+        if not isinstance(self.provider, TwilioVoiceProvider) or not self._speech_is_configured():
+            return self._twiml_gather(prompt, intervention_id)
+        audio_url = self._speech_audio_url(prompt)
+        if not audio_url:
+            return self._twiml_gather(prompt, intervention_id)
+        action = html.escape(f"{self.provider.public_base_url}/api/v1/voice/twilio/record?intervention_id={intervention_id}", quote=True)
+        return f'<?xml version="1.0" encoding="UTF-8"?><Response><Play>{html.escape(audio_url)}</Play><Record action="{action}" method="POST" maxLength="12" timeout="5" playBeep="false" trim="trim-silence"/></Response>'
+
+    def _speech_is_configured(self) -> bool:
+        return bool(self.speech_provider and self.speech_provider.enabled and self.speech_provider.api_key)
+
+    def _speech_audio_url(self, text: str) -> str | None:
+        if not self._speech_is_configured() or not isinstance(self.provider, TwilioVoiceProvider) or not self.provider.public_base_url:
+            return None
+        try:
+            token = self.speech_provider.audio_token(text)
+        except SarvamSpeechError:
+            return None
+        return f"{self.provider.public_base_url}/api/v1/voice/sarvam/audio/{token}"
 
     def handle_webhook(self, provider_name: str, event: VoiceWebhookEvent) -> VoiceCall:
         if self.provider.name != provider_name:

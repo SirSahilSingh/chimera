@@ -88,6 +88,10 @@ class VoiceAgentTests(unittest.TestCase):
         self.assertEqual(agent.classify_customer_text("Please send me a payment link"), VoiceIntent.SEND_PAYMENT_LINK)
         self.assertEqual(agent.classify_customer_text("I already paid"), VoiceIntent.ALREADY_PAID)
         self.assertEqual(agent.classify_customer_text("What happened?"), VoiceIntent.QUESTION)
+        self.assertEqual(agent.classify_customer_text("Haan, payment link WhatsApp par bhej do"), VoiceIntent.SEND_PAYMENT_LINK)
+        self.assertEqual(agent.classify_customer_text("Maine payment kar diya hai"), VoiceIntent.ALREADY_PAID)
+        self.assertEqual(agent.classify_customer_text("Baad mein try karunga"), VoiceIntent.RETRY_LATER)
+        self.assertEqual(agent.classify_customer_text("Haan ji, abhi pay kar dunga"), VoiceIntent.PAY_NOW)
         fallback = agent.response_turn(VoiceIntent.UNKNOWN, datetime(2026, 1, 1, tzinfo=timezone.utc))
         self.assertIn("incorrect information", fallback.text)
 
