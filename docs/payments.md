@@ -15,3 +15,14 @@ Set `PAYMENT_PROVIDER=razorpay`, `PAYMENT_ENABLED=true`, `RAZORPAY_KEY_ID`, `RAZ
 ## Recovery boundary
 
 Creating or opening a link is not recovery. Only a validated provider success event with matching integer paise amount and INR currency calls the existing intervention lifecycle with `RECOVERED`. Duplicate provider event IDs are idempotent; stale events cannot revert `PAID`. Failed, expired, and pending observations are persisted as events and never count as recovery. Secrets and raw provider errors are excluded from responses and audit payloads.
+# Initial checkout architecture
+
+CHIMERA separates the initial merchant checkout from recovery payment links.
+
+- `POST /api/v1/payments/orders` creates the initial Razorpay Order. The response contains a publishable `checkout_key_id` and `provider_order_id`; the frontend opens Razorpay Checkout with those values.
+- Razorpay sends signed `payment.failed` or `payment.captured` webhooks to `/api/v1/payments/webhook/razorpay`.
+- A failed initial order is persisted first, then CHIMERA creates the recovery case, runs the deterministic decision engine, and routes the selected intervention.
+- Payment Links remain a recovery action. Their paid/expired/failed outcomes continue through the existing `PaymentLink` lifecycle.
+- The webhook handler is idempotent by provider event ID. The order is correlated by `order_id`, so the initial failure does not depend on a hosted Payment Link exposing a link ID.
+
+The initial checkout API never returns a provider secret. It stores customer contact data on the order so the recovery case can inherit it when a failure event arrives.

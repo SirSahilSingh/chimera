@@ -84,6 +84,7 @@ class RecoveryCase(Base):
     interventions: Mapped[list[Intervention]] = relationship(back_populates="recovery_case", cascade="all, delete-orphan")
     intervention_events: Mapped[list[InterventionEvent]] = relationship(back_populates="recovery_case", cascade="all, delete-orphan")
     payment_links: Mapped[list[PaymentLink]] = relationship(back_populates="recovery_case", cascade="all, delete-orphan")
+    payment_orders: Mapped[list[PaymentOrder]] = relationship(back_populates="recovery_case")
     message_attempts: Mapped[list[MessageAttempt]] = relationship(back_populates="recovery_case", cascade="all, delete-orphan")
     retry_attempts: Mapped[list[RetryAttempt]] = relationship(back_populates="recovery_case", cascade="all, delete-orphan")
     scheduled_retries: Mapped[list[ScheduledRetry]] = relationship(back_populates="recovery_case", cascade="all, delete-orphan")
@@ -423,6 +424,68 @@ class PaymentLink(Base):
     decision: Mapped[Decision] = relationship(back_populates="payment_links")
     attempts: Mapped[list[PaymentAttempt]] = relationship(back_populates="payment_link", cascade="all, delete-orphan")
     events: Mapped[list[PaymentEvent]] = relationship(back_populates="payment_link", cascade="all, delete-orphan")
+
+
+class PaymentOrder(Base):
+    """The initial merchant checkout order, before a recovery case exists."""
+
+    __tablename__ = "payment_orders"
+    __table_args__ = (
+        UniqueConstraint("idempotency_key", name="uq_payment_orders_idempotency_key"),
+        UniqueConstraint("provider", "provider_order_id", name="uq_payment_orders_provider_order"),
+        UniqueConstraint("provider", "external_reference_id", name="uq_payment_orders_provider_reference"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    provider_mode: Mapped[str] = mapped_column(String(16), nullable=False, default="LOCAL")
+    provider_order_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    checkout_key_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    external_reference_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    customer_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    customer_phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    customer_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    amount_paise: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    description: Mapped[str] = mapped_column(String(255), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE", index=True)
+    provider_payment_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    failure_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    recovery_case_id: Mapped[str | None] = mapped_column(ForeignKey("recovery_cases.id"), nullable=True, index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    result_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now, nullable=False)
+
+    recovery_case: Mapped[RecoveryCase | None] = relationship(back_populates="payment_orders")
+    events: Mapped[list[PaymentOrderEvent]] = relationship(back_populates="payment_order", cascade="all, delete-orphan")
+
+
+class PaymentOrderEvent(Base):
+    """Append-only provider events for the initial order."""
+
+    __tablename__ = "payment_order_events"
+    __table_args__ = (UniqueConstraint("provider", "provider_event_id", name="uq_payment_order_events_provider_event"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    payment_order_id: Mapped[str] = mapped_column(ForeignKey("payment_orders.id"), nullable=False, index=True)
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    provider_mode: Mapped[str] = mapped_column(String(16), nullable=False, default="LOCAL")
+    provider_event_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    provider_payment_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    amount_paise: Mapped[int] = mapped_column(Integer, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    signature_verified: Mapped[bool] = mapped_column(nullable=False)
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+    payment_order: Mapped[PaymentOrder] = relationship(back_populates="events")
 
 
 class PaymentAttempt(Base):

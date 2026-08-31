@@ -54,7 +54,8 @@ from backend.chimera_voice.schemas import (
 from backend.chimera_voice.service import VoiceService
 from backend.chimera_voice.sarvam_provider import SarvamSpeechProvider
 from backend.chimera_payments.errors import PaymentError, PaymentNotFoundError, PaymentProviderError, PaymentWebhookError
-from backend.chimera_payments.schemas import PaymentDemoRequest, PaymentDemoScenario, PaymentEventResponse, PaymentAttemptResponse, PaymentLinkResponse, PaymentListResponse
+from backend.chimera_payments.schemas import PaymentDemoRequest, PaymentDemoScenario, PaymentEventResponse, PaymentAttemptResponse, PaymentLinkResponse, PaymentListResponse, PaymentOrderCreate, PaymentOrderResponse
+from backend.chimera_payments.order_service import PaymentOrderService
 from backend.chimera_payments.service import PaymentService
 from backend.chimera_messaging.schemas import MessageListResponse, MessageAttemptResponse, MessagingEventResponse, RetryAttemptResponse, ScheduledRetryResponse
 from backend.chimera_messaging.service import MessagingService
@@ -68,7 +69,7 @@ from backend.chimera_provider_health.schemas import ProviderReadinessResponse, P
 from backend.chimera_provider_health.service import ProviderHealthError, ProviderHealthService
 
 
-def build_router(*, session_factory, service_factory, health_factory, intelligence_service_factory, recovery_intelligence_service_factory, intervention_service_factory, voice_service_factory, payment_service_factory, orchestration_service_factory, provider_health_service_factory, arena_service_factory) -> APIRouter:
+def build_router(*, session_factory, service_factory, health_factory, intelligence_service_factory, recovery_intelligence_service_factory, intervention_service_factory, voice_service_factory, payment_service_factory, payment_order_service_factory, orchestration_service_factory, provider_health_service_factory, arena_service_factory) -> APIRouter:
     router = APIRouter()
 
     def db() -> Session:
@@ -91,6 +92,9 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
 
     def payment_service(session: Session = Depends(db)) -> PaymentService:
         return payment_service_factory(session)
+
+    def payment_order_service(session: Session = Depends(db)) -> PaymentOrderService:
+        return payment_order_service_factory(session)
 
     def messaging_service(session: Session = Depends(db)) -> MessagingService:
         return orchestration_service_factory(session).messaging
@@ -121,6 +125,7 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
             external_event_id=case.external_event_id,
             payment_id=case.payment_id,
             customer_id=case.customer_id,
+            customer_phone=case.customer_phone,
             amount_paise=case.amount_paise,
             currency=case.currency,
             failure_reason=case.failure_reason,
@@ -197,6 +202,31 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
             request_hash=link.request_hash, result_hash=link.result_hash, expires_at=link.expires_at, created_at=link.created_at,
             updated_at=link.updated_at, attempts=[PaymentAttemptResponse.model_validate(item) for item in attempts],
             events=[PaymentEventResponse.model_validate(item) for item in events],
+        )
+
+    def as_payment_order(order) -> PaymentOrderResponse:
+        return PaymentOrderResponse(
+            id=order.id,
+            provider=order.provider,
+            provider_mode=getattr(order, "provider_mode", "LOCAL"),
+            provider_order_id=order.provider_order_id,
+            checkout_key_id=order.checkout_key_id,
+            external_reference_id=order.external_reference_id,
+            customer_id=order.customer_id,
+            customer_phone=order.customer_phone,
+            customer_email=order.customer_email,
+            amount_paise=order.amount_paise,
+            currency=order.currency,
+            description=order.description,
+            status=order.status,
+            provider_payment_id=order.provider_payment_id,
+            failure_reason=order.failure_reason,
+            recovery_case_id=order.recovery_case_id,
+            idempotency_key=order.idempotency_key,
+            request_hash=order.request_hash,
+            result_hash=order.result_hash,
+            created_at=order.created_at,
+            updated_at=order.updated_at,
         )
 
     def as_message(message) -> MessageAttemptResponse:
@@ -716,6 +746,27 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
         except PaymentNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    @router.post("/payments/orders", response_model=PaymentOrderResponse, status_code=201)
+    def create_payment_order(payload: PaymentOrderCreate, service: PaymentOrderService = Depends(payment_order_service)):
+        try:
+            return as_payment_order(service.create_order(payload))
+        except PaymentError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @router.get("/payments/orders/{order_id}", response_model=PaymentOrderResponse)
+    def get_payment_order(order_id: str, service: PaymentOrderService = Depends(payment_order_service)):
+        try:
+            return as_payment_order(service.get_order(order_id))
+        except PaymentNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @router.post("/payments/orders/{order_id}/reconcile", response_model=PaymentOrderResponse)
+    def reconcile_payment_order(order_id: str, service: PaymentOrderService = Depends(payment_order_service)):
+        try:
+            return as_payment_order(service.reconcile_order(order_id))
+        except PaymentError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
     @router.post("/payments/{payment_id}/reconcile", response_model=PaymentLinkResponse)
     def reconcile_payment(payment_id: str, service: PaymentService = Depends(payment_service), orchestration: RecoveryOrchestrator = Depends(orchestration_service)):
         try:
@@ -737,13 +788,17 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
         except PaymentError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
-    @router.post("/payments/webhook/{provider}", response_model=PaymentLinkResponse)
-    async def payment_webhook(provider: str, request: Request, service: PaymentService = Depends(payment_service), orchestration: RecoveryOrchestrator = Depends(orchestration_service)):
+    @router.post("/payments/webhook/{provider}", response_model=None)
+    async def payment_webhook(provider: str, request: Request, service: PaymentService = Depends(payment_service), order_service: PaymentOrderService = Depends(payment_order_service), orchestration: RecoveryOrchestrator = Depends(orchestration_service)):
         raw_body = await request.body()
         signature = request.headers.get("x-razorpay-signature") or request.headers.get("x-payment-signature") or ""
         provider_event_id = request.headers.get("x-razorpay-event-id") or request.headers.get("x-payment-event-id")
         try:
-            payment = service.process_webhook(provider, raw_body, signature, provider_event_id)
+            event = service.parse_verified_webhook(provider, raw_body, signature, provider_event_id)
+            order = order_service.apply_webhook_event(event)
+            if order is not None:
+                return as_payment_order(order)
+            payment = service.apply_verified_webhook_event(provider, event)
             orchestration.continue_after_payment_outcome(payment)
             return as_payment(payment)
         except PaymentNotFoundError as exc:

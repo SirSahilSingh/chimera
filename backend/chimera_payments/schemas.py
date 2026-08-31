@@ -33,6 +33,9 @@ class PaymentWebhookEvent(BaseModel):
     provider_order_id: str | None = Field(default=None, max_length=255)
     provider_reference_id: str | None = Field(default=None, max_length=255)
     provider_payment_id: str | None = Field(default=None, max_length=255)
+    provider_error_code: str | None = Field(default=None, max_length=128)
+    provider_error_reason: str | None = Field(default=None, max_length=255)
+    provider_payment_method: str | None = Field(default=None, max_length=32)
     event_type: str = Field(min_length=1, max_length=64)
     status: PaymentStatus
     amount_paise: StrictInt = Field(ge=0)
@@ -111,3 +114,48 @@ class PaymentLinkResponse(BaseModel):
 
 class PaymentListResponse(BaseModel):
     items: list[PaymentLinkResponse]
+
+
+class PaymentOrderCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    external_reference_id: str = Field(min_length=1, max_length=255)
+    customer_id: str = Field(min_length=1, max_length=255)
+    amount_paise: StrictInt = Field(gt=0)
+    currency: str = Field(min_length=3, max_length=3)
+    description: str = Field(min_length=1, max_length=255)
+    customer_phone: str | None = Field(default=None, max_length=32)
+    customer_email: str | None = Field(default=None, max_length=255)
+
+    @field_validator("currency")
+    @classmethod
+    def currency_is_inr(cls, value: str) -> str:
+        if value != "INR":
+            raise ValueError("only INR is supported")
+        return value
+
+
+class PaymentOrderResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    provider: str
+    provider_mode: str
+    provider_order_id: str
+    checkout_key_id: str | None
+    external_reference_id: str
+    customer_id: str
+    customer_phone: str | None
+    customer_email: str | None
+    amount_paise: int
+    currency: str
+    description: str
+    status: str
+    provider_payment_id: str | None
+    failure_reason: str | None
+    recovery_case_id: str | None
+    idempotency_key: str
+    request_hash: str
+    result_hash: str
+    created_at: datetime
+    updated_at: datetime

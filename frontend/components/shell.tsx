@@ -38,6 +38,7 @@ const navSections: NavSection[] = [
     { href: "/providers", label: "Provider Readiness", icon: ShieldIcon },
   ] },
   { label: "Evaluation Lab", items: [
+    { href: "/checkout", label: "Initial Checkout", icon: ShieldIcon },
     { href: "/demo", label: "Demo Scenarios", icon: FlaskIcon },
     { href: "/arena", label: "Recovery Arena", icon: GridIcon },
     { href: "/methodology", label: "Methodology & Guardrails", icon: ShieldIcon },
@@ -77,6 +78,7 @@ function pageName(pathname: string, search: string) {
   if (pathname.startsWith("/arena")) return "Recovery Arena";
   if (pathname.startsWith("/methodology")) return "Methodology & Guardrails";
   if (pathname.startsWith("/demo")) return "Demo Scenarios";
+  if (pathname.startsWith("/checkout")) return "Initial Checkout";
   if (pathname.startsWith("/intelligence/failures")) return "Failure Patterns";
   if (pathname.startsWith("/intelligence/performance")) return "Recovery Outcomes";
   if (pathname.startsWith("/learn")) return "Outcome Learning";

@@ -5,9 +5,9 @@ import hmac
 import json
 from datetime import datetime, timedelta, timezone
 
-from ..context import PaymentContext
+from ..context import PaymentContext, PaymentOrderContext
 from ..errors import PaymentProviderError
-from ..provider import PaymentLinkResult, PaymentProvider
+from ..provider import PaymentLinkResult, PaymentOrderResult, PaymentProvider
 from ..schemas import PaymentDemoScenario, PaymentStatus, PaymentWebhookEvent
 from backend.provider_modes import ProviderMode
 
@@ -24,6 +24,13 @@ class LocalDeterministicPaymentProvider(PaymentProvider):
         self._contexts[context.idempotency_key] = context
         token = hashlib.sha256(f"local-payment-v1|{context.idempotency_key}".encode()).hexdigest()[:24]
         return PaymentLinkResult(f"local_plink_{token}", f"https://demo.chimera.local/payment/{token}", PaymentStatus.ACTIVE, context.expires_at)
+
+    def create_order(self, context: PaymentOrderContext) -> PaymentOrderResult:
+        token = hashlib.sha256(f"local-order-v1|{context.idempotency_key}".encode()).hexdigest()[:24]
+        return PaymentOrderResult(f"local_order_{token}", PaymentStatus.ACTIVE, checkout_key_id="local_test_key", raw={"status": "created"})
+
+    def get_order_status(self, provider_order_id: str) -> PaymentWebhookEvent:
+        return PaymentWebhookEvent(provider_event_id=f"reconcile-{provider_order_id}", provider_order_id=provider_order_id, event_type="order.reconciliation", status=PaymentStatus.ACTIVE, amount_paise=0, currency="INR", occurred_at=datetime.now(timezone.utc))
 
     def verify_connectivity(self) -> None:
         return None

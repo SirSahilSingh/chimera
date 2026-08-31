@@ -19,6 +19,7 @@ from backend.chimera_payments.providers.local import LocalDeterministicPaymentPr
 from backend.chimera_payments.providers.razorpay import RazorpayPaymentProvider
 from backend.chimera_payments.provider import PaymentProvider
 from backend.chimera_payments.service import PaymentService
+from backend.chimera_payments.order_service import PaymentOrderService
 from backend.chimera_messaging.local_provider import LocalDeterministicMessagingProvider
 from backend.chimera_messaging.twilio_provider import TwilioMessagingProvider
 from backend.chimera_messaging.whatsapp_provider import WhatsAppMessagingProvider
@@ -187,6 +188,15 @@ def create_app(database_url: str | None = None, *, create_tables: bool = True, e
     def payment_service_factory(session):
         return PaymentService(session, configured_payment_provider, demo_enabled=settings.api_environment != "production", enabled=settings.payment_enabled)
 
+    def payment_order_service_factory(session):
+        return PaymentOrderService(
+            session,
+            configured_payment_provider,
+            case_service=service_factory(session),
+            intervention_service=intervention_service_factory(session),
+            orchestrator=orchestration_service_factory(session),
+        )
+
     def voice_service_factory(session):
         return VoiceService(session, configured_voice_provider, payment_service=payment_service_factory(session), messaging_service=messaging_service_factory(session), speech_provider=configured_speech_provider)
 
@@ -225,6 +235,7 @@ def create_app(database_url: str | None = None, *, create_tables: bool = True, e
         intervention_service_factory=intervention_service_factory,
         voice_service_factory=voice_service_factory,
         payment_service_factory=payment_service_factory,
+        payment_order_service_factory=payment_order_service_factory,
         orchestration_service_factory=orchestration_service_factory,
         provider_health_service_factory=provider_health_service_factory,
         arena_service_factory=arena_service_factory,

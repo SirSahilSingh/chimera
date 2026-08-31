@@ -74,12 +74,18 @@ class PaymentService:
         return list(self.session.scalars(select(PaymentLink).options(selectinload(PaymentLink.attempts), selectinload(PaymentLink.events)).where(PaymentLink.intervention_id == intervention_id).order_by(PaymentLink.created_at.asc(), PaymentLink.id.asc())))
 
     def process_webhook(self, provider_name: str, raw_body: bytes, signature: str, provider_event_id: str | None = None) -> PaymentLink:
+        event = self.parse_verified_webhook(provider_name, raw_body, signature, provider_event_id)
+        return self._apply_event(provider_name, event, source="webhook", signature_verified=True)
+
+    def parse_verified_webhook(self, provider_name: str, raw_body: bytes, signature: str, provider_event_id: str | None = None) -> PaymentWebhookEvent:
         if self.provider.name != provider_name or not self.provider.verify_webhook(raw_body, signature):
             raise PaymentWebhookError("invalid_webhook_signature")
         try:
-            event = self.provider.parse_webhook(raw_body, provider_event_id)
+            return self.provider.parse_webhook(raw_body, provider_event_id)
         except PaymentProviderError as exc:
             raise PaymentWebhookError(exc.code) from exc
+
+    def apply_verified_webhook_event(self, provider_name: str, event: PaymentWebhookEvent) -> PaymentLink:
         return self._apply_event(provider_name, event, source="webhook", signature_verified=True)
 
     def reconcile_payment(self, payment_id: str) -> PaymentLink:

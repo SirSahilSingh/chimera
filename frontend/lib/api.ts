@@ -1,4 +1,4 @@
-import type { ArenaResponse, Decision, DemoRecoveryResponse, DemoRunResponse, Escalation, Explanation, LearningDrift, LearningFunnel, LearningOverview, LearningProvider, PaginatedCases, JourneyPayment, ProviderReadiness, ProviderVerificationResponse, RecoveryCase, Execution, RecoveryIntelligence, RecoveryJourney, ScheduledRetry, SystemHealth } from "./types";
+import type { ArenaResponse, Decision, DemoRecoveryResponse, DemoRunResponse, Escalation, Explanation, LearningDrift, LearningFunnel, LearningOverview, LearningProvider, PaginatedCases, JourneyPayment, PaymentOrder, ProviderReadiness, ProviderVerificationResponse, RecoveryCase, Execution, RecoveryIntelligence, RecoveryJourney, ScheduledRetry, SystemHealth } from "./types";
 
 // Prefer the same-origin Next.js proxy locally so the browser does not need a
 // separate CORS policy. An explicit public base remains available for a
@@ -52,6 +52,8 @@ export const api = {
   getExplanationHistory: (decisionId: string) => request<Explanation[]>(`/decisions/${decisionId}/explanations`),
   getJourney: (caseId: string) => request<RecoveryJourney>(`/recovery-cases/${caseId}/journey`),
   reconcilePayment: (paymentId: string) => request<JourneyPayment>(`/payments/${paymentId}/reconcile`, { method: "POST" }),
+  createPaymentOrder: (payload: { external_reference_id: string; customer_id: string; amount_paise: number; currency: "INR"; description: string; customer_phone?: string; customer_email?: string }) => request<PaymentOrder>("/payments/orders", { method: "POST", body: JSON.stringify(payload) }),
+  getPaymentOrder: (orderId: string) => request<PaymentOrder>(`/payments/orders/${orderId}`),
   getIntelligence: (caseId: string) => request<RecoveryIntelligence>(`/recovery-cases/${caseId}/intelligence`),
   runRecoveryDemo: (payload: { external_event_id: string; payment_id: string; customer_id: string; amount_paise: number; currency: "INR"; failure_reason: string; incident_flag: boolean; payment_method: "card" | "upi" | "netbanking"; decision_timestamp: string }) => request<DemoRecoveryResponse>("/demo/recovery", { method: "POST", body: JSON.stringify(payload) }),
   runDemo: (payload: { scenario: DemoRunResponse["scenario"]; provider_mode: "LOCAL" }) => request<DemoRunResponse>("/demo/run", { method: "POST", body: JSON.stringify(payload) }),

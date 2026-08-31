@@ -192,6 +192,7 @@ class RecoveryCaseResponse(BaseModel):
     external_event_id: str
     payment_id: str
     customer_id: str
+    customer_phone: str | None = None
     amount_paise: int
     currency: str
     failure_reason: str

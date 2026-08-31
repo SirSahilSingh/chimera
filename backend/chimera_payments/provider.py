@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from .context import PaymentContext
+from .context import PaymentContext, PaymentOrderContext
 from .errors import PaymentProviderError
 from .schemas import PaymentStatus, PaymentWebhookEvent
 
@@ -16,12 +16,26 @@ class PaymentLinkResult:
         self.raw = raw or {}
 
 
+class PaymentOrderResult:
+    def __init__(self, provider_order_id: str, status: PaymentStatus, *, checkout_key_id: str | None = None, raw: dict | None = None) -> None:
+        self.provider_order_id = provider_order_id
+        self.status = status
+        self.checkout_key_id = checkout_key_id
+        self.raw = raw or {}
+
+
 class PaymentProvider(ABC):
     name: str
     mode: str = "LOCAL"
 
     @abstractmethod
     def create_payment_link(self, context: PaymentContext) -> PaymentLinkResult: ...
+
+    def create_order(self, context: PaymentOrderContext) -> PaymentOrderResult:
+        raise PaymentProviderError("unsupported_capability")
+
+    def get_order_status(self, provider_order_id: str) -> PaymentWebhookEvent:
+        raise PaymentProviderError("unsupported_capability")
 
     @abstractmethod
     def get_payment_status(self, provider_payment_link_id: str) -> PaymentWebhookEvent: ...

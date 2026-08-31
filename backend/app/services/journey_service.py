@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 
 from backend.app.db.models import (
     ActionExecution, AuditLog, Decision, Escalation, Explanation, Intervention,
-    InterventionEvent, PaymentEvent, PaymentLink, RecoveryCase, RetryAttempt,
+    InterventionEvent, PaymentEvent, PaymentLink, PaymentOrder, RecoveryCase, RetryAttempt,
     ScheduledRetry, VoiceCall, VoiceEvent, MessageAttempt,
 )
 from backend.app.domain import DomainError
@@ -47,6 +47,7 @@ class RecoveryJourneyService:
                 selectinload(RecoveryCase.interventions).selectinload(Intervention.events),
                 selectinload(RecoveryCase.interventions).selectinload(Intervention.outcomes),
                 selectinload(RecoveryCase.payment_links).selectinload(PaymentLink.events),
+                selectinload(RecoveryCase.payment_orders).selectinload(PaymentOrder.events),
                 selectinload(RecoveryCase.message_attempts).selectinload(MessageAttempt.events),
                 selectinload(RecoveryCase.retry_attempts),
                 selectinload(RecoveryCase.scheduled_retries),
@@ -67,7 +68,7 @@ class RecoveryJourneyService:
         return {
             "case": {
                 "id": case.id, "external_event_id": case.external_event_id, "payment_id": case.payment_id,
-                "customer_id": case.customer_id, "amount_paise": case.amount_paise, "currency": case.currency,
+                "customer_id": case.customer_id, "customer_phone": case.customer_phone, "amount_paise": case.amount_paise, "currency": case.currency,
                 "failure_reason": case.failure_reason, "incident_flag": case.incident_flag,
                 "payment_method": case.payment_method, "decision_timestamp": _iso(case.decision_timestamp),
                 "status": case.status, "created_at": _iso(case.created_at), "updated_at": _iso(case.updated_at),
@@ -77,6 +78,7 @@ class RecoveryJourneyService:
             "interventions": [self._intervention(row) for row in interventions],
             "execution": [self._execution(row) for row in sorted(case.executions, key=lambda row: (row.created_at, row.id))],
             "payments": [self._payment(row) for row in sorted(case.payment_links, key=lambda row: (row.created_at, row.id))],
+            "initial_orders": [self._initial_order(row) for row in sorted(case.payment_orders, key=lambda row: (row.created_at, row.id))],
             "messages": [self._message(row) for row in sorted(case.message_attempts, key=lambda row: (row.created_at, row.id))],
             "retries": [self._retry(row) for row in sorted(case.retry_attempts, key=lambda row: (row.created_at, row.id))],
             "scheduled_retries": [self._schedule(row) for row in sorted(case.scheduled_retries, key=lambda row: (row.created_at, row.id))],
@@ -84,6 +86,18 @@ class RecoveryJourneyService:
             "escalations": [self._escalation(row) for row in sorted(case.escalations, key=lambda row: (row.created_at, row.id))],
             "audit_trail": audit,
         }
+
+    @staticmethod
+    def _initial_order(row):
+        return {"id": row.id, "provider": row.provider, "provider_mode": row.provider_mode,
+                "provider_order_id": row.provider_order_id, "amount_paise": row.amount_paise,
+                "currency": row.currency, "status": row.status,
+                "provider_payment_id": row.provider_payment_id, "failure_reason": row.failure_reason,
+                "created_at": _iso(row.created_at), "updated_at": _iso(row.updated_at),
+                "events": [_record(item, event_type=item.event_type, source=item.source,
+                                    timestamp=item.occurred_at, payload=item.payload_json,
+                                    provider_mode=item.provider_mode)
+                           for item in sorted(row.events, key=lambda x: (x.occurred_at, x.id))]}
 
     @staticmethod
     def _decision(row):
@@ -166,6 +180,9 @@ class RecoveryJourneyService:
         for row in case.intervention_events:
             entries.append(_record(row, event_type=row.event_type, source=row.actor, timestamp=row.created_at, payload=row.payload_json))
         for item in case.payment_links:
+            for row in item.events:
+                entries.append(_record(row, event_type=row.event_type, source=row.source, timestamp=row.occurred_at, payload=row.payload_json, provider_mode=row.provider_mode))
+        for item in case.payment_orders:
             for row in item.events:
                 entries.append(_record(row, event_type=row.event_type, source=row.source, timestamp=row.occurred_at, payload=row.payload_json, provider_mode=row.provider_mode))
         for item in case.message_attempts:

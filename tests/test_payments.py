@@ -10,13 +10,13 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from backend.app.db.models import Decision, PaymentEvent, PaymentLink, RecoveryCase
+from backend.app.db.models import Decision, PaymentEvent, PaymentLink, PaymentOrder, RecoveryCase
 from backend.app.main import create_app
 from backend.chimera_payments.context import PaymentContext
 from backend.chimera_payments.errors import PaymentAuthorityError, PaymentValidationError, PaymentWebhookError
 from backend.chimera_payments.providers.local import LocalDeterministicPaymentProvider
 from backend.chimera_payments.providers.razorpay import RazorpayPaymentProvider
-from backend.chimera_payments.schemas import PaymentDemoScenario, PaymentWebhookEvent
+from backend.chimera_payments.schemas import PaymentDemoScenario, PaymentOrderCreate, PaymentStatus, PaymentWebhookEvent
 from backend.chimera_payments.service import PaymentService
 
 
@@ -216,6 +216,69 @@ class PaymentTests(unittest.TestCase):
         with patch("backend.chimera_payments.providers.razorpay.urlopen", return_value=FakeResponse({"items": [{"id": "plink_1", "order_id": "order_1", "reference_id": "ref_1"}]})):
             resolved = provider.resolve_payment_link_id(provider_order_id="order_1")
         self.assertEqual(resolved, "plink_1")
+
+    def test_initial_order_failure_opens_recovery_from_provider_webhook(self):
+        created = self.client.post(
+            "/api/v1/payments/orders",
+            json={
+                "external_reference_id": "checkout-001",
+                "customer_id": "customer-001",
+                "customer_phone": "+919999999999",
+                "amount_paise": 100000,
+                "currency": "INR",
+                "description": "Initial checkout",
+            },
+        )
+        self.assertEqual(created.status_code, 201, created.text)
+        order = created.json()
+        provider: LocalDeterministicPaymentProvider = self.app.state.payment_provider
+        event = PaymentWebhookEvent(
+            provider_event_id="local-order-payment-failed-1",
+            provider_order_id=order["provider_order_id"],
+            provider_payment_id="pay_initial_failed",
+            provider_error_reason="The bank declined the payment",
+            provider_payment_method="card",
+            event_type="payment.failed",
+            status=PaymentStatus.FAILED,
+            amount_paise=100000,
+            currency="INR",
+            customer_phone="+919999999999",
+            occurred_at=datetime(2026, 1, 1, 12, tzinfo=timezone.utc),
+        )
+        webhook = self.client.post(
+            "/api/v1/payments/webhook/local",
+            content=event.model_dump_json().encode(),
+            headers={"x-payment-signature": provider.sign(event)},
+        )
+        self.assertEqual(webhook.status_code, 200, webhook.text)
+        self.assertEqual(webhook.json()["status"], "FAILED")
+        self.assertIsNotNone(webhook.json()["recovery_case_id"])
+        journey = self.client.get(f"/api/v1/recovery-cases/{webhook.json()['recovery_case_id']}/journey")
+        self.assertEqual(journey.status_code, 200, journey.text)
+        self.assertEqual(journey.json()["case"]["failure_reason"], "issuer_decline")
+        session = self.app.state.session_factory()
+        self.assertEqual(session.query(PaymentOrder).count(), 1)
+        self.assertEqual(session.query(PaymentOrder).one().status, "FAILED")
+        session.close()
+
+    def test_razorpay_order_payload_uses_paise_and_checkout_key(self):
+        provider = RazorpayPaymentProvider("rzp_test_key", "secret", "webhook", enabled=True)
+        context = PaymentOrderCreate(
+            external_reference_id="checkout-payload-001",
+            customer_id="customer-001",
+            amount_paise=100000,
+            currency="INR",
+            description="Initial checkout",
+        )
+        from backend.chimera_payments.context import PaymentOrderContext
+        order_context = PaymentOrderContext(**context.model_dump(), idempotency_key="d" * 64)
+        with patch("backend.chimera_payments.providers.razorpay.urlopen", return_value=FakeResponse({"id": "order_1", "status": "created"})) as mocked:
+            result = provider.create_order(order_context)
+        request = mocked.call_args.args[0]
+        payload = json.loads(request.data)
+        self.assertEqual(payload["amount"], 100000)
+        self.assertEqual(payload["currency"], "INR")
+        self.assertEqual(result.checkout_key_id, "rzp_test_key")
 
 
 if __name__ == "__main__":

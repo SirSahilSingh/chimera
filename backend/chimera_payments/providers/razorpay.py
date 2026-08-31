@@ -8,9 +8,9 @@ from datetime import datetime, timezone
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from ..context import PaymentContext
+from ..context import PaymentContext, PaymentOrderContext
 from ..errors import PaymentProviderError
-from ..provider import PaymentLinkResult, PaymentProvider
+from ..provider import PaymentLinkResult, PaymentOrderResult, PaymentProvider
 from ..schemas import PaymentStatus, PaymentWebhookEvent
 from backend.provider_modes import resolve_mode
 
@@ -43,6 +43,42 @@ class RazorpayPaymentProvider(PaymentProvider):
             return PaymentLinkResult(response["id"], response["short_url"], PaymentStatus.ACTIVE, _timestamp(response.get("expire_by")), response)
         except (KeyError, TypeError) as exc:
             raise PaymentProviderError("provider_invalid_response") from exc
+
+    def create_order(self, context: PaymentOrderContext) -> PaymentOrderResult:
+        self._ensure_configured()
+        # Razorpay receipts are limited to 40 characters. The full merchant
+        # reference remains persisted in CHIMERA for idempotent correlation.
+        receipt = f"chimera-{hashlib.sha256(context.external_reference_id.encode()).hexdigest()[:32]}"
+        body = {
+            "amount": context.amount_paise,
+            "currency": context.currency,
+            "receipt": receipt,
+            "notes": {"chimera_reference": context.external_reference_id[:255], "chimera_customer": context.customer_id[:255]},
+        }
+        response = self._request("POST", "/orders", body)
+        try:
+            return PaymentOrderResult(
+                str(response["id"]),
+                _map_order_status(response.get("status")),
+                checkout_key_id=self.key_id,
+                raw=response,
+            )
+        except (KeyError, TypeError) as exc:
+            raise PaymentProviderError("provider_invalid_response") from exc
+
+    def get_order_status(self, provider_order_id: str) -> PaymentWebhookEvent:
+        self._ensure_configured()
+        data = self._request("GET", f"/orders/{provider_order_id}", None)
+        return PaymentWebhookEvent(
+            provider_event_id=f"reconcile-order-{provider_order_id}",
+            provider_order_id=provider_order_id,
+            provider_payment_id=None,
+            event_type="order.reconciliation",
+            status=_map_order_status(data.get("status")),
+            amount_paise=int(data.get("amount", 0)),
+            currency=str(data.get("currency", "INR")),
+            occurred_at=datetime.now(timezone.utc),
+        )
 
     def verify_connectivity(self) -> None:
         self._ensure_configured()
@@ -91,15 +127,18 @@ class RazorpayPaymentProvider(PaymentProvider):
             payload = body.get("payload", {})
             payment_link = payload.get("payment_link", {}).get("entity", {})
             payment = payload.get("payment", {}).get("entity", {})
+            order = payload.get("order", {}).get("entity", {})
             nested_payment_link = payment.get("payment_link") or {}
             link_id = str(payment_link.get("id") or payment.get("payment_link_id") or nested_payment_link.get("id") or "")
-            order_id = payment_link.get("order_id") or payment.get("order_id")
+            order_id = order.get("id") or payment_link.get("order_id") or payment.get("order_id")
             reference_id = payment_link.get("reference_id") or payment.get("reference_id")
-            amount = int(payment_link.get("amount") or payment.get("amount") or 0)
-            currency = str(payment_link.get("currency") or payment.get("currency") or "INR")
+            amount = int(order.get("amount") or payment_link.get("amount") or payment.get("amount") or 0)
+            currency = str(order.get("currency") or payment_link.get("currency") or payment.get("currency") or "INR")
             contact = payment.get("contact") or payment.get("customer_contact")
             email = payment.get("email")
-            return PaymentWebhookEvent(provider_event_id=provider_event_id or f"razorpay-event-{hashlib.sha256(raw_body).hexdigest()[:32]}", provider_payment_link_id=link_id or None, provider_order_id=str(order_id) if order_id else None, provider_reference_id=str(reference_id) if reference_id else None, provider_payment_id=payment.get("id"), event_type=event_name, status=_event_status(event_name, payment_link.get("status") or payment.get("status")), amount_paise=amount, currency=currency, customer_phone=str(contact) if contact else None, customer_email=str(email) if email else None, occurred_at=_timestamp(body.get("created_at")) or datetime.now(timezone.utc))
+            error_code = payment.get("error_code") or payment.get("error_code_short")
+            error_reason = payment.get("error_description") or payment.get("error_reason")
+            return PaymentWebhookEvent(provider_event_id=provider_event_id or f"razorpay-event-{hashlib.sha256(raw_body).hexdigest()[:32]}", provider_payment_link_id=link_id or None, provider_order_id=str(order_id) if order_id else None, provider_reference_id=str(reference_id) if reference_id else None, provider_payment_id=payment.get("id"), provider_error_code=str(error_code) if error_code else None, provider_error_reason=str(error_reason) if error_reason else None, provider_payment_method=str(payment.get("method")) if payment.get("method") else None, event_type=event_name, status=_event_status(event_name, payment_link.get("status") or payment.get("status") or order.get("status")), amount_paise=amount, currency=currency, customer_phone=str(contact) if contact else None, customer_email=str(email) if email else None, occurred_at=_timestamp(body.get("created_at")) or datetime.now(timezone.utc))
         except (UnicodeDecodeError, json.JSONDecodeError, TypeError, ValueError) as exc:
             raise PaymentProviderError("provider_invalid_webhook") from exc
 
@@ -137,6 +176,10 @@ def _map_status(value: str | None) -> PaymentStatus:
     # failed checkout attempt is represented by a payment event, not by a
     # terminal Payment Link state.
     return {"created": PaymentStatus.ACTIVE, "issued": PaymentStatus.ACTIVE, "partially_paid": PaymentStatus.ACTIVE, "paid": PaymentStatus.PAID, "expired": PaymentStatus.EXPIRED, "cancelled": PaymentStatus.CANCELLED, "failed": PaymentStatus.FAILED}.get(str(value).casefold(), PaymentStatus.ACTIVE)
+
+
+def _map_order_status(value: str | None) -> PaymentStatus:
+    return {"created": PaymentStatus.ACTIVE, "attempted": PaymentStatus.ACTIVE, "paid": PaymentStatus.PAID}.get(str(value).casefold(), PaymentStatus.ACTIVE)
 
 
 def _event_status(event_name: str, provider_status: str | None) -> PaymentStatus:

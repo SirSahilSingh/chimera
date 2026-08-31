@@ -36,6 +36,28 @@ class PaymentContext(BaseModel):
         return value
 
 
+class PaymentOrderContext(BaseModel):
+    """Merchant-side context for the initial Razorpay Order."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    external_reference_id: str = Field(min_length=1, max_length=255)
+    customer_id: str = Field(min_length=1, max_length=255)
+    amount_paise: StrictInt = Field(gt=0)
+    currency: str = Field(min_length=3, max_length=3)
+    description: str = Field(min_length=1, max_length=255)
+    customer_email: str | None = Field(default=None, max_length=255)
+    customer_phone: str | None = Field(default=None, max_length=32)
+    idempotency_key: str = Field(min_length=64, max_length=64)
+
+    @field_validator("currency")
+    @classmethod
+    def currency_is_inr(cls, value: str) -> str:
+        if value != "INR":
+            raise ValueError("only INR is supported")
+        return value
+
+
 ALLOWED_CONTEXT_FIELDS = frozenset(PaymentContext.model_fields)
 FORBIDDEN_CONTEXT_FIELDS = frozenset({
     "customer_segment", "environment_state", "natural_recovery_probability",

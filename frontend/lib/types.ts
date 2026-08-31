@@ -92,6 +92,7 @@ export type RecoveryCase = {
   external_event_id: string;
   payment_id: string;
   customer_id: string;
+  customer_phone: string | null;
   amount_paise: number;
   currency: string;
   failure_reason: string;
@@ -231,6 +232,45 @@ export type JourneyPayment = {
   events: JourneyEvent[];
 };
 
+export type PaymentOrder = {
+  id: string;
+  provider: string;
+  provider_mode: ProviderMode;
+  provider_order_id: string;
+  checkout_key_id: string | null;
+  external_reference_id: string;
+  customer_id: string;
+  customer_phone: string | null;
+  customer_email: string | null;
+  amount_paise: number;
+  currency: string;
+  description: string;
+  status: string;
+  provider_payment_id: string | null;
+  failure_reason: string | null;
+  recovery_case_id: string | null;
+  idempotency_key: string;
+  request_hash: string;
+  result_hash: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type JourneyInitialOrder = {
+  id: string;
+  provider: string;
+  provider_mode: ProviderMode;
+  provider_order_id: string;
+  amount_paise: number;
+  currency: string;
+  status: string;
+  provider_payment_id: string | null;
+  failure_reason: string | null;
+  created_at: string;
+  updated_at: string;
+  events: JourneyEvent[];
+};
+
 export type JourneyMessage = {
   id: string;
   provider: string;
@@ -287,12 +327,13 @@ export type JourneyEscalation = {
 };
 
 export type RecoveryJourney = {
-  case: { id: string; external_event_id: string; payment_id: string; customer_id: string; amount_paise: number; currency: string; failure_reason: string; incident_flag: boolean; payment_method: string; decision_timestamp: string; status: string; created_at: string; updated_at: string };
+  case: { id: string; external_event_id: string; payment_id: string; customer_id: string; customer_phone: string | null; amount_paise: number; currency: string; failure_reason: string; incident_flag: boolean; payment_method: string; decision_timestamp: string; status: string; created_at: string; updated_at: string };
   decision: JourneyDecision | null;
   latest_explanation: Explanation | null;
   interventions: JourneyIntervention[];
   execution: JourneyExecution[];
   payments: JourneyPayment[];
+  initial_orders: JourneyInitialOrder[];
   messages: JourneyMessage[];
   retries: JourneyRetry[];
   scheduled_retries: JourneyScheduledRetry[];
