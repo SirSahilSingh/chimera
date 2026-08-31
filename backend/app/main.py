@@ -141,7 +141,7 @@ def create_app(database_url: str | None = None, *, create_tables: bool = True, e
         return RetryService(session, configured_retry_provider)
 
     def orchestration_service_factory(session):
-        return RecoveryOrchestrator(session, messaging_service_factory(session), retry_service_factory(session), payment_service_factory(session), voice_service_factory(session))
+        return RecoveryOrchestrator(session, messaging_service_factory(session), retry_service_factory(session), payment_service_factory(session), voice_service_factory(session), case_service=service_factory(session))
 
     def provider_health_service_factory(session):
         from backend.chimera_provider_health.service import ProviderHealthService

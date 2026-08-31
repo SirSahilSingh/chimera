@@ -211,6 +211,7 @@ button:disabled { cursor: not-allowed; opacity: 0.48; }
 .backline { display: inline-block; margin-bottom: 22px; color: var(--mint); font-size: 11px; font-weight: 700; }
 .backline:hover { color: #8be7c5; }
 .detail-title { display: flex; align-items: center; gap: 13px; }
+.live-sync { display: inline-flex; align-items: center; gap: 6px; color: #46e083; font-size: 10px; font-weight: 650; letter-spacing: .04em; }
 .detail-title h1 { margin: 0; color: var(--ink); font-size: 31px; letter-spacing: -0.045em; }
 .detail-title p { margin: 6px 0 0; color: var(--ink-faint); font-family: "SFMono-Regular", Consolas, monospace; font-size: 9px; }
 .detail-overline { margin-bottom: 4px; }

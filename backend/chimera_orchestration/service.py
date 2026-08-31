@@ -6,9 +6,12 @@ from datetime import datetime, timezone
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from backend.app.db.models import AuditLog, Escalation, EscalationEvent
+from backend.app.db.models import AuditLog, Escalation, EscalationEvent, PaymentLink, RecoveryCase
+from backend.app.domain import CaseStatus, transition
+from backend.app.services.case_service import CaseService
 from backend.app.interventions.service import InterventionService
 from backend.app.interventions.state_machine import InterventionStatus
+from backend.chimera_payments.schemas import PaymentStatus
 from backend.chimera_payments.service import PaymentService
 from backend.chimera_retry.service import RetryService
 from backend.chimera_voice.schemas import VoiceScenario
@@ -77,11 +80,12 @@ class EscalationService:
 class RecoveryOrchestrator:
     """Routes a persisted intervention; it has no decision-selection authority."""
 
-    def __init__(self, session: Session, messaging: MessagingService, retry: RetryService, payments: PaymentService, voice: VoiceService) -> None:
+    def __init__(self, session: Session, messaging: MessagingService, retry: RetryService, payments: PaymentService, voice: VoiceService, case_service: CaseService | None = None) -> None:
         self.session = session
         self.interventions = InterventionService(session)
         self.messaging, self.retry, self.payments, self.voice = messaging, retry, payments, voice
         self.escalations = EscalationService(session)
+        self.case_service = case_service
 
     def route(self, intervention_id: str):
         intervention = self.interventions.get_intervention(intervention_id)
@@ -105,3 +109,112 @@ class RecoveryOrchestrator:
                 self.session.commit()
             return intervention
         raise ValueError("unknown stored intervention action")
+
+    def continue_after_payment_outcome(self, payment: PaymentLink):
+        """Start one persisted fallback after a payment-link failure.
+
+        The payment provider remains the outcome authority. This method only
+        continues a failed recovery after that provider outcome is persisted.
+        A single fallback is allowed so a bad provider state cannot create an
+        unbounded chain of payment links.
+        """
+        if payment.status not in {PaymentStatus.FAILED.value, PaymentStatus.EXPIRED.value}:
+            return None
+        intervention = self.interventions.get_intervention(payment.intervention_id)
+        if intervention.action != "PAYMENT_LINK" or intervention.status not in {InterventionStatus.FAILED.value, InterventionStatus.EXPIRED.value}:
+            return None
+        if self.case_service is None:
+            return None
+
+        case = self.session.get(RecoveryCase, payment.recovery_case_id)
+        if case is None or case.status not in {
+            CaseStatus.DECIDED.value,
+            CaseStatus.ACTION_EXECUTED.value,
+            CaseStatus.UNRECOVERED.value,
+        }:
+            return None
+
+        # Repair cases created before the parent-case lifecycle was updated by
+        # payment outcomes. This keeps the continuation bounded and makes the
+        # recovery path safe to replay for existing failed links.
+        if case.status == CaseStatus.DECIDED.value:
+            transition(case.status, CaseStatus.ACTION_PENDING)
+            case.status = CaseStatus.ACTION_PENDING.value
+            transition(case.status, CaseStatus.ACTION_EXECUTED)
+            case.status = CaseStatus.ACTION_EXECUTED.value
+            transition(case.status, CaseStatus.UNRECOVERED)
+            case.status = CaseStatus.UNRECOVERED.value
+        elif case.status == CaseStatus.ACTION_EXECUTED.value:
+            transition(case.status, CaseStatus.UNRECOVERED)
+            case.status = CaseStatus.UNRECOVERED.value
+        case.updated_at = datetime.now(timezone.utc)
+        follow_up_count = int(
+            self.session.scalar(
+                select(func.count(AuditLog.id)).where(
+                    AuditLog.recovery_case_id == case.id,
+                    AuditLog.event_type == "AUTOMATIC_FOLLOW_UP_DECISION_CREATED",
+                )
+            )
+            or 0
+        )
+        if follow_up_count >= 1:
+            return None
+
+        decision = self.case_service.create_follow_up_decision(case.id, intervention.decision_id, intervention.action)
+        if decision is None:
+            return None
+
+        transition(case.status, CaseStatus.ACTION_PENDING)
+        case.status = CaseStatus.ACTION_PENDING.value
+        case.updated_at = datetime.now(timezone.utc)
+        self.session.add(
+            AuditLog(
+                recovery_case_id=case.id,
+                decision_id=decision.id,
+                event_type="AUTOMATIC_RECOVERY_REOPENED",
+                actor="recovery_orchestrator",
+                payload_json={"failed_payment_id": payment.id, "selected_action": decision.selected_action},
+            )
+        )
+        self.session.commit()
+
+        follow_up, _ = self.interventions.create_from_decision(decision.id)
+        self.interventions.queue(follow_up.id)
+        try:
+            result = self.route(follow_up.id)
+            if follow_up.action != "RETRY_LATER":
+                refreshed = self.interventions.get_intervention(follow_up.id)
+                if refreshed.status == InterventionStatus.AWAITING_OUTCOME.value:
+                    case = self.session.get(RecoveryCase, case.id)
+                    if case is not None and case.status == CaseStatus.ACTION_PENDING.value:
+                        transition(case.status, CaseStatus.ACTION_EXECUTED)
+                        case.status = CaseStatus.ACTION_EXECUTED.value
+                        case.updated_at = datetime.now(timezone.utc)
+                        self.session.add(
+                            AuditLog(
+                                recovery_case_id=case.id,
+                                decision_id=decision.id,
+                                event_type="AUTOMATIC_FOLLOW_UP_EXECUTED",
+                                actor="recovery_orchestrator",
+                                payload_json={"selected_action": decision.selected_action, "intervention_id": follow_up.id},
+                            )
+                        )
+                        self.session.commit()
+            return result
+        except Exception as exc:
+            case = self.session.get(RecoveryCase, case.id)
+            if case is not None and case.status == CaseStatus.ACTION_PENDING.value:
+                transition(case.status, CaseStatus.UNRECOVERED)
+                case.status = CaseStatus.UNRECOVERED.value
+                case.updated_at = datetime.now(timezone.utc)
+                self.session.add(
+                    AuditLog(
+                        recovery_case_id=case.id,
+                        decision_id=decision.id,
+                        event_type="AUTOMATIC_RECOVERY_FAILED",
+                        actor="recovery_orchestrator",
+                        payload_json={"selected_action": decision.selected_action, "error": str(exc)[:255]},
+                    )
+                )
+                self.session.commit()
+            return None

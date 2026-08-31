@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from backend.app.db.models import Decision, Intervention, InterventionEvent, InterventionExecution, InterventionOutcome
+from backend.app.domain import CaseStatus, transition
 from backend.chimera_simulator.models import ACTIONS
 
 from .context import ApprovedExecutionContext, build_approved_context, context_hash
@@ -179,6 +180,7 @@ class InterventionService:
         )
         self.session.add(execution)
         if result.status == "ACCEPTED":
+            self._mark_case_action_executed(intervention.recovery_case)
             self._event(intervention, "EXECUTION_ACCEPTED", {"attempt_number": attempt_number, "provider_reference": result.provider_reference})
             self._change_status(intervention, InterventionStatus.AWAITING_OUTCOME)
             self._event(intervention, "AWAITING_OUTCOME", {})
@@ -222,10 +224,15 @@ class InterventionService:
             OutcomeStatus.EXPIRED.value: InterventionStatus.EXPIRED,
         }.get(payload.status)
         if terminal_target is not None:
+            self._mark_case_action_executed(case)
             self._change_status(intervention, terminal_target)
             intervention.completed_at = self._now()
             event_type = "RECOVERY_CONFIRMED" if terminal_target == InterventionStatus.RECOVERED else "RECOVERY_FAILED"
             self._event(intervention, event_type, {"status": payload.status})
+            case_target = CaseStatus.RECOVERED if terminal_target == InterventionStatus.RECOVERED else CaseStatus.UNRECOVERED
+            transition(case.status, case_target)
+            case.status = case_target.value
+            case.updated_at = self._now()
         self.session.commit()
         self.session.refresh(outcome)
         return outcome
@@ -245,6 +252,16 @@ class InterventionService:
         validate_transition(intervention.status, target)
         intervention.status = target.value
         intervention.lifecycle_version += 1
+
+    def _mark_case_action_executed(self, case) -> None:
+        """Keep the parent case lifecycle in sync with accepted interventions."""
+        if case.status in {CaseStatus.DECIDED.value, CaseStatus.UNRECOVERED.value}:
+            transition(case.status, CaseStatus.ACTION_PENDING)
+            case.status = CaseStatus.ACTION_PENDING.value
+        if case.status == CaseStatus.ACTION_PENDING.value:
+            transition(case.status, CaseStatus.ACTION_EXECUTED)
+            case.status = CaseStatus.ACTION_EXECUTED.value
+        case.updated_at = self._now()
 
     def _event(self, intervention: Intervention, event_type: str, payload: dict) -> None:
         persisted_sequence = int(self.session.scalar(select(func.max(InterventionEvent.sequence_number)).where(InterventionEvent.intervention_id == intervention.id)) or 0)

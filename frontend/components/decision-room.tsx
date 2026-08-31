@@ -21,6 +21,8 @@ export function DecisionRoom({ initialCase }: { initialCase: RecoveryCase }) {
   const [journey, setJourney] = useState<RecoveryJourney | null>(null);
   const [intelligence, setIntelligence] = useState<RecoveryIntelligence | null>(null);
   const [activeStage, setActiveStage] = useState("Detect");
+  const [syncing, setSyncing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   const decision = caseData.latest_decision;
   const stages = ["Detect", "Diagnose", "Decide", "Intervene", "Recover", "Learn"];
 
@@ -32,12 +34,33 @@ export function DecisionRoom({ initialCase }: { initialCase: RecoveryCase }) {
     setIntelligence(intelligenceResult.status === "fulfilled" ? intelligenceResult.value : null);
   };
   useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const terminal = new Set(["RECOVERED", "UNRECOVERED", "CLOSED"]);
+    const poll = async () => {
+      setSyncing(true);
+      try {
+        const [nextCase, snapshot] = await Promise.all([api.getCase(initialCase.id), api.getJourney(initialCase.id)]);
+        const paymentToReconcile = [...snapshot.payments].reverse().find((payment) => payment.provider === "razorpay" && ["ACTIVE", "FAILED", "EXPIRED"].includes(payment.status));
+        if (paymentToReconcile) await api.reconcilePayment(paymentToReconcile.id).catch(() => undefined);
+        const [latestCase, latestJourney, latestIntelligence] = await Promise.allSettled([api.getCase(initialCase.id), api.getJourney(initialCase.id), api.getIntelligence(initialCase.id)]);
+        if (cancelled) return;
+        if (latestCase.status === "fulfilled") setCaseData(latestCase.value);
+        if (latestJourney.status === "fulfilled") setJourney(latestJourney.value);
+        if (latestIntelligence.status === "fulfilled") setIntelligence(latestIntelligence.value);
+        setLastSyncedAt(new Date().toISOString());
+        const currentStatus = latestCase.status === "fulfilled" ? latestCase.value.status : nextCase.status;
+        if (!cancelled && !terminal.has(currentStatus)) timer = setTimeout(poll, 2500);
+      } catch {
+        if (!cancelled) timer = setTimeout(poll, 5000);
+      } finally {
+        if (!cancelled) setSyncing(false);
+      }
+    };
     setJourney(null); setIntelligence(null);
-    Promise.allSettled([api.getJourney(caseData.id), api.getIntelligence(caseData.id)]).then(([journeyResult, intelligenceResult]) => {
-      setJourney(journeyResult.status === "fulfilled" ? journeyResult.value : null);
-      setIntelligence(intelligenceResult.status === "fulfilled" ? intelligenceResult.value : null);
-    });
-  }, [caseData.id]);
+    void poll();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+  }, [initialCase.id]);
   useEffect(() => {
     if (!decision) return;
     api.getLatestExplanation(decision.id).then(setExplanation).catch(() => undefined);
@@ -66,10 +89,10 @@ export function DecisionRoom({ initialCase }: { initialCase: RecoveryCase }) {
     <div className="detail-hero">
       <div>
         <Link href="/cases" className="backline">← Recovery operations</Link>
-        <div className="detail-title"><div><span className="detail-overline">Case</span><h1>{caseDisplayId(caseData)}</h1><p>{caseData.id} · {caseData.customer_id}</p></div><StatusBadge status={caseData.status} /></div>
+      <div className="detail-title"><div><span className="detail-overline">Case</span><h1>{caseDisplayId(caseData)}</h1><p>{caseData.id} · {caseData.customer_id}</p></div><StatusBadge status={caseData.status} /><span className="live-sync"><span className="agent-pulse" />{syncing ? "Syncing" : "Live"}</span></div>
       </div>
       <div className="detail-actions">{!decision && <Button onClick={() => run("decide")} disabled={busy !== null}><ShieldIcon size={16} />{busy === "decide" ? "Generating…" : "Generate decision"}</Button>}{canExecute && <Button kind="secondary" onClick={() => setConfirmOpen(true)} disabled={busy !== null}><ArrowRightIcon size={16} />Execute action</Button>}<Button kind="quiet" onClick={refresh} disabled={busy !== null} aria-label="Refresh case"><RefreshIcon size={16} /></Button></div>
-      <div className="risk-readout"><span>Revenue at risk</span><strong>{formatPaise(caseData.amount_paise, caseData.currency)}</strong><small>Payment {caseData.payment_id} · {formatDate(caseData.decision_timestamp)}</small></div>
+      <div className="risk-readout"><span>Revenue at risk</span><strong>{formatPaise(caseData.amount_paise, caseData.currency)}</strong><small>Payment {caseData.payment_id} · {formatDate(caseData.decision_timestamp)} · {lastSyncedAt ? `synced ${formatDate(lastSyncedAt)}` : "connecting"}</small></div>
     </div>
     {error && <ErrorState message={error} onRetry={() => setError(null)} />}
     <section className="decision-tabs" aria-label="Decision lifecycle"><div className="decision-tab-list" role="tablist">{stages.map((stage) => <button key={stage} role="tab" aria-selected={activeStage === stage} className={`decision-tab ${activeStage === stage ? "active" : ""}`} onClick={() => setActiveStage(stage)}><span>{stages.indexOf(stage) + 1}</span>{stage}</button>)}</div><div className="decision-tab-content">{stageContent}</div></section>

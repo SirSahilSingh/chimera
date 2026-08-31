@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime
+from copy import deepcopy
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from sqlalchemy import func, select
@@ -135,6 +136,100 @@ class CaseService:
             .order_by(Decision.created_at.desc())
         )
         return result.unique().scalars().first()
+
+    def create_follow_up_decision(self, case_id: str, failed_decision_id: str, failed_action: str) -> Decision | None:
+        """Persist one bounded fallback decision from the stored candidate trace."""
+        case = self.get_case(case_id)
+        base = self.get_decision(failed_decision_id)
+        existing = next(
+            (
+                decision
+                for decision in case.decisions
+                if decision.trace_json.get("continuation_of_decision_id") == failed_decision_id
+            ),
+            None,
+        )
+        if existing is not None:
+            return existing
+
+        candidates = sorted(
+            (
+                candidate
+                for candidate in base.candidates
+                if candidate.status == "PERMISSIBLE"
+                and candidate.action not in {failed_action, "DO_NOTHING"}
+            ),
+            key=lambda candidate: (
+                candidate.rank if candidate.rank is not None else 999,
+                -candidate.expected_net_value_paise,
+                candidate.action,
+            ),
+        )
+        selected = candidates[0] if candidates else None
+        if selected is None:
+            return None
+
+        decision_timestamp = datetime.now(timezone.utc)
+        trace = deepcopy(base.trace_json)
+        trace.update(
+            {
+                "decision_id": hashlib.sha256(f"{base.id}|{decision_timestamp.isoformat()}|{selected.action}".encode()).hexdigest(),
+                "selected_action": selected.action,
+                "continuation_of_decision_id": failed_decision_id,
+                "continuation_trigger": "payment_recovery_failure",
+                "failed_action": failed_action,
+                "decision_reason": f"Selected {selected.action} as the bounded automatic fallback after {failed_action} failed.",
+            }
+        )
+        decision = Decision(
+            recovery_case_id=case.id,
+            decision_run_id=uuid4().hex,
+            selected_action=selected.action,
+            predicted_probability=selected.predicted_probability,
+            expected_gross_recovery_paise=selected.expected_gross_recovery_paise,
+            expected_net_value_paise=selected.expected_net_value_paise,
+            model_version=base.model_version,
+            feature_schema_version=base.feature_schema_version,
+            engine_version=base.engine_version,
+            simulator_version=base.simulator_version,
+            prompt_version=base.prompt_version,
+            decision_timestamp=decision_timestamp,
+            trace_json=trace,
+        )
+        for source in base.candidates:
+            decision.candidates.append(
+                DecisionCandidate(
+                    action=source.action,
+                    status=source.status,
+                    blocked_reason=source.blocked_reason,
+                    predicted_probability=source.predicted_probability,
+                    recoverable_amount_paise=source.recoverable_amount_paise,
+                    expected_gross_recovery_paise=source.expected_gross_recovery_paise,
+                    action_cost_paise=source.action_cost_paise,
+                    incentive_cost_paise=source.incentive_cost_paise,
+                    fatigue_penalty_paise=source.fatigue_penalty_paise,
+                    expected_net_value_paise=source.expected_net_value_paise,
+                    expected_net_without_action_cost_paise=source.expected_net_without_action_cost_paise,
+                    expected_net_without_fatigue_paise=source.expected_net_without_fatigue_paise,
+                    rank=1 if source.action == selected.action else (2 if source.rank == 1 else source.rank),
+                    friction_rank=source.friction_rank,
+                    fatigue_reason=source.fatigue_reason,
+                )
+            )
+        self.session.add(decision)
+        self.session.flush()
+        self.session.add(
+            AuditLog(
+                recovery_case_id=case.id,
+                decision_id=decision.id,
+                event_type="AUTOMATIC_FOLLOW_UP_DECISION_CREATED",
+                actor="recovery_orchestrator",
+                payload_json={"failed_decision_id": failed_decision_id, "failed_action": failed_action, "selected_action": selected.action},
+            )
+        )
+        self.session.commit()
+        self.session.refresh(decision)
+        return decision
 
     def get_decision(self, decision_id: str) -> Decision:
         result = self.session.execute(

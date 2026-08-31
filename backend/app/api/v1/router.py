@@ -705,9 +705,11 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     @router.post("/payments/{payment_id}/reconcile", response_model=PaymentLinkResponse)
-    def reconcile_payment(payment_id: str, service: PaymentService = Depends(payment_service)):
+    def reconcile_payment(payment_id: str, service: PaymentService = Depends(payment_service), orchestration: RecoveryOrchestrator = Depends(orchestration_service)):
         try:
-            return as_payment(service.reconcile_payment(payment_id))
+            payment = service.reconcile_payment(payment_id)
+            orchestration.continue_after_payment_outcome(payment)
+            return as_payment(payment)
         except PaymentNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except PaymentError as exc:
@@ -724,12 +726,14 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @router.post("/payments/webhook/{provider}", response_model=PaymentLinkResponse)
-    async def payment_webhook(provider: str, request: Request, service: PaymentService = Depends(payment_service)):
+    async def payment_webhook(provider: str, request: Request, service: PaymentService = Depends(payment_service), orchestration: RecoveryOrchestrator = Depends(orchestration_service)):
         raw_body = await request.body()
         signature = request.headers.get("x-razorpay-signature") or request.headers.get("x-payment-signature") or ""
         provider_event_id = request.headers.get("x-razorpay-event-id") or request.headers.get("x-payment-event-id")
         try:
-            return as_payment(service.process_webhook(provider, raw_body, signature, provider_event_id))
+            payment = service.process_webhook(provider, raw_body, signature, provider_event_id)
+            orchestration.continue_after_payment_outcome(payment)
+            return as_payment(payment)
         except PaymentNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except PaymentWebhookError as exc:

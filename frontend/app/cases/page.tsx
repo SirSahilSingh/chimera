@@ -27,8 +27,8 @@ function CasesContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const response = await api.listCases({ page: 1, pageSize: 100 });
@@ -42,7 +42,11 @@ function CasesContent() {
 
   useEffect(() => { setFilter(actionQueue ? "ready" : "all"); }, [actionQueue]);
   useEffect(() => { setFailureReason(requestedFailure); }, [requestedFailure]);
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+    const timer = window.setInterval(() => void load(true), 5000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const failureOptions = useMemo(() => Array.from(new Set(cases.map((item) => item.failure_reason))).sort(), [cases]);
   const actionOptions = useMemo(() => Array.from(new Set(cases.map((item) => item.latest_decision?.selected_action).filter((item): item is string => Boolean(item)))).sort(), [cases]);
@@ -63,7 +67,7 @@ function CasesContent() {
   return <div className="operations-page">
     <div className="workspace-titlebar">
       <div><h1>{actionQueue ? "Action Queue" : "Case Queue"}</h1><div className="workspace-meta"><span>Data: synthetic stored records</span><span>{cases.length} cases</span><span>Read-only queue</span></div></div>
-      <div className="workspace-actions"><button className="square-control" type="button" onClick={load} disabled={loading} aria-label="Refresh cases"><RefreshIcon size={16} /></button><button className="square-control" type="button" aria-label="More case queue actions"><span className="more-dots">•••</span></button></div>
+      <div className="workspace-actions"><button className="square-control" type="button" onClick={() => void load()} disabled={loading} aria-label="Refresh cases"><RefreshIcon size={16} /></button><button className="square-control" type="button" aria-label="More case queue actions"><span className="more-dots">•••</span></button></div>
     </div>
 
     <section className="queue-summary-strip" aria-label="Recovery queue summary">

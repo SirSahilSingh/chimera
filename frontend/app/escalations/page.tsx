@@ -19,8 +19,8 @@ export default function EscalationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       setEscalations(await api.listEscalations());
@@ -31,7 +31,11 @@ export default function EscalationsPage() {
     }
   };
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+    const timer = window.setInterval(() => void load(true), 5000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const visible = useMemo(() => filter === "ALL" ? escalations : escalations.filter((item) => item.status === filter), [escalations, filter]);
   const open = escalations.filter((item) => item.status === "OPEN").length;
@@ -54,7 +58,7 @@ export default function EscalationsPage() {
   };
 
   return <div className="operations-page queue-surface">
-    <IntelligenceTitle title="Escalations" action={<><button className="square-control" type="button" onClick={load} disabled={loading} aria-label="Refresh escalations"><RefreshIcon size={16} /></button><button className="square-control" type="button" aria-label="More escalation actions"><span className="more-dots">•••</span></button></>} />
+    <IntelligenceTitle title="Escalations" action={<><button className="square-control" type="button" onClick={() => void load()} disabled={loading} aria-label="Refresh escalations"><RefreshIcon size={16} /></button><button className="square-control" type="button" aria-label="More escalation actions"><span className="more-dots">•••</span></button></>} />
     <div className="workspace-meta standalone-meta"><span>Data: synthetic stored records</span><span>{escalations.length} escalation records</span><span>Operator queue</span></div>
 
     <section className="intelligence-metric-grid" aria-label="Escalation summary">

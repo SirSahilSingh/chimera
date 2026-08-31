@@ -19,8 +19,8 @@ export default function ScheduledRetriesPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       setRetries(await api.listScheduledRetries());
@@ -31,7 +31,11 @@ export default function ScheduledRetriesPage() {
     }
   };
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+    const timer = window.setInterval(() => void load(true), 5000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const now = Date.now();
   const isDue = (item: ScheduledRetry) => item.execution_status === "SCHEDULED" && new Date(item.scheduled_at).getTime() <= now;
@@ -57,7 +61,7 @@ export default function ScheduledRetriesPage() {
   };
 
   return <div className="operations-page queue-surface">
-    <IntelligenceTitle title="Scheduled Retries" action={<><button className="square-control" type="button" onClick={load} disabled={loading} aria-label="Refresh scheduled retries"><RefreshIcon size={16} /></button><button className="square-control" type="button" aria-label="More scheduled retry actions"><span className="more-dots">•••</span></button></>} />
+    <IntelligenceTitle title="Scheduled Retries" action={<><button className="square-control" type="button" onClick={() => void load()} disabled={loading} aria-label="Refresh scheduled retries"><RefreshIcon size={16} /></button><button className="square-control" type="button" aria-label="More scheduled retry actions"><span className="more-dots">•••</span></button></>} />
     <div className="workspace-meta standalone-meta"><span>Data: synthetic stored records</span><span>{retries.length} retry schedules</span><span>Backend eligibility enforced</span></div>
 
     <section className="intelligence-metric-grid" aria-label="Scheduled retry summary">

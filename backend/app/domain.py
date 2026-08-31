@@ -17,11 +17,11 @@ class CaseStatus(StrEnum):
 VALID_TRANSITIONS: dict[CaseStatus, frozenset[CaseStatus]] = {
     CaseStatus.NEW: frozenset({CaseStatus.DECIDED, CaseStatus.CLOSED}),
     CaseStatus.DECIDED: frozenset({CaseStatus.ACTION_PENDING, CaseStatus.CLOSED}),
-    CaseStatus.ACTION_PENDING: frozenset({CaseStatus.ACTION_EXECUTED, CaseStatus.CLOSED}),
+    CaseStatus.ACTION_PENDING: frozenset({CaseStatus.ACTION_EXECUTED, CaseStatus.UNRECOVERED, CaseStatus.CLOSED}),
     CaseStatus.ACTION_EXECUTED: frozenset({CaseStatus.PROMISE_TO_PAY_PENDING, CaseStatus.RECOVERED, CaseStatus.UNRECOVERED, CaseStatus.CLOSED}),
     CaseStatus.PROMISE_TO_PAY_PENDING: frozenset({CaseStatus.RECOVERED, CaseStatus.UNRECOVERED, CaseStatus.CLOSED}),
     CaseStatus.RECOVERED: frozenset({CaseStatus.CLOSED}),
-    CaseStatus.UNRECOVERED: frozenset({CaseStatus.CLOSED}),
+    CaseStatus.UNRECOVERED: frozenset({CaseStatus.ACTION_PENDING, CaseStatus.CLOSED}),
     CaseStatus.CLOSED: frozenset(),
 }
 

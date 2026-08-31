@@ -16,8 +16,8 @@ export default function CommandCenter() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = async () => {
-    setLoading(true);
+  const load = async (silent = false) => {
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const [response, readiness] = await Promise.all([api.listCases({ page: 1, pageSize: 100 }), api.providerReadiness()]);
@@ -31,7 +31,11 @@ export default function CommandCenter() {
     }
   };
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+    const timer = window.setInterval(() => void load(true), 5000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const stats = useMemo(() => {
     const unresolved = cases.filter(isUnresolved);
@@ -64,7 +68,7 @@ export default function CommandCenter() {
   if (error) return <div className="overview-page"><ErrorState message={error} onRetry={load} /></div>;
 
   return <div className="overview-page">
-    <div className="overview-toolbar"><div className="overview-toolbar-left"><h1>Overview</h1></div><div className="overview-toolbar-actions"><button className="icon-button" type="button" onClick={load} disabled={loading} aria-label="Refresh overview"><RefreshIcon size={16} /></button><Link href="/methodology" className="overview-button overview-button-light">About CHIMERA</Link><button className="icon-button" type="button" aria-label="More overview actions"><span className="more-dots">•••</span></button></div></div>
+    <div className="overview-toolbar"><div className="overview-toolbar-left"><h1>Overview</h1></div><div className="overview-toolbar-actions"><button className="icon-button" type="button" onClick={() => void load()} disabled={loading} aria-label="Refresh overview"><RefreshIcon size={16} /></button><Link href="/methodology" className="overview-button overview-button-light">About CHIMERA</Link><button className="icon-button" type="button" aria-label="More overview actions"><span className="more-dots">•••</span></button></div></div>
 
     <section className="overview-feature">
       <div className="overview-feature-head"><h2>Recovery operations</h2><div className="overview-feature-actions"><StatusBadge status="OPERATIONAL" /><button className="icon-button" type="button" aria-label="More recovery operations"><span className="more-dots">•••</span></button></div></div>

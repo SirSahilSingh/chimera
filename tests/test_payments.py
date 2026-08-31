@@ -93,6 +93,7 @@ class PaymentTests(unittest.TestCase):
         duplicate = self.client.post("/api/v1/payments/webhook/local", content=raw, headers={"x-payment-signature": provider.sign(event)})
         self.assertEqual(duplicate.status_code, 200, duplicate.text)
         self.assertEqual(self.client.get(f"/api/v1/interventions/{intervention['id']}").json()["status"], "RECOVERED")
+        self.assertEqual(self.client.get(f"/api/v1/recovery-cases/{intervention['recovery_case_id']}").json()["status"], "RECOVERED")
         session = self.app.state.session_factory()
         self.assertEqual(len(list(session.query(PaymentEvent))), 2)
         session.close()
@@ -104,6 +105,26 @@ class PaymentTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200, response.text)
             self.assertEqual(response.json()["status"], expected)
             self.assertNotEqual(self.client.get(f"/api/v1/interventions/{intervention['id']}").json()["status"], "RECOVERED")
+            self.assertEqual(self.client.get(f"/api/v1/recovery-cases/{intervention['recovery_case_id']}").json()["status"], "UNRECOVERED")
+
+    def test_failed_payment_automatically_starts_one_fallback(self):
+        intervention, link = self.create_link(suffix="automatic-fallback")
+        failed = self.client.post(f"/api/v1/payments/{link['id']}/demo/complete", json={"scenario": "payment_failed"})
+        self.assertEqual(failed.status_code, 200, failed.text)
+        provider: LocalDeterministicPaymentProvider = self.app.state.payment_provider
+        event = provider.demo_event(link["provider_payment_link_id"], PaymentDemoScenario.PAYMENT_FAILED)
+        response = self.client.post(
+            "/api/v1/payments/webhook/local",
+            content=event.model_dump_json().encode(),
+            headers={"x-payment-signature": provider.sign(event)},
+        )
+        self.assertEqual(response.status_code, 200, response.text)
+        journey = self.client.get(f"/api/v1/recovery-cases/{intervention['recovery_case_id']}/journey").json()
+        self.assertEqual(journey["case"]["status"], "ACTION_EXECUTED")
+        self.assertEqual(journey["decision"]["selected_action"], "SEND_MESSAGE")
+        self.assertEqual(len(journey["interventions"]), 2)
+        self.assertEqual(len(journey["payments"]), 2)
+        self.assertEqual(len(journey["messages"]), 1)
 
     def test_out_of_order_events_do_not_revert_paid(self):
         intervention, link = self.create_link(suffix="order")
