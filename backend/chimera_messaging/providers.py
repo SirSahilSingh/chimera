@@ -6,6 +6,16 @@ from dataclasses import dataclass
 from .context import MessagingContext
 
 
+class MessagingProviderError(RuntimeError):
+    """A safe, structured provider failure suitable for the persisted audit trail."""
+
+    def __init__(self, code: str, message: str, *, http_status: int | None = None) -> None:
+        super().__init__(code)
+        self.code = code
+        self.message = message
+        self.http_status = http_status
+
+
 @dataclass(frozen=True)
 class MessageSendResult:
     provider_message_id: str

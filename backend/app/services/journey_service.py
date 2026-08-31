@@ -144,8 +144,11 @@ class RecoveryJourneyService:
 
     @staticmethod
     def _message(row):
+        failed_event = next((item for item in reversed(sorted(row.events, key=lambda x: (x.occurred_at, x.id))) if item.event_type == "message.failed"), None)
+        failure_reason = failed_event.payload_json.get("failure_reason") if failed_event else None
+        failure_code = failed_event.payload_json.get("failure_classification") if failed_event else None
         return {"id": row.id, "provider": row.provider, "provider_mode": row.provider_mode, "status": row.status,
-                "delivery_state": row.delivery_state, "provider_message_id": row.provider_message_id, "created_at": _iso(row.created_at),
+                "delivery_state": row.delivery_state, "provider_message_id": row.provider_message_id, "failure_reason": failure_reason, "failure_code": failure_code, "created_at": _iso(row.created_at),
                 "events": [_record(item, event_type=item.event_type, source="provider", timestamp=item.occurred_at, payload=item.payload_json, provider_mode=item.provider_mode)
                            for item in sorted(row.events, key=lambda x: (x.occurred_at, x.id))]}
 

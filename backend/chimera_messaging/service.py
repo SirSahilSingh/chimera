@@ -25,6 +25,20 @@ class MessagingService:
     def _now() -> datetime:
         return datetime.now(timezone.utc)
 
+    @staticmethod
+    def _provider_failure(exc: Exception, *, source: str | None = None) -> dict[str, str]:
+        code = getattr(exc, "code", None) or "provider_request_failed"
+        reason = getattr(exc, "message", None) or "The messaging provider rejected or could not complete the request."
+        payload = {
+            "delivery_state": "FAILED",
+            "failure_classification": str(code)[:64],
+            "failure_reason": " ".join(str(reason).split())[:240],
+            "processing_result": "failed",
+        }
+        if source:
+            payload["source"] = source
+        return payload
+
     def list_messages(self, intervention_id: str) -> list[MessageAttempt]:
         self.interventions.get_intervention(intervention_id)
         return list(self.session.scalars(select(MessageAttempt).options(selectinload(MessageAttempt.events)).where(MessageAttempt.intervention_id == intervention_id).order_by(MessageAttempt.attempt_number.asc(), MessageAttempt.id.asc())))
@@ -48,12 +62,13 @@ class MessagingService:
         try:
             result = self.provider.send_message(context, content, key)
         except Exception as exc:
+            failure = self._provider_failure(exc)
             row = MessageAttempt(recovery_case_id=intervention.recovery_case_id, intervention_id=intervention.id, decision_id=intervention.decision_id, provider=self.provider.name, provider_mode=self.provider.mode, idempotency_key=key, attempt_number=1, template_key=template, template_version=version, rendered_content_hash=content_hash, provider_message_id=None, status="FAILED", delivery_state="FAILED", sent_at=self._now())
             self.session.add(row)
             self.session.flush()
-            self.session.add(MessagingEvent(message_attempt_id=row.id, provider=self.provider.name, provider_mode=self.provider.mode, provider_event_id=f"failed-{row.id}", event_type="message.failed", delivery_state="FAILED", signature_verified=False, occurred_at=row.sent_at, payload_hash=payload_hash({"delivery_state": "FAILED"}), payload_json={"delivery_state": "FAILED", "failure_classification": "provider_request_failed", "processing_result": "failed"}))
+            self.session.add(MessagingEvent(message_attempt_id=row.id, provider=self.provider.name, provider_mode=self.provider.mode, provider_event_id=f"failed-{row.id}", event_type="message.failed", delivery_state="FAILED", signature_verified=False, occurred_at=row.sent_at, payload_hash=payload_hash(failure), payload_json=failure))
             self.session.commit()
-            raise ValueError("provider_request_failed") from exc
+            raise ValueError(failure["failure_classification"]) from exc
         row = MessageAttempt(recovery_case_id=intervention.recovery_case_id, intervention_id=intervention.id, decision_id=intervention.decision_id, provider=self.provider.name, provider_mode=self.provider.mode, idempotency_key=key, attempt_number=1, template_key=template, template_version=version, rendered_content_hash=content_hash, provider_message_id=result.provider_message_id, status=result.status, delivery_state=result.delivery_state, sent_at=result.sent_at)
         self.session.add(row)
         self.session.flush()
@@ -97,13 +112,14 @@ class MessagingService:
         try:
             result = self.provider.send_message(context, content, key)
         except Exception as exc:
+            failure = self._provider_failure(exc, source="payment_link_delivery")
             now = self._now()
             row = MessageAttempt(recovery_case_id=intervention.recovery_case_id, intervention_id=intervention.id, decision_id=intervention.decision_id, provider=self.provider.name, provider_mode=self.provider.mode, idempotency_key=key, attempt_number=1, template_key=template, template_version=version, rendered_content_hash=content_hash, provider_message_id=None, status="FAILED", delivery_state="FAILED", sent_at=now)
             self.session.add(row)
             self.session.flush()
-            self.session.add(MessagingEvent(message_attempt_id=row.id, provider=self.provider.name, provider_mode=self.provider.mode, provider_event_id=f"failed-{row.id}", event_type="message.failed", delivery_state="FAILED", signature_verified=False, occurred_at=now, payload_hash=payload_hash({"delivery_state": "FAILED"}), payload_json={"delivery_state": "FAILED", "failure_classification": "provider_request_failed", "processing_result": "failed", "source": "payment_link_delivery"}))
+            self.session.add(MessagingEvent(message_attempt_id=row.id, provider=self.provider.name, provider_mode=self.provider.mode, provider_event_id=f"failed-{row.id}", event_type="message.failed", delivery_state="FAILED", signature_verified=False, occurred_at=now, payload_hash=payload_hash(failure), payload_json=failure))
             self.session.commit()
-            raise ValueError("provider_request_failed") from exc
+            raise ValueError(failure["failure_classification"]) from exc
         row = MessageAttempt(recovery_case_id=intervention.recovery_case_id, intervention_id=intervention.id, decision_id=intervention.decision_id, provider=self.provider.name, provider_mode=self.provider.mode, idempotency_key=key, attempt_number=1, template_key=template, template_version=version, rendered_content_hash=content_hash, provider_message_id=result.provider_message_id, status=result.status, delivery_state=result.delivery_state, sent_at=result.sent_at)
         self.session.add(row)
         self.session.flush()

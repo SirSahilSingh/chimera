@@ -35,7 +35,7 @@ export function ProviderJourney({ journey }: { journey: RecoveryJourney }) {
     <div className="provider-grid">
       {payments.map((payment) => <PaymentOperation key={payment.id} payment={payment} />)}
       {calls.map((call) => <VoiceOperation key={call.id} call={call} />)}
-      {messages.map((message) => <OperationRow key={message.id} title="Message delivery" provider={message.provider} mode={message.provider_mode} status={message.delivery_state} detail={message.provider_message_id ?? "Provider reference not returned"} />)}
+      {messages.map((message) => <OperationRow key={message.id} title="Message delivery" provider={message.provider} mode={message.provider_mode} status={message.delivery_state} detail={message.failure_reason ?? message.provider_message_id ?? "Provider reference not returned"} />)}
       {schedules.map((schedule) => <OperationRow key={schedule.id} title="Retry scheduled" provider="Retry scheduler" mode={schedule.provider_mode} status={schedule.execution_status} detail={`Scheduled for ${formatDate(schedule.scheduled_at)}`} />)}
       {retries.map((retry) => <OperationRow key={retry.id} title={formatAction(retry.action)} provider={retry.provider} mode={retry.provider_mode} status={retry.status} detail={retry.provider_reference ?? "Outcome pending"} />)}
       {escalations.map((escalation) => <OperationRow key={escalation.id} title="Human escalation" provider="Escalation workflow" mode={escalation.provider_mode} status={escalation.status} detail={escalation.reason} />)}

@@ -278,6 +278,8 @@ export type JourneyMessage = {
   status: string;
   delivery_state: string;
   provider_message_id: string | null;
+  failure_reason: string | null;
+  failure_code: string | null;
   created_at: string;
   events: JourneyEvent[];
 };

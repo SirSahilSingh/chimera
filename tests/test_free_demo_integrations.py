@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import base64
+import io
 import unittest
 from unittest.mock import patch
 from urllib.parse import parse_qsl
+from urllib.error import HTTPError
 
 from backend.chimera_messaging.context import MessagingContext
 from backend.chimera_messaging.twilio_provider import TwilioMessagingProvider
@@ -31,6 +33,46 @@ class FakeResponse:
 
 
 class FreeDemoIntegrationTests(unittest.TestCase):
+    def test_twilio_whatsapp_requires_content_template(self):
+        provider = TwilioMessagingProvider(
+            "AC123",
+            "auth-token",
+            "whatsapp:+14155238886",
+            "whatsapp:+919999999999",
+            enabled=True,
+            whatsapp=True,
+            mode="TEST",
+        )
+        context = MessagingContext(intervention_id="i", recovery_case_id="c", decision_id="d", selected_action="SEND_MESSAGE", customer_id="customer", customer_phone="+919999999999", language="en", amount_paise=12500, currency="INR", payment_method="card", failure_reason="issuer_decline", incident_flag=False)
+
+        with self.assertRaisesRegex(RuntimeError, "whatsapp_template_not_configured"):
+            provider.send_message(context, "Payment link: https://example.test", "k" * 64)
+
+    def test_twilio_http_failure_preserves_safe_provider_code_and_reason(self):
+        provider = TwilioMessagingProvider(
+            "AC123",
+            "auth-token",
+            "whatsapp:+14155238886",
+            "whatsapp:+919999999999",
+            enabled=True,
+            whatsapp=True,
+            content_sid="HX-template",
+            mode="TEST",
+        )
+        context = MessagingContext(intervention_id="i", recovery_case_id="c", decision_id="d", selected_action="SEND_MESSAGE", customer_id="customer", customer_phone="+919999999999", language="en", amount_paise=12500, currency="INR", payment_method="card", failure_reason="issuer_decline", incident_flag=False)
+        error = HTTPError(
+            "https://api.twilio.com",
+            400,
+            "Bad Request",
+            {},
+            io.BytesIO(b'{"code":63016,"message":"A template is required for this message"}'),
+        )
+
+        with patch("backend.chimera_messaging.twilio_provider.urlopen", side_effect=error):
+            with self.assertRaisesRegex(RuntimeError, "twilio_63016") as raised:
+                provider.send_message(context, "Payment link: https://example.test", "k" * 64)
+        self.assertEqual(raised.exception.message, "A template is required for this message")
+
     def test_razorpay_webhook_extracts_customer_contact(self):
         payload = {
             "event": "payment.failed",

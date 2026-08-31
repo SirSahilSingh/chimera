@@ -12,7 +12,7 @@ from urllib.request import Request, urlopen
 from backend.provider_modes import resolve_mode
 
 from .context import MessagingContext
-from .providers import MessageSendResult, MessagingProvider
+from .providers import MessageSendResult, MessagingProvider, MessagingProviderError
 
 
 class TwilioMessagingProvider(MessagingProvider):
@@ -29,7 +29,12 @@ class TwilioMessagingProvider(MessagingProvider):
     def send_message(self, context: MessagingContext, content: str, idempotency_key: str) -> MessageSendResult:
         recipient = context.customer_phone or self.to_number
         if not self.enabled or not self.account_sid or not self.auth_token or not self.from_number or not recipient:
-            raise RuntimeError("provider_not_configured")
+            raise MessagingProviderError("provider_not_configured", "Twilio messaging is missing a required setting.")
+        if self.whatsapp and not self.content_sid:
+            raise MessagingProviderError(
+                "whatsapp_template_not_configured",
+                "WhatsApp delivery needs an approved Twilio Content template SID.",
+            )
         fields = {"To": self._address(recipient), "From": self._address(self.from_number)}
         if self.whatsapp and self.content_sid:
             fields["ContentSid"] = self.content_sid
@@ -44,9 +49,41 @@ class TwilioMessagingProvider(MessagingProvider):
         try:
             with urlopen(request, timeout=self.timeout_seconds) as response:
                 payload = json.loads(response.read().decode())
-            return MessageSendResult(str(payload["sid"]), "SENT", "QUEUED", datetime.now(timezone.utc))
+            provider_message_id = payload.get("sid")
+            if not provider_message_id:
+                raise MessagingProviderError(
+                    "twilio_missing_message_id",
+                    "Twilio accepted the request but did not return a message reference.",
+                )
+            return MessageSendResult(str(provider_message_id), "SENT", "QUEUED", datetime.now(timezone.utc))
+        except MessagingProviderError:
+            raise
+        except HTTPError as exc:
+            raise self._http_error(exc) from None
+        except (TimeoutError, socket.timeout):
+            raise MessagingProviderError("twilio_timeout", "Twilio did not respond before the delivery timeout.") from None
+        except (URLError, OSError):
+            raise MessagingProviderError("twilio_unavailable", "Twilio could not be reached for message delivery.") from None
+        except (json.JSONDecodeError, KeyError, TypeError):
+            raise MessagingProviderError("twilio_invalid_response", "Twilio returned an invalid message response.") from None
         except Exception as exc:
-            raise RuntimeError("provider_request_failed") from exc
+            raise MessagingProviderError("provider_request_failed", "Twilio message delivery failed.") from exc
+
+    @staticmethod
+    def _clean_provider_message(value: object) -> str:
+        message = " ".join(str(value or "").split())
+        return message[:240] or "Twilio rejected the message request."
+
+    def _http_error(self, exc: HTTPError) -> MessagingProviderError:
+        try:
+            raw = exc.read(4096).decode("utf-8", errors="replace")
+            payload = json.loads(raw)
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            payload = {}
+        provider_code = payload.get("code")
+        message = self._clean_provider_message(payload.get("message"))
+        code = f"twilio_{provider_code}" if provider_code else f"twilio_http_{exc.code}"
+        return MessagingProviderError(code, message, http_status=exc.code)
 
     def verify_connectivity(self) -> None:
         if not self.enabled or not self.account_sid or not self.auth_token or not self.from_number:
