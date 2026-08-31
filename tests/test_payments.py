@@ -197,6 +197,12 @@ class PaymentTests(unittest.TestCase):
         parsed = provider.parse_webhook(webhook, "rzp-event-1")
         self.assertEqual((parsed.provider_payment_link_id, parsed.provider_payment_id, parsed.status.value, parsed.amount_paise), ("plink_1", "pay_1", "PAID", 12500))
 
+    def test_razorpay_created_link_is_active_during_reconciliation(self):
+        provider = RazorpayPaymentProvider("key", "secret", "webhook", enabled=True)
+        with patch("backend.chimera_payments.providers.razorpay.urlopen", return_value=FakeResponse({"id": "plink_created", "amount": 100000, "currency": "INR", "status": "created"})):
+            event = provider.reconcile_payment("plink_created")
+        self.assertEqual(event.status.value, "ACTIVE")
+
 
 if __name__ == "__main__":
     unittest.main()

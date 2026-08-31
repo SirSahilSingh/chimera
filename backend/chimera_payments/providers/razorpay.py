@@ -104,7 +104,11 @@ def _timestamp(value):
 
 
 def _map_status(value: str | None) -> PaymentStatus:
-    return {"issued": PaymentStatus.ACTIVE, "partially_paid": PaymentStatus.ACTIVE, "paid": PaymentStatus.PAID, "expired": PaymentStatus.EXPIRED, "cancelled": PaymentStatus.CANCELLED}.get(str(value).casefold(), PaymentStatus.FAILED)
+    # Standard Razorpay Payment Links use `created` while awaiting payment.
+    # Treat unknown/non-terminal link states conservatively as active; a
+    # failed checkout attempt is represented by a payment event, not by a
+    # terminal Payment Link state.
+    return {"created": PaymentStatus.ACTIVE, "issued": PaymentStatus.ACTIVE, "partially_paid": PaymentStatus.ACTIVE, "paid": PaymentStatus.PAID, "expired": PaymentStatus.EXPIRED, "cancelled": PaymentStatus.CANCELLED, "failed": PaymentStatus.FAILED}.get(str(value).casefold(), PaymentStatus.ACTIVE)
 
 
 def _event_status(event_name: str, provider_status: str | None) -> PaymentStatus:
