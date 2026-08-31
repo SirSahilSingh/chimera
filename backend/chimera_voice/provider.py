@@ -15,6 +15,7 @@ from urllib.parse import urlencode
 
 from .context import context_hash
 from .schemas import VoiceContext, VoiceScenario, VoiceWebhookEvent
+from backend.provider_modes import resolve_mode
 
 
 class VoiceProviderError(RuntimeError):
