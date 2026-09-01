@@ -120,8 +120,8 @@ class ExotelStreamSession:
             await self._respond(transcript)
 
     async def _respond(self, transcript: str) -> None:
-        response = await asyncio.to_thread(self.voice_service.handle_exotel_transcript, self.intervention_id, transcript)
-        self.close_after_mark = True
+        response, should_end = await asyncio.to_thread(self.voice_service.handle_exotel_transcript, self.intervention_id, transcript)
+        self.close_after_mark = should_end
         await self._send_audio(await asyncio.to_thread(self.speech_provider.synthesize, response))
 
     async def _send_audio(self, audio: bytes) -> None:

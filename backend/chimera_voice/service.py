@@ -254,10 +254,9 @@ class VoiceService:
         self.session.commit()
         return call.turns[0].text
 
-    def handle_exotel_transcript(self, intervention_id: str, transcript: str) -> str:
+    def handle_exotel_transcript(self, intervention_id: str, transcript: str) -> tuple[str, bool]:
         """Apply one Sarvam transcript to the controlled recovery conversation."""
-        response_text, _ = self._handle_customer_text(intervention_id, transcript, source="exotel", complete=False)
-        return response_text
+        return self._handle_customer_text(intervention_id, transcript, source="exotel", complete=False)
 
     def _handle_customer_text(self, intervention_id: str, text: str, *, source: str, complete: bool) -> tuple[str, bool]:
         call = self.get_call_for_intervention(intervention_id)
@@ -273,7 +272,8 @@ class VoiceService:
         self._record_turn(call, turn, context)
         if source == "exotel":
             self._event(call, "SPEECH_TRANSCRIBED", "sarvam", {"transcript_length": len(text), "language_code": getattr(self.speech_provider, "language_code", "hi-IN"), "model": getattr(self.speech_provider, "stt_model", "saaras:v3")})
-        self._advance(call, VoiceCallStatus.AWAITING_RESOLUTION, "AWAITING_RESOLUTION", source)
+        if call.status != VoiceCallStatus.AWAITING_RESOLUTION.value:
+            self._advance(call, VoiceCallStatus.AWAITING_RESOLUTION, "AWAITING_RESOLUTION", source)
         intent = turn.intent or VoiceIntent.UNKNOWN
         call.outcome_intent = intent.value
         payment_link = None
@@ -308,7 +308,8 @@ class VoiceService:
         elif complete:
             self._complete(call, VoiceCallStatus.COMPLETED, "CALL_COMPLETED", {"intent": intent.value, "payment_link_attached": payment_link is not None})
         self.session.commit()
-        return response_text, True
+        should_end = complete or intent in {VoiceIntent.DECLINE, VoiceIntent.WRONG_PERSON}
+        return response_text, should_end
 
     def handle_twilio_gather(self, intervention_id: str, speech: str | None, digits: str | None) -> str:
         """Persist one spoken/DTMF turn and return the next TwiML response."""
