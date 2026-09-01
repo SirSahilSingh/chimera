@@ -11,6 +11,7 @@ Server-side variables are listed in `.env.example`:
 - Razorpay: `PAYMENT_PROVIDER=razorpay`, `PAYMENT_MODE=TEST` (or `LIVE`), `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, and `RAZORPAY_WEBHOOK_SECRET`. Recovery payment links request Razorpay-native SMS/email notification when the corresponding customer contact is present.
 - Optional Twilio WhatsApp: `MESSAGING_PROVIDER=twilio`, `MESSAGING_CHANNEL=whatsapp`, `MESSAGING_MODE=TEST`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM_NUMBER`, `TWILIO_WHATSAPP_TO_NUMBER`, and `TWILIO_WHATSAPP_CONTENT_SID`. It is not used for Razorpay payment-link delivery.
 - Optional voice HTTP adapter: `VOICE_PROVIDER=live`, `VOICE_MODE=TEST` (or `LIVE`), `VOICE_ENABLED=true`, `VOICE_BASE_URL`, `VOICE_API_KEY`, `VOICE_AGENT_ID`, and `VOICE_PHONE_NUMBER`.
+- Exotel trial voice: `VOICE_PROVIDER=exotel`, `VOICE_MODE=TEST`, `VOICE_ENABLED=true`, `VOICE_PUBLIC_BASE_URL`, `EXOTEL_API_KEY`, `EXOTEL_API_TOKEN`, `EXOTEL_ACCOUNT_SID`, `EXOTEL_FLOW_URL`, `EXOTEL_CALLER_ID`, and optionally `EXOTEL_WEBHOOK_SECRET`. Exotel trial calls must target a verified account user until KYC approval.
 
 Credentials stay on the server. Provider adapters bound timeouts, verify webhook signatures, retain only sanitized payloads/hashes, and deduplicate provider event IDs.
 
@@ -29,5 +30,8 @@ WhatsApp, use `/api/v1/messaging/webhook/twilio`; for Twilio voice, use the gene
 `/api/v1/voice/twilio/status` and `/api/v1/voice/twilio/twiml` callbacks. Use
 provider test credentials and a test customer only. If credentials are absent,
 report the run as `LOCAL`; never label it live.
+For Exotel voice, CHIMERA sends the outbound request using the configured flow
+and receives status callbacks at `/api/v1/voice/exotel/status`. Use a verified
+trial customer only.
 
 Scenarios A–E are reproducible by submitting cases with the corresponding observable failure context and following the stored selected action. The journey endpoint exposes detection, diagnosis, intervention, provider records, outcomes, and a deterministic chronological audit stream.

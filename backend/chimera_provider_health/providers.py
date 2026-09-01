@@ -39,6 +39,8 @@ def build_provider_specs(settings, *, voice_provider, payment_provider, messagin
     voice_configured = (not voice_live) or (
         all((settings.voice_enabled, settings.twilio_account_sid, settings.twilio_auth_token, settings.voice_phone_number, settings.voice_public_base_url, getattr(settings, "sarvam_enabled", False), getattr(settings, "sarvam_api_key", None)))
         if voice_provider.name == "twilio"
+        else all((settings.voice_enabled, getattr(settings, "exotel_api_key", None), getattr(settings, "exotel_api_token", None), getattr(settings, "exotel_account_sid", None), getattr(settings, "exotel_flow_url", None), getattr(settings, "exotel_caller_id", None), settings.voice_public_base_url))
+        if voice_provider.name == "exotel"
         else all((settings.voice_enabled, settings.voice_base_url, settings.voice_api_key, settings.voice_agent_id, settings.voice_phone_number))
     )
     payment_configured = (not payment_live) or all((settings.payment_enabled, settings.razorpay_key_id, settings.razorpay_key_secret))
@@ -55,11 +57,13 @@ def build_provider_specs(settings, *, voice_provider, payment_provider, messagin
     voice_capabilities = ("call_initiation", "call_status_updates", "conversation_events", "webhook_signature_verification")
     if voice_provider.name == "twilio":
         voice_capabilities += ("sarvam_hinglish_stt", "sarvam_hinglish_tts")
+    if voice_provider.name == "exotel":
+        voice_capabilities += ("exotel_call_flow", "exotel_status_callbacks")
     specs = (
         ProviderSpec(
             "voice", ProviderType.VOICE, voice_implementation, str(voice_provider.mode).upper(), voice_configured, not voice_live,
             voice_capabilities,
-            ("Twilio provides phone transport; Sarvam Saaras/Bulbul provide the Hinglish speech loop. Both credentials and a public callback URL are required for real calls.",),
+            (("Exotel provides phone transport and call-flow execution; CHIMERA receives status callbacks. A verified trial destination, Exotel flow, credentials, and public callback URL are required for real calls.",) if voice_provider.name == "exotel" else ("Twilio provides phone transport; Sarvam Saaras/Bulbul provide the Hinglish speech loop. Both credentials and a public callback URL are required for real calls.",)),
             getattr(voice_provider, "verify_connectivity", None),
         ),
         ProviderSpec(

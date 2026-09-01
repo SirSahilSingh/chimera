@@ -41,6 +41,7 @@ from backend.app.interventions.errors import (
 )
 from backend.app.interventions.service import InterventionService
 from backend.chimera_voice.errors import VoiceDomainError, VoiceNotFoundError, VoiceProviderFailure
+from backend.chimera_voice.provider import ExotelVoiceProvider
 from backend.chimera_voice.schemas import (
     VoiceCallResponse,
     VoiceDemoRequest,
@@ -847,6 +848,60 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
     def voice_webhook(provider: str, payload: VoiceWebhookEvent, service: VoiceService = Depends(voice_service)):
         try:
             return as_voice_call(service.handle_webhook(provider, payload))
+        except VoiceNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except VoiceDomainError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @router.post("/voice/exotel/status", response_model=VoiceCallResponse)
+    async def exotel_status(request: Request, service: VoiceService = Depends(voice_service)):
+        """Translate Exotel's form-encoded status callback into CHIMERA's voice events."""
+        provider = service.provider
+        if not isinstance(provider, ExotelVoiceProvider):
+            raise HTTPException(status_code=409, detail="Exotel is not the configured voice provider")
+        expected_token = provider.webhook_secret
+        if expected_token and request.query_params.get("token") != expected_token:
+            raise HTTPException(status_code=403, detail="invalid Exotel callback token")
+
+        raw_body = (await request.body()).decode("utf-8", errors="replace")
+        fields = dict(parse_qsl(raw_body, keep_blank_values=True))
+        call_reference = fields.get("CallSid") or fields.get("CallSID") or fields.get("callsid")
+        raw_status = (fields.get("Status") or fields.get("status") or "").strip().casefold()
+        event_type = {
+            "initiated": "call_initiated",
+            "ringing": "ringing",
+            "in progress": "connected",
+            "in-progress": "connected",
+            "answered": "connected",
+            "completed": "completed",
+            "busy": "failed",
+            "failed": "failed",
+            "no answer": "no_answer",
+            "no-answer": "no_answer",
+            "canceled": "cancelled",
+            "cancelled": "cancelled",
+        }.get(raw_status)
+        if not call_reference or not event_type:
+            raise HTTPException(status_code=400, detail="Exotel callback is missing CallSid or has an unsupported Status")
+
+        raw_timestamp = fields.get("DateUpdated") or fields.get("dateupdated")
+        event_timestamp = datetime.now(timezone.utc)
+        if raw_timestamp:
+            try:
+                parsed = datetime.fromisoformat(raw_timestamp.replace("Z", "+00:00"))
+                event_timestamp = parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed
+            except ValueError:
+                pass
+        event = VoiceWebhookEvent(
+            event_id=f"exotel:{call_reference}:{raw_status}:{raw_timestamp or event_timestamp.isoformat()}"[:128],
+            provider_call_reference=call_reference,
+            event_type=event_type,
+            event_timestamp=event_timestamp,
+            signature="exotel-callback",
+        )
+        event = event.model_copy(update={"signature": provider.sign_callback_event(event)})
+        try:
+            return as_voice_call(service.handle_webhook("exotel", event))
         except VoiceNotFoundError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except VoiceDomainError as exc:

@@ -14,7 +14,7 @@ from backend.app.db.models import Decision, RecoveryCase, VoiceEvent, VoiceTurn
 from backend.app.main import create_app
 from backend.chimera_voice.agent import VoiceAgent
 from backend.chimera_voice.context import build_voice_context
-from backend.chimera_voice.provider import LocalDeterministicVoiceProvider, LiveHttpVoiceProvider, TwilioVoiceProvider, VoiceProviderError, sign_webhook_event
+from backend.chimera_voice.provider import ExotelVoiceProvider, LocalDeterministicVoiceProvider, LiveHttpVoiceProvider, TwilioVoiceProvider, VoiceProviderError, sign_webhook_event
 from backend.chimera_voice.schemas import ConversationTurn, VoiceContext, VoiceIntent, VoiceScenario, VoiceWebhookEvent
 from backend.chimera_voice.service import VoiceService
 from backend.chimera_voice.state_machine import VoiceCallStatus, VoiceLifecycleError, VoiceTerminalStateError, validate_voice_transition
@@ -170,6 +170,36 @@ class VoiceAgentTests(unittest.TestCase):
                 provider.start_call(context, idempotency_key="key", scenario=VoiceScenario.CUSTOMER_AGREES_TO_PAY)
         self.assertEqual(raised.exception.code, "provider_request_failed")
         self.assertEqual(raised.exception.provider_code, "twilio_21211")
+
+    def test_exotel_call_uses_basic_auth_flow_url_and_returns_call_sid(self) -> None:
+        context = VoiceContext(
+            intervention_id="int", recovery_case_id="case", decision_id="decision", selected_action="VOICE_RECOVERY",
+            customer_phone="+919999999999", payment_amount_paise=12500, currency="INR", failure_reason="issuer_decline", payment_method="card",
+            incident_flag=False, allowed_recovery_options=("PAY_NOW",),
+        )
+        provider = ExotelVoiceProvider(
+            "api-key", "api-token", "account-sid", "https://my.exotel.in/exoml/start/app-1", "+919888888888",
+            "https://api.in.exotel.com", "https://chimera.example", "callback-secret", enabled=True, mode="TEST",
+        )
+
+        class FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return b'<TwilioResponse><Call><Sid>call-123</Sid></Call></TwilioResponse>'
+
+        with patch("backend.chimera_voice.provider.urlopen", return_value=FakeResponse()) as transport:
+            result = provider.start_call(context, idempotency_key="k" * 64, scenario=VoiceScenario.CUSTOMER_AGREES_TO_PAY)
+        request = transport.call_args.args[0]
+        self.assertEqual(result.provider, "exotel")
+        self.assertEqual(result.provider_call_reference, "call-123")
+        self.assertIn("Basic ", request.headers["Authorization"])
+        self.assertIn(b"CallerId=%2B919888888888", request.data)
+        self.assertIn(b"CustomField=int%7C", request.data)
 
     def test_full_local_demo_scenarios_and_idempotency(self) -> None:
         scenarios = (

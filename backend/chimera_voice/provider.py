@@ -6,6 +6,7 @@ import json
 import os
 import socket
 import base64
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -281,6 +282,113 @@ class TwilioVoiceProvider(VoiceProvider):
         return hmac.compare_digest(expected, signature)
 
 
+class ExotelVoiceProvider(VoiceProvider):
+    """Exotel outbound-call adapter using a configured Exotel call flow."""
+
+    name = "exotel"
+    mode = "LIVE"
+
+    def __init__(
+        self,
+        api_key: str | None,
+        api_token: str | None,
+        account_sid: str | None,
+        flow_url: str | None,
+        caller_id: str | None,
+        api_base_url: str,
+        public_base_url: str | None,
+        webhook_secret: str | None,
+        *,
+        enabled: bool,
+        timeout_seconds: float = 10.0,
+        mode: str | None = None,
+    ) -> None:
+        self.api_key = api_key
+        self.api_token = api_token
+        self.account_sid = account_sid
+        self.flow_url = flow_url
+        self.caller_id = caller_id
+        self.api_base_url = api_base_url.rstrip("/")
+        self.public_base_url = public_base_url.rstrip("/") if public_base_url else None
+        self.webhook_secret = webhook_secret
+        self.enabled = enabled
+        self.timeout_seconds = timeout_seconds
+        self.mode = resolve_mode(self.name, mode)
+
+    def _require_configuration(self, context: VoiceContext | None = None) -> str | None:
+        if not self.enabled:
+            raise VoiceProviderError("voice_disabled")
+        if not all((self.api_key, self.api_token, self.account_sid, self.flow_url, self.caller_id, self.public_base_url)):
+            raise VoiceProviderError("missing_configuration")
+        phone = context.customer_phone if context else None
+        if context is not None and not phone:
+            raise VoiceProviderError("missing_customer_phone")
+        return phone
+
+    def start_call(self, context: VoiceContext, *, idempotency_key: str, scenario: VoiceScenario) -> VoiceCallStartResult:
+        phone = self._require_configuration(context)
+        callback = f"{self.public_base_url}/api/v1/voice/exotel/status"
+        if self.webhook_secret:
+            callback = f"{callback}?{urlencode({'token': self.webhook_secret})}"
+        fields = {
+            "From": phone or "",
+            "CallerId": self.caller_id or "",
+            "CallType": "trans",
+            "Url": self.flow_url or "",
+            "StatusCallback": callback,
+            "CustomField": f"{context.intervention_id}|{idempotency_key}|{scenario.value}",
+        }
+        token = base64.b64encode(f"{self.api_key}:{self.api_token}".encode()).decode()
+        request = Request(
+            f"{self.api_base_url}/v1/accounts/{self.account_sid}/calls/connect",
+            data=urlencode(fields).encode(),
+            headers={"Authorization": f"Basic {token}", "Content-Type": "application/x-www-form-urlencoded"},
+            method="POST",
+        )
+        try:
+            with urlopen(request, timeout=self.timeout_seconds) as response:
+                payload = response.read().decode("utf-8")
+            root = ET.fromstring(payload)
+            reference = next((element.text for element in root.iter() if element.tag.rsplit("}", 1)[-1].casefold() == "sid" and element.text), None)
+        except (TimeoutError, socket.timeout):
+            raise VoiceProviderError("provider_timeout") from None
+        except HTTPError as exc:
+            if exc.code in {401, 403}:
+                raise VoiceProviderError("invalid_credentials") from None
+            raise self._request_error(exc) from None
+        except (URLError, OSError):
+            raise VoiceProviderError("provider_request_failed") from None
+        except (ET.ParseError, ValueError):
+            raise VoiceProviderError("provider_invalid_response") from None
+        if not reference:
+            raise VoiceProviderError("provider_invalid_response")
+        return VoiceCallStartResult(provider=self.name, provider_call_reference=reference[:255])
+
+    def verify_webhook(self, event: VoiceWebhookEvent) -> bool:
+        if not self.webhook_secret:
+            return True
+        expected = hmac.new(self.webhook_secret.encode(), canonical_webhook(event).encode(), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(expected, event.signature)
+
+    def verify_connectivity(self) -> None:
+        self._require_configuration()
+
+    def sign_callback_event(self, event: VoiceWebhookEvent) -> str:
+        if not self.webhook_secret:
+            return "exotel-callback"
+        return hmac.new(self.webhook_secret.encode(), canonical_webhook(event).encode(), hashlib.sha256).hexdigest()
+
+    @staticmethod
+    def _request_error(exc: HTTPError) -> VoiceProviderError:
+        try:
+            body = exc.read().decode("utf-8")
+            root = ET.fromstring(body)
+            message = next((element.text for element in root.iter() if element.tag.rsplit("}", 1)[-1].casefold() == "message" and element.text), None)
+        except (AttributeError, UnicodeDecodeError, ET.ParseError, ValueError):
+            message = None
+        return VoiceProviderError("provider_request_failed", message[:255] if message else None, f"exotel_http_{exc.code}")
+
+
 def canonical_webhook(event: VoiceWebhookEvent) -> str:
     return json.dumps({
         "event_id": event.event_id,
@@ -296,6 +404,20 @@ def sign_webhook_event(event: VoiceWebhookEvent) -> str:
 
 def provider_from_settings(settings) -> VoiceProvider:
     provider_name = getattr(settings, "voice_provider", os.getenv("VOICE_PROVIDER", "local")).casefold()
+    if provider_name == "exotel":
+        return ExotelVoiceProvider(
+            getattr(settings, "exotel_api_key", None),
+            getattr(settings, "exotel_api_token", None),
+            getattr(settings, "exotel_account_sid", None),
+            getattr(settings, "exotel_flow_url", None),
+            getattr(settings, "exotel_caller_id", None),
+            getattr(settings, "exotel_api_base_url", "https://api.in.exotel.com"),
+            getattr(settings, "voice_public_base_url", None),
+            getattr(settings, "exotel_webhook_secret", None),
+            enabled=getattr(settings, "voice_enabled", False),
+            timeout_seconds=getattr(settings, "voice_timeout_seconds", 10.0),
+            mode=getattr(settings, "voice_mode", None),
+        )
     if provider_name == "twilio":
         return TwilioVoiceProvider(
             getattr(settings, "twilio_account_sid", None),
