@@ -30,11 +30,6 @@ class TwilioMessagingProvider(MessagingProvider):
         recipient = context.customer_phone or self.to_number
         if not self.enabled or not self.account_sid or not self.auth_token or not self.from_number or not recipient:
             raise MessagingProviderError("provider_not_configured", "Twilio messaging is missing a required setting.")
-        if self.whatsapp and not self.content_sid:
-            raise MessagingProviderError(
-                "whatsapp_template_not_configured",
-                "WhatsApp delivery needs an approved Twilio Content template SID.",
-            )
         fields = {"To": self._address(recipient), "From": self._address(self.from_number)}
         if self.whatsapp and self.content_sid:
             fields["ContentSid"] = self.content_sid

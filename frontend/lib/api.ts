@@ -1,4 +1,4 @@
-import type { ArenaResponse, Decision, DemoRecoveryResponse, DemoRunResponse, Escalation, Explanation, LearningDrift, LearningFunnel, LearningOverview, LearningProvider, PaginatedCases, JourneyPayment, PaymentOrder, ProviderReadiness, ProviderVerificationResponse, RecoveryCase, Execution, RecoveryIntelligence, RecoveryJourney, ScheduledRetry, SystemHealth } from "./types";
+import type { ArenaResponse, Decision, DemoRecoveryResponse, DemoRunResponse, Escalation, Explanation, LearningDrift, LearningFunnel, LearningOverview, LearningProvider, PaginatedCases, JourneyPayment, PaymentOrder, ProviderReadiness, ProviderVerificationResponse, RecoveryCase, Execution, RecoveryIntelligence, RecoveryJourney, ScheduledRetry, SystemHealth, JourneyVoiceCall } from "./types";
 
 // Prefer the same-origin Next.js proxy locally so the browser does not need a
 // separate CORS policy. An explicit public base remains available for a
@@ -51,6 +51,7 @@ export const api = {
   getLatestExplanation: (decisionId: string) => request<Explanation>(`/decisions/${decisionId}/explanation`),
   getExplanationHistory: (decisionId: string) => request<Explanation[]>(`/decisions/${decisionId}/explanations`),
   getJourney: (caseId: string) => request<RecoveryJourney>(`/recovery-cases/${caseId}/journey`),
+  startManualCall: (caseId: string) => request<JourneyVoiceCall>(`/recovery-cases/${caseId}/voice/call`, { method: "POST" }),
   reconcilePayment: (paymentId: string) => request<JourneyPayment>(`/payments/${paymentId}/reconcile`, { method: "POST" }),
   createPaymentOrder: (payload: { external_reference_id: string; customer_id: string; amount_paise: number; currency: "INR"; description: string; customer_phone?: string; customer_email?: string }) => request<PaymentOrder>("/payments/orders", { method: "POST", body: JSON.stringify(payload) }),
   getPaymentOrder: (orderId: string) => request<PaymentOrder>(`/payments/orders/${orderId}`),

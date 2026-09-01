@@ -307,6 +307,7 @@ export type JourneyScheduledRetry = {
 
 export type JourneyVoiceCall = {
   id: string;
+  intervention_id: string;
   provider: string;
   provider_mode: ProviderMode;
   status: string;

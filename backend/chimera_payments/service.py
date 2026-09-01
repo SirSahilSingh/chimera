@@ -51,8 +51,8 @@ class PaymentService:
         if intent != "SEND_PAYMENT_LINK":
             raise PaymentAuthorityError("voice payment link requires validated SEND_PAYMENT_LINK intent")
         intervention = self.interventions.get_intervention(intervention_id)
-        if intervention.action != "VOICE_RECOVERY" or intervention.decision.selected_action != "VOICE_RECOVERY":
-            raise PaymentAuthorityError("voice payment link requires VOICE_RECOVERY")
+        if intervention.action not in {"VOICE_RECOVERY", "PAYMENT_LINK"} or intervention.decision.selected_action not in {"VOICE_RECOVERY", "PAYMENT_LINK"}:
+            raise PaymentAuthorityError("voice payment link requires a compatible recovery intervention")
         return self._create_for_intervention(intervention)
 
     def create_for_message(self, intervention_id: str) -> PaymentLink:

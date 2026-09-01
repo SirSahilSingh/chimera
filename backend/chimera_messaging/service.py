@@ -130,8 +130,8 @@ class MessagingService:
     def send_for_voice_link(self, intervention_id: str, payment_link: str) -> MessageAttempt:
         """Send a generated voice-call payment link through the configured channel."""
         intervention = self.interventions.get_intervention(intervention_id)
-        if intervention.action != "VOICE_RECOVERY" or intervention.decision.selected_action != "VOICE_RECOVERY":
-            raise ValueError("voice link notification requires stored VOICE_RECOVERY intervention")
+        if intervention.action not in {"VOICE_RECOVERY", "PAYMENT_LINK"} or intervention.decision.selected_action not in {"VOICE_RECOVERY", "PAYMENT_LINK"}:
+            raise ValueError("voice link notification requires a compatible recovery intervention")
         context = validate_messaging_context(MessagingContext(intervention_id=intervention.id, recovery_case_id=intervention.recovery_case_id, decision_id=intervention.decision_id, selected_action="SEND_MESSAGE", customer_id=intervention.recovery_case.customer_id, customer_phone=intervention.recovery_case.customer_phone, language="en", amount_paise=intervention.recovery_case.amount_paise, currency=intervention.recovery_case.currency, payment_method=intervention.recovery_case.payment_method, failure_reason=intervention.recovery_case.failure_reason, incident_flag=intervention.recovery_case.incident_flag, payment_link=payment_link))
         key = __import__("hashlib").sha256(f"chimera-message-v1|voice-link|{intervention.id}|{self.provider.name}".encode()).hexdigest()
         existing = self.session.scalar(select(MessageAttempt).where(MessageAttempt.idempotency_key == key))

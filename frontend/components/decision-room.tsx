@@ -13,9 +13,10 @@ import { PersistedJourneyTimeline, ProviderJourney } from "./recovery-journey";
 
 export function DecisionRoom({ initialCase }: { initialCase: RecoveryCase }) {
   const [caseData, setCaseData] = useState(initialCase);
-  const [busy, setBusy] = useState<"decide" | "execute" | "explain" | null>(null);
+  const [busy, setBusy] = useState<"decide" | "execute" | "explain" | "call" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [callConfirmOpen, setCallConfirmOpen] = useState(false);
   const [explanation, setExplanation] = useState<Explanation | null>(null);
   const [history, setHistory] = useState<Explanation[]>([]);
   const [journey, setJourney] = useState<RecoveryJourney | null>(null);
@@ -67,16 +68,20 @@ export function DecisionRoom({ initialCase }: { initialCase: RecoveryCase }) {
     api.getExplanationHistory(decision.id).then(setHistory).catch(() => undefined);
   }, [decision?.id]);
 
-  const run = async (kind: "decide" | "execute" | "explain") => {
+  const run = async (kind: "decide" | "execute" | "explain" | "call") => {
     setBusy(kind); setError(null);
     try {
       if (kind === "decide") { await api.decide(caseData.id); await refresh(); }
       if (kind === "execute") { await api.execute(caseData.id); await refresh(); }
       if (kind === "explain" && decision) { const next = await api.explain(decision.id); setExplanation(next); setHistory((current) => [next, ...current]); }
+      if (kind === "call") { await api.startManualCall(caseData.id); await refresh(); setActiveStage("Intervene"); }
     } catch (err) { setError(err instanceof ApiError ? err.detail : "The operation could not be completed."); }
-    finally { setBusy(null); setConfirmOpen(false); }
+    finally { setBusy(null); setConfirmOpen(false); setCallConfirmOpen(false); }
   };
 
+  const activeIntervention = journey?.interventions.find((item) => item.decision_id === decision?.id) ?? journey?.interventions.at(-1) ?? null;
+  const callAlreadyStarted = Boolean(activeIntervention && journey?.voice_calls.some((call) => call.intervention_id === activeIntervention.id));
+  const canCall = Boolean(activeIntervention && caseData.customer_phone && !["RECOVERED", "CLOSED"].includes(caseData.status) && !callAlreadyStarted);
   const canExecute = caseData.status === "DECIDED" && Boolean(decision);
   const stageContent = activeStage === "Detect" ? <FailureDiagnosis caseData={caseData} decision={decision} />
     : activeStage === "Diagnose" ? <DiagnosisTab caseData={caseData} intelligence={intelligence} />
@@ -91,13 +96,14 @@ export function DecisionRoom({ initialCase }: { initialCase: RecoveryCase }) {
         <Link href="/cases" className="backline">← Recovery operations</Link>
       <div className="detail-title"><div><span className="detail-overline">Case</span><h1>{caseDisplayId(caseData)}</h1><p>{caseData.id} · {caseData.customer_id}</p></div><StatusBadge status={caseData.status} /><span className="live-sync"><span className="agent-pulse" />{syncing ? "Syncing" : "Live"}</span></div>
       </div>
-      <div className="detail-actions">{!decision && <Button onClick={() => run("decide")} disabled={busy !== null}><ShieldIcon size={16} />{busy === "decide" ? "Generating…" : "Generate decision"}</Button>}{canExecute && <Button kind="secondary" onClick={() => setConfirmOpen(true)} disabled={busy !== null}><ArrowRightIcon size={16} />Execute action</Button>}<Button kind="quiet" onClick={refresh} disabled={busy !== null} aria-label="Refresh case"><RefreshIcon size={16} /></Button></div>
+      <div className="detail-actions">{!decision && <Button onClick={() => run("decide")} disabled={busy !== null}><ShieldIcon size={16} />{busy === "decide" ? "Generating…" : "Generate decision"}</Button>}{canExecute && <Button kind="secondary" onClick={() => setConfirmOpen(true)} disabled={busy !== null}><ArrowRightIcon size={16} />Execute action</Button>}{canCall && <Button kind="secondary" onClick={() => setCallConfirmOpen(true)} disabled={busy !== null}><ExternalIcon size={16} />{busy === "call" ? "Calling…" : "Call customer"}</Button>}<Button kind="quiet" onClick={refresh} disabled={busy !== null} aria-label="Refresh case"><RefreshIcon size={16} /></Button></div>
       <div className="risk-readout"><span>Revenue at risk</span><strong>{formatPaise(caseData.amount_paise, caseData.currency)}</strong><small>Payment {caseData.payment_id} · {formatDate(caseData.decision_timestamp)} · {lastSyncedAt ? `synced ${formatDate(lastSyncedAt)}` : "connecting"}</small></div>
     </div>
     {error && <ErrorState message={error} onRetry={() => setError(null)} />}
     <section className="decision-tabs" aria-label="Decision lifecycle"><div className="decision-tab-list" role="tablist">{stages.map((stage) => <button key={stage} role="tab" aria-selected={activeStage === stage} className={`decision-tab ${activeStage === stage ? "active" : ""}`} onClick={() => setActiveStage(stage)}><span>{stages.indexOf(stage) + 1}</span>{stage}</button>)}</div><div className="decision-tab-content">{stageContent}</div></section>
     {journey ? <details className="raw-audit-accordion"><summary>View raw audit trail ({journey.audit_trail.length} events)<ChevronDownIcon size={16} /></summary><PersistedJourneyTimeline journey={journey} /></details> : <section className="journey-panel"><div className="inline-empty"><span className="loader" /><span>Loading persisted recovery journey…</span></div></section>}
     {confirmOpen && decision && <ConfirmDialog caseData={caseData} decision={decision} onCancel={() => setConfirmOpen(false)} onConfirm={() => run("execute")} busy={busy === "execute"} />}
+    {callConfirmOpen && <CallConfirmDialog caseData={caseData} onCancel={() => setCallConfirmOpen(false)} onConfirm={() => run("call")} busy={busy === "call"} />}
   </div>;
 }
 
@@ -121,4 +127,8 @@ function ExplanationSection({ decision, explanation, history, busy, onExplain }:
 
 function ConfirmDialog({ caseData, decision, onCancel, onConfirm, busy }: { caseData: RecoveryCase; decision: Decision; onCancel: () => void; onConfirm: () => void; busy: boolean }) {
   return <div className="dialog-backdrop" role="presentation"><div className="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-title"><button className="dialog-close" onClick={onCancel} aria-label="Close confirmation"><XIcon size={18} /></button><div className="dialog-icon"><ShieldIcon size={20} /></div><span className="section-overline">Backend-authorized action</span><h2 id="confirm-title">Execute stored decision?</h2><p>The browser will submit the existing decision. It will not recalculate, alter, or replace the selected action.</p><div className="confirm-details"><div><span>Case</span><strong>{caseDisplayId(caseData)}</strong></div><div><span>Action</span><strong>{formatAction(decision.selected_action)}</strong></div><div><span>Expected net</span><strong>{formatPaise(decision.expected_net_value_paise, caseData.currency)}</strong></div></div><div className="dialog-actions"><Button kind="quiet" onClick={onCancel}>Cancel</Button><Button onClick={onConfirm} disabled={busy}>{busy ? "Executing…" : "Confirm execution"}<ArrowRightIcon size={15} /></Button></div></div></div>;
+}
+
+function CallConfirmDialog({ caseData, onCancel, onConfirm, busy }: { caseData: RecoveryCase; onCancel: () => void; onConfirm: () => void; busy: boolean }) {
+  return <div className="dialog-backdrop" role="presentation"><div className="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="call-confirm-title"><button className="dialog-close" onClick={onCancel} aria-label="Close call confirmation"><XIcon size={18} /></button><div className="dialog-icon"><ExternalIcon size={20} /></div><span className="section-overline">Manual operator action</span><h2 id="call-confirm-title">Call customer?</h2><p>This places one recovery call to the stored customer number. The payment link and WhatsApp delivery remain separate, and the stored decision will not be changed.</p><div className="confirm-details"><div><span>Customer</span><strong>{caseData.customer_phone}</strong></div><div><span>Reason</span><strong>Payment failure</strong></div></div><div className="dialog-actions"><Button kind="quiet" onClick={onCancel}>Cancel</Button><Button onClick={onConfirm} disabled={busy}>{busy ? "Starting call…" : "Start call"}<ArrowRightIcon size={15} /></Button></div></div></div>;
 }

@@ -43,7 +43,7 @@ def build_provider_specs(settings, *, voice_provider, payment_provider, messagin
     )
     payment_configured = (not payment_live) or all((settings.payment_enabled, settings.razorpay_key_id, settings.razorpay_key_secret))
     messaging_configured = (not messaging_live) or (
-        (all((settings.messaging_enabled, settings.twilio_account_sid, settings.twilio_auth_token, getattr(settings, "twilio_whatsapp_from_number", None), getattr(settings, "twilio_whatsapp_content_sid", None))) if getattr(settings, "messaging_channel", "sms") == "whatsapp" else all((settings.messaging_enabled, settings.twilio_account_sid, settings.twilio_auth_token, settings.twilio_from_number, settings.twilio_to_number)))
+        (all((settings.messaging_enabled, settings.twilio_account_sid, settings.twilio_auth_token, getattr(settings, "twilio_whatsapp_from_number", None))) if getattr(settings, "messaging_channel", "sms") == "whatsapp" else all((settings.messaging_enabled, settings.twilio_account_sid, settings.twilio_auth_token, settings.twilio_from_number, settings.twilio_to_number)))
         if messaging_provider.name == "twilio"
         else all((settings.messaging_enabled, settings.whatsapp_enabled, settings.whatsapp_access_token, settings.whatsapp_phone_number_id))
     )

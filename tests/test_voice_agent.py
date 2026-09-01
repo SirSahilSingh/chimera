@@ -24,12 +24,13 @@ class VoiceAgentTests(unittest.TestCase):
         self.app = create_app("sqlite+pysqlite:///:memory:")
         self.client = TestClient(self.app)
 
-    def make_decision(self, action: str = "VOICE_RECOVERY", suffix: str = "1") -> str:
+    def make_decision(self, action: str = "VOICE_RECOVERY", suffix: str = "1", customer_phone: str | None = None) -> str:
         session = self.app.state.session_factory()
         case = RecoveryCase(
             external_event_id=f"voice-event-{suffix}", payment_id=f"voice-payment-{suffix}",
             customer_id=f"synthetic-voice-{suffix}", amount_paise=12500, currency="INR",
             failure_reason="issuer_decline", incident_flag=False, payment_method="card",
+            customer_phone=customer_phone,
             decision_timestamp=datetime(2026, 1, 1, 12, tzinfo=timezone.utc), status="DECIDED",
         )
         session.add(case)
@@ -46,8 +47,8 @@ class VoiceAgentTests(unittest.TestCase):
         session.close()
         return decision_id
 
-    def make_intervention(self, action: str = "VOICE_RECOVERY", suffix: str = "1") -> dict:
-        decision_id = self.make_decision(action, suffix)
+    def make_intervention(self, action: str = "VOICE_RECOVERY", suffix: str = "1", customer_phone: str | None = None) -> dict:
+        decision_id = self.make_decision(action, suffix, customer_phone)
         response = self.client.post(f"/api/v1/decisions/{decision_id}/interventions")
         self.assertEqual(response.status_code, 201, response.text)
         intervention = response.json()
@@ -64,6 +65,26 @@ class VoiceAgentTests(unittest.TestCase):
         started = self.client.post(f"/api/v1/interventions/{voice['id']}/voice/start")
         self.assertEqual(started.status_code, 200, started.text)
         self.assertEqual(self.client.get(f"/api/v1/interventions/{voice['id']}").json()["action"], "VOICE_RECOVERY")
+
+    def test_manual_call_can_accompany_payment_link_without_changing_decision(self) -> None:
+        intervention = self.make_intervention("PAYMENT_LINK", "manual-call", customer_phone="+919999999999")
+
+        response = self.client.post(f"/api/v1/recovery-cases/{intervention['recovery_case_id']}/voice/call")
+
+        self.assertEqual(response.status_code, 200, response.text)
+        call = response.json()
+        self.assertEqual(call["intervention_id"], intervention["id"])
+        self.assertEqual(call["provider"], "local")
+        self.assertEqual(
+            self.client.get(f"/api/v1/interventions/{intervention['id']}").json()["action"],
+            "PAYMENT_LINK",
+        )
+        session = self.app.state.session_factory()
+        try:
+            event_types = list(session.scalars(select(VoiceEvent.event_type).where(VoiceEvent.call_id == call["id"])))
+            self.assertIn("MANUAL_CALL_REQUESTED", event_types)
+        finally:
+            session.close()
 
     def test_context_rejects_hidden_future_and_model_fields(self) -> None:
         context = VoiceContext(

@@ -10,7 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from backend.app.db.models import Intervention, VoiceCall, VoiceEvent, VoiceTurn
+from backend.app.db.models import Intervention, RecoveryCase, VoiceCall, VoiceEvent, VoiceTurn
 from backend.app.interventions.service import InterventionService
 from backend.app.interventions.state_machine import InterventionStatus
 from backend.app.schemas import InterventionOutcomeCreate
@@ -73,9 +73,9 @@ class VoiceService:
             raise VoiceNotFoundError("voice call not found")
         return call
 
-    def start(self, intervention_id: str, scenario: VoiceScenario) -> tuple[VoiceCall, bool]:
+    def start(self, intervention_id: str, scenario: VoiceScenario, *, allow_secondary: bool = False, source: str = "decision") -> tuple[VoiceCall, bool]:
         intervention = self.interventions.get_intervention(intervention_id)
-        self._assert_voice_intervention(intervention)
+        self._assert_voice_intervention(intervention, allow_secondary=allow_secondary)
         existing = self.session.scalar(select(VoiceCall).where(VoiceCall.intervention_id == intervention_id))
         if existing is not None:
             if existing.scenario != scenario.value:
@@ -88,7 +88,7 @@ class VoiceService:
         if intervention.status != InterventionStatus.AWAITING_OUTCOME.value:
             raise VoiceActionNotAllowedError(f"voice call requires an executable intervention, got {intervention.status}")
 
-        context = build_voice_context(intervention)
+        context = build_voice_context(intervention, allow_secondary=allow_secondary)
         key = self._idempotency_key(intervention.id, scenario, self.provider.name)
         call = VoiceCall(
             intervention_id=intervention.id,
@@ -107,6 +107,8 @@ class VoiceService:
         self.session.add(call)
         try:
             self.session.flush()
+            if source == "operator":
+                self._event(call, "MANUAL_CALL_REQUESTED", "operator", {"reason": "operator_requested_call"})
             self._event(call, "CALL_QUEUED", "system", {"scenario": scenario.value}, input_hash=call.input_hash)
             started = self.provider.start_call(context, idempotency_key=key, scenario=scenario)
             call.provider_call_reference = started.provider_call_reference
@@ -130,6 +132,30 @@ class VoiceService:
             raise VoiceDuplicateError("voice call could not be created") from exc
         return self.get_call(call.id), True
 
+    def start_manual_for_case(self, recovery_case_id: str) -> VoiceCall:
+        """Place one operator-requested call without changing the stored decision."""
+        case = self.session.get(RecoveryCase, recovery_case_id)
+        if case is None:
+            raise VoiceNotFoundError("recovery case not found")
+        if case.status in {"RECOVERED", "CLOSED"}:
+            raise VoiceActionNotAllowedError("cannot call a completed recovery case")
+        if not case.customer_phone:
+            raise VoiceActionNotAllowedError("manual call requires a customer phone number")
+        intervention = self.session.scalar(
+            select(Intervention)
+            .where(Intervention.recovery_case_id == recovery_case_id)
+            .order_by(Intervention.created_at.desc(), Intervention.id.desc())
+        )
+        if intervention is None:
+            raise VoiceActionNotAllowedError("manual call requires a stored intervention")
+        call, _ = self.start(
+            intervention.id,
+            VoiceScenario.CUSTOMER_AGREES_TO_PAY,
+            allow_secondary=True,
+            source="operator",
+        )
+        return call
+
     def run_demo(self, intervention_id: str, scenario: VoiceScenario) -> VoiceCall:
         if self.provider.name != "local":
             raise VoiceProviderFailure("demo_requires_local_provider")
@@ -148,7 +174,7 @@ class VoiceService:
             return self.get_call(call.id)
         self._advance(call, VoiceCallStatus.CONNECTED, "CALL_CONNECTED", "local")
         self._advance(call, VoiceCallStatus.CONVERSATION, "CONVERSATION_STARTED", "local")
-        context = build_voice_context(call.intervention)
+        context = build_voice_context(call.intervention, allow_secondary=True)
         agent = VoiceAgent(context)
         now = self._demo_timestamp(call, 0)
         self._record_turn(call, agent.opening_turn(now), context)
@@ -202,7 +228,7 @@ class VoiceService:
         call = self.get_call_for_intervention(intervention_id)
         if call.status in TERMINAL_VOICE_STATUSES:
             return self._twiml_say("This recovery call is already complete. Thank you. Goodbye.")
-        context = build_voice_context(call.intervention)
+        context = build_voice_context(call.intervention, allow_secondary=True)
         if not call.turns:
             self._record_turn(call, VoiceAgent(context).opening_turn(self._now()), context)
             self.session.commit()
@@ -221,7 +247,7 @@ class VoiceService:
         text = text.strip()
         if not text:
             return self._twiml_record("कृपया payment link, बाद में, already paid, या no thanks बोलिए।", intervention_id)
-        context = build_voice_context(call.intervention)
+        context = build_voice_context(call.intervention, allow_secondary=True)
         agent = VoiceAgent(context)
         turn = agent.customer_turn(text, self._now())
         self._record_turn(call, turn, context)
@@ -367,8 +393,8 @@ class VoiceService:
         self.session.commit()
         return self.get_call(call.id)
 
-    def _assert_voice_intervention(self, intervention: Intervention) -> None:
-        if intervention.action != "VOICE_RECOVERY" or intervention.decision.selected_action != "VOICE_RECOVERY":
+    def _assert_voice_intervention(self, intervention: Intervention, *, allow_secondary: bool = False) -> None:
+        if not allow_secondary and (intervention.action != "VOICE_RECOVERY" or intervention.decision.selected_action != "VOICE_RECOVERY"):
             raise VoiceActionNotAllowedError("voice execution is only allowed for VOICE_RECOVERY")
 
     def _advance(self, call: VoiceCall, target: VoiceCallStatus, event_type: str, source: str) -> None:

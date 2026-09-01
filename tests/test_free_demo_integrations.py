@@ -33,7 +33,7 @@ class FakeResponse:
 
 
 class FreeDemoIntegrationTests(unittest.TestCase):
-    def test_twilio_whatsapp_requires_content_template(self):
+    def test_twilio_whatsapp_can_send_freeform_in_active_sandbox_window(self):
         provider = TwilioMessagingProvider(
             "AC123",
             "auth-token",
@@ -45,8 +45,22 @@ class FreeDemoIntegrationTests(unittest.TestCase):
         )
         context = MessagingContext(intervention_id="i", recovery_case_id="c", decision_id="d", selected_action="SEND_MESSAGE", customer_id="customer", customer_phone="+919999999999", language="en", amount_paise=12500, currency="INR", payment_method="card", failure_reason="issuer_decline", incident_flag=False)
 
-        with self.assertRaisesRegex(RuntimeError, "whatsapp_template_not_configured"):
-            provider.send_message(context, "Payment link: https://example.test", "k" * 64)
+        class FakeTwilioResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return b'{"sid":"SM-freeform"}'
+
+        with patch("backend.chimera_messaging.twilio_provider.urlopen", return_value=FakeTwilioResponse()) as transport:
+            result = provider.send_message(context, "Payment link: https://example.test", "k" * 64)
+        self.assertEqual(result.provider_message_id, "SM-freeform")
+        sent = dict(parse_qsl(transport.call_args.args[0].data.decode("utf-8"), keep_blank_values=True))
+        self.assertEqual(sent["Body"], "Payment link: https://example.test")
+        self.assertNotIn("ContentSid", sent)
 
     def test_twilio_http_failure_preserves_safe_provider_code_and_reason(self):
         provider = TwilioMessagingProvider(

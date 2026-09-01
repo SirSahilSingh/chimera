@@ -8,12 +8,12 @@ from backend.app.interventions.errors import ActionMismatchError, InvalidExecuti
 from .schemas import VoiceContext
 
 
-def build_voice_context(intervention, *, payment_link: str | None = None) -> VoiceContext:
+def build_voice_context(intervention, *, payment_link: str | None = None, allow_secondary: bool = False) -> VoiceContext:
     decision = intervention.decision
     case = intervention.recovery_case
     if decision is None or case is None:
         raise InvalidExecutionContextError("voice intervention context is unavailable")
-    if intervention.action != "VOICE_RECOVERY" or decision.selected_action != "VOICE_RECOVERY":
+    if not allow_secondary and (intervention.action != "VOICE_RECOVERY" or decision.selected_action != "VOICE_RECOVERY"):
         raise ActionMismatchError("voice execution requires the stored VOICE_RECOVERY action")
     return VoiceContext(
         intervention_id=intervention.id,

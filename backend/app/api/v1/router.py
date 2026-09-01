@@ -602,6 +602,15 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
         except VoiceDomainError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
+    @router.post("/recovery-cases/{case_id}/voice/call", response_model=VoiceCallResponse)
+    def start_manual_case_call(case_id: str, service: VoiceService = Depends(voice_service)):
+        try:
+            return as_voice_call(service.start_manual_for_case(case_id))
+        except VoiceNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except VoiceDomainError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
     @router.post("/interventions/{intervention_id}/payment-link", response_model=PaymentLinkResponse, status_code=201)
     def create_payment_link(intervention_id: str, service: PaymentService = Depends(payment_service)):
         try:
