@@ -352,8 +352,6 @@ class ExotelVoiceProvider(VoiceProvider):
         except (TimeoutError, socket.timeout):
             raise VoiceProviderError("provider_timeout") from None
         except HTTPError as exc:
-            if exc.code in {401, 403}:
-                raise VoiceProviderError("invalid_credentials") from None
             raise self._request_error(exc) from None
         except (URLError, OSError):
             raise VoiceProviderError("provider_request_failed") from None
@@ -408,6 +406,25 @@ class ExotelVoiceProvider(VoiceProvider):
 
     def verify_connectivity(self) -> None:
         self._require_configuration()
+        token = base64.b64encode(f"{self.api_key}:{self.api_token}".encode()).decode()
+        request = Request(
+            f"{self.api_base_url}/v1/Accounts/{self.account_sid}/Calls.json?PageSize=1",
+            headers={"Authorization": f"Basic {token}", "Accept": "application/json"},
+            method="GET",
+        )
+        try:
+            with urlopen(request, timeout=self.timeout_seconds) as response:
+                if response.status >= 400:
+                    raise VoiceProviderError("provider_unavailable")
+                response.read(1)
+        except VoiceProviderError:
+            raise
+        except (TimeoutError, socket.timeout):
+            raise VoiceProviderError("provider_timeout") from None
+        except HTTPError as exc:
+            raise self._request_error(exc) from None
+        except (URLError, OSError):
+            raise VoiceProviderError("provider_unavailable") from None
 
     def sign_callback_event(self, event: VoiceWebhookEvent) -> str:
         if not self.webhook_secret:
