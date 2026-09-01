@@ -203,6 +203,38 @@ class VoiceAgentTests(unittest.TestCase):
         self.assertIn(b"CallerId=%2B919888888888", request.data)
         self.assertIn(b"CustomField=int%7C", request.data)
 
+    def test_exotel_agentstream_call_uses_bidirectional_pcm_stream(self) -> None:
+        context = VoiceContext(
+            intervention_id="int", recovery_case_id="case", decision_id="decision", selected_action="VOICE_RECOVERY",
+            customer_phone="+919999999999", payment_amount_paise=12500, currency="INR", failure_reason="issuer_decline", payment_method="card",
+            incident_flag=False, allowed_recovery_options=("PAY_NOW",),
+        )
+        provider = ExotelVoiceProvider(
+            "api-key", "api-token", "account-sid", None, "+919888888888",
+            "https://api.in.exotel.com", "https://chimera.example", "callback-secret", enabled=True,
+            agentstream_enabled=True, stream_url="wss://chimera.example/api/v1/voice/exotel/stream", mode="TEST",
+        )
+
+        class FakeResponse:
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return b'{"call":{"sid":"stream-call-123"}}'
+
+        with patch("backend.chimera_voice.provider.urlopen", return_value=FakeResponse()) as transport:
+            result = provider.start_call(context, idempotency_key="k" * 64, scenario=VoiceScenario.CUSTOMER_AGREES_TO_PAY)
+        request = transport.call_args.args[0]
+        self.assertEqual(result.provider_call_reference, "stream-call-123")
+        self.assertIn(b"streamtype=bidirectional", request.data)
+        self.assertIn(b"streamurl=wss%3A%2F%2Fchimera.example%2Fapi%2Fv1%2Fvoice%2Fexotel%2Fstream%3Fintervention_id%3Dint", request.data)
+        self.assertIn(b"from=%2B919999999999", request.data)
+
     def test_full_local_demo_scenarios_and_idempotency(self) -> None:
         scenarios = (
             (VoiceScenario.CUSTOMER_AGREES_TO_PAY, "PAY_NOW", "AWAITING_OUTCOME"),

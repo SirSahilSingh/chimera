@@ -69,6 +69,8 @@ def create_app(database_url: str | None = None, *, create_tables: bool = True, e
             exotel_api_base_url=settings.exotel_api_base_url,
             exotel_portal_base_url=settings.exotel_portal_base_url,
             exotel_webhook_secret=settings.exotel_webhook_secret,
+            exotel_agentstream_enabled=settings.exotel_agentstream_enabled,
+            exotel_stream_url=settings.exotel_stream_url,
             sarvam_enabled=settings.sarvam_enabled,
             sarvam_api_key=settings.sarvam_api_key,
             sarvam_base_url=settings.sarvam_base_url,

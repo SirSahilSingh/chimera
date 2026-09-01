@@ -38,6 +38,8 @@ class AppSettings:
     exotel_api_base_url: str = "https://api.in.exotel.com"
     exotel_portal_base_url: str = "https://my.exotel.in"
     exotel_webhook_secret: str | None = None
+    exotel_agentstream_enabled: bool = False
+    exotel_stream_url: str | None = None
     sarvam_enabled: bool = False
     sarvam_api_key: str | None = None
     sarvam_base_url: str = "https://api.sarvam.ai"
@@ -123,6 +125,8 @@ def load_settings() -> AppSettings:
         exotel_api_base_url=os.getenv("EXOTEL_API_BASE_URL", "https://api.in.exotel.com").rstrip("/"),
         exotel_portal_base_url=os.getenv("EXOTEL_PORTAL_BASE_URL", "https://my.exotel.in").rstrip("/"),
         exotel_webhook_secret=os.getenv("EXOTEL_WEBHOOK_SECRET") or None,
+        exotel_agentstream_enabled=os.getenv("EXOTEL_AGENTSTREAM_ENABLED", "false").casefold() in {"1", "true", "yes"},
+        exotel_stream_url=os.getenv("EXOTEL_STREAM_URL") or None,
         sarvam_enabled=os.getenv("SARVAM_ENABLED", "false").casefold() in {"1", "true", "yes"},
         sarvam_api_key=os.getenv("SARVAM_API_KEY") or None,
         sarvam_base_url=os.getenv("SARVAM_BASE_URL", "https://api.sarvam.ai"),

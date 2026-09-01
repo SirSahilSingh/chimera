@@ -301,6 +301,8 @@ class ExotelVoiceProvider(VoiceProvider):
         *,
         enabled: bool,
         timeout_seconds: float = 10.0,
+        agentstream_enabled: bool = False,
+        stream_url: str | None = None,
         mode: str | None = None,
     ) -> None:
         self.api_key = api_key
@@ -313,12 +315,15 @@ class ExotelVoiceProvider(VoiceProvider):
         self.webhook_secret = webhook_secret
         self.enabled = enabled
         self.timeout_seconds = timeout_seconds
+        self.agentstream_enabled = agentstream_enabled
+        self.stream_url = stream_url.rstrip("/") if stream_url else None
         self.mode = resolve_mode(self.name, mode)
 
     def _require_configuration(self, context: VoiceContext | None = None) -> str | None:
         if not self.enabled:
             raise VoiceProviderError("voice_disabled")
-        if not all((self.api_key, self.api_token, self.account_sid, self.flow_url, self.caller_id, self.public_base_url)):
+        required = (self.api_key, self.api_token, self.account_sid, self.caller_id, self.public_base_url)
+        if not all(required) or (not self.agentstream_enabled and not self.flow_url) or (self.agentstream_enabled and not self.stream_url):
             raise VoiceProviderError("missing_configuration")
         phone = context.customer_phone if context else None
         if context is not None and not phone:
@@ -330,18 +335,33 @@ class ExotelVoiceProvider(VoiceProvider):
         callback = f"{self.public_base_url}/api/v1/voice/exotel/status"
         if self.webhook_secret:
             callback = f"{callback}?{urlencode({'token': self.webhook_secret})}"
-        fields = {
-            "From": self._format_destination(phone or ""),
-            "CallerId": self.caller_id or "",
-            "CallType": "trans",
-            "Url": self.flow_url or "",
-            "StatusCallback": callback,
-            "CustomField": f"{context.intervention_id}|{idempotency_key}|{scenario.value}",
-        }
+        custom_field = f"{context.intervention_id}|{idempotency_key}|{scenario.value}"
+        if self.agentstream_enabled:
+            stream_url = f"{self.stream_url}?{urlencode({'intervention_id': context.intervention_id})}"
+            fields = [
+                ("from", self._format_e164(phone or "")),
+                ("callerid", self.caller_id or ""),
+                ("streamurl", stream_url),
+                ("streamtype", "bidirectional"),
+                ("record", "true"),
+                ("statuscallback", callback),
+                ("statuscallbackevents[]", "ringing"),
+                ("statuscallbackevents[]", "terminal"),
+                ("customfield", custom_field),
+            ]
+        else:
+            fields = {
+                "From": self._format_destination(phone or ""),
+                "CallerId": self.caller_id or "",
+                "CallType": "trans",
+                "Url": self.flow_url or "",
+                "StatusCallback": callback,
+                "CustomField": custom_field,
+            }
         token = base64.b64encode(f"{self.api_key}:{self.api_token}".encode()).decode()
         request = Request(
             f"{self.api_base_url}/v1/Accounts/{self.account_sid}/calls/connect",
-            data=urlencode(fields).encode(),
+            data=urlencode(fields, doseq=True).encode(),
             headers={"Authorization": f"Basic {token}", "Accept": "application/json, application/xml", "Content-Type": "application/x-www-form-urlencoded"},
             method="POST",
         )
@@ -371,6 +391,19 @@ class ExotelVoiceProvider(VoiceProvider):
             return f"0{compact[2:]}"
         if len(compact) == 10 and compact.isdigit():
             return f"0{compact}"
+        return compact
+
+    @staticmethod
+    def _format_e164(phone: str) -> str:
+        compact = phone.replace(" ", "").replace("-", "")
+        if compact.startswith("0") and len(compact) == 11:
+            return f"+91{compact[1:]}"
+        if compact.startswith("91") and len(compact) == 12:
+            return f"+{compact}"
+        if compact.startswith("+"):
+            return compact
+        if len(compact) == 10 and compact.isdigit():
+            return f"+91{compact}"
         return compact
 
     @staticmethod
@@ -490,6 +523,8 @@ def provider_from_settings(settings) -> VoiceProvider:
             getattr(settings, "exotel_webhook_secret", None),
             enabled=getattr(settings, "voice_enabled", False),
             timeout_seconds=getattr(settings, "voice_timeout_seconds", 10.0),
+            agentstream_enabled=getattr(settings, "exotel_agentstream_enabled", False),
+            stream_url=getattr(settings, "exotel_stream_url", None),
             mode=getattr(settings, "voice_mode", None),
         )
     if provider_name == "twilio":

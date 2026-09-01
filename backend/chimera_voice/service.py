@@ -237,26 +237,43 @@ class VoiceService:
         if not call.turns:
             self._record_turn(call, VoiceAgent(context).opening_turn(self._now()), context)
             self.session.commit()
-        self._bring_to_conversation(call)
+        self._bring_to_conversation(call, source="twilio")
         self.session.commit()
         prompt = "नमस्ते। आपके recent payment में problem आई थी। क्या आप अभी payment link लेना चाहेंगे, या बाद में try करेंगे?"
         return self._twiml_record(prompt, intervention_id)
 
-    def handle_twilio_gather(self, intervention_id: str, speech: str | None, digits: str | None) -> str:
-        """Persist one spoken/DTMF turn and return the next TwiML response."""
+    def exotel_opening(self, intervention_id: str) -> str:
+        """Prepare the first live Exotel turn and return the Hinglish prompt."""
         call = self.get_call_for_intervention(intervention_id)
         if call.status in TERMINAL_VOICE_STATUSES:
-            return self._twiml_say("This recovery call is already complete. Goodbye.")
-        self._bring_to_conversation(call)
-        text = speech or ("yes" if digits == "1" else "later" if digits == "2" else "")
+            return "यह recovery call पहले ही complete हो चुकी है। धन्यवाद।"
+        context = build_voice_context(call.intervention, allow_secondary=True)
+        if not call.turns:
+            self._record_turn(call, VoiceAgent(context).opening_turn(self._now()), context)
+        self._bring_to_conversation(call, source="exotel")
+        self.session.commit()
+        return call.turns[0].text
+
+    def handle_exotel_transcript(self, intervention_id: str, transcript: str) -> str:
+        """Apply one Sarvam transcript to the controlled recovery conversation."""
+        response_text, _ = self._handle_customer_text(intervention_id, transcript, source="exotel", complete=False)
+        return response_text
+
+    def _handle_customer_text(self, intervention_id: str, text: str, *, source: str, complete: bool) -> tuple[str, bool]:
+        call = self.get_call_for_intervention(intervention_id)
+        if call.status in TERMINAL_VOICE_STATUSES:
+            return "यह recovery call पहले ही complete हो चुकी है। धन्यवाद।", True
         text = text.strip()
         if not text:
-            return self._twiml_record("कृपया payment link, बाद में, already paid, या no thanks बोलिए।", intervention_id)
+            return "कृपया payment link, बाद में, already paid, या no thanks बोलिए।", False
+        self._bring_to_conversation(call, source=source)
         context = build_voice_context(call.intervention, allow_secondary=True)
         agent = VoiceAgent(context)
         turn = agent.customer_turn(text, self._now())
         self._record_turn(call, turn, context)
-        self._advance(call, VoiceCallStatus.AWAITING_RESOLUTION, "AWAITING_RESOLUTION", "twilio")
+        if source == "exotel":
+            self._event(call, "SPEECH_TRANSCRIBED", "sarvam", {"transcript_length": len(text), "language_code": getattr(self.speech_provider, "language_code", "hi-IN"), "model": getattr(self.speech_provider, "stt_model", "saaras:v3")})
+        self._advance(call, VoiceCallStatus.AWAITING_RESOLUTION, "AWAITING_RESOLUTION", source)
         intent = turn.intent or VoiceIntent.UNKNOWN
         call.outcome_intent = intent.value
         payment_link = None
@@ -285,11 +302,20 @@ class VoiceService:
         response = response.model_copy(update={"text": response_text})
         self._record_turn(call, response, context)
         if intent in {VoiceIntent.DECLINE, VoiceIntent.WRONG_PERSON}:
-            self._complete(call, VoiceCallStatus.DECLINED, "CALL_DECLINED", {"intent": intent.value})
-            self.interventions.record_outcome(call.intervention_id, InterventionOutcomeCreate(status="NOT_RECOVERED", recovered_amount_paise=0, currency=call.intervention.recovery_case.currency, occurred_at=self._now(), source="voice_agent"))
-            return self._twiml_say(response_text)
-        self._complete(call, VoiceCallStatus.COMPLETED, "CALL_COMPLETED", {"intent": intent.value, "payment_link_attached": payment_link is not None})
+            if complete:
+                self._complete(call, VoiceCallStatus.DECLINED, "CALL_DECLINED", {"intent": intent.value})
+                self.interventions.record_outcome(call.intervention_id, InterventionOutcomeCreate(status="NOT_RECOVERED", recovered_amount_paise=0, currency=call.intervention.recovery_case.currency, occurred_at=self._now(), source="voice_agent"))
+        elif complete:
+            self._complete(call, VoiceCallStatus.COMPLETED, "CALL_COMPLETED", {"intent": intent.value, "payment_link_attached": payment_link is not None})
         self.session.commit()
+        return response_text, True
+
+    def handle_twilio_gather(self, intervention_id: str, speech: str | None, digits: str | None) -> str:
+        """Persist one spoken/DTMF turn and return the next TwiML response."""
+        text = speech or ("yes" if digits == "1" else "later" if digits == "2" else "")
+        if not text.strip():
+            return self._twiml_record("कृपया payment link, बाद में, already paid, या no thanks बोलिए।", intervention_id)
+        response_text, _ = self._handle_customer_text(intervention_id, text, source="twilio", complete=True)
         return self._twiml_say(response_text)
 
     def handle_twilio_record(self, intervention_id: str, recording_url: str | None, fields: dict[str, str], signature: str, callback_url: str) -> str:
@@ -336,13 +362,13 @@ class VoiceService:
                 self.session.rollback()
         return self.get_call(call.id)
 
-    def _bring_to_conversation(self, call: VoiceCall) -> None:
+    def _bring_to_conversation(self, call: VoiceCall, *, source: str = "twilio") -> None:
         if call.status == VoiceCallStatus.CALL_INITIATED.value:
-            self._advance(call, VoiceCallStatus.RINGING, "CALL_RINGING", "twilio")
+            self._advance(call, VoiceCallStatus.RINGING, "CALL_RINGING", source)
         if call.status == VoiceCallStatus.RINGING.value:
-            self._advance(call, VoiceCallStatus.CONNECTED, "CALL_CONNECTED", "twilio")
+            self._advance(call, VoiceCallStatus.CONNECTED, "CALL_CONNECTED", source)
         if call.status == VoiceCallStatus.CONNECTED.value:
-            self._advance(call, VoiceCallStatus.CONVERSATION, "CONVERSATION_STARTED", "twilio")
+            self._advance(call, VoiceCallStatus.CONVERSATION, "CONVERSATION_STARTED", source)
 
     def _twiml_say(self, text: str) -> str:
         language = html.escape(str(getattr(self.provider, "language", "hi-IN")), quote=True)

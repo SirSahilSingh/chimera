@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, Response
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, Response, WebSocket
 from fastapi.responses import PlainTextResponse
 from urllib.parse import parse_qsl
 from sqlalchemy import text
@@ -54,6 +54,7 @@ from backend.chimera_voice.schemas import (
 )
 from backend.chimera_voice.service import VoiceService
 from backend.chimera_voice.sarvam_provider import SarvamSpeechProvider
+from backend.chimera_voice.exotel_stream import ExotelStreamSession
 from backend.chimera_payments.errors import PaymentError, PaymentNotFoundError, PaymentProviderError, PaymentWebhookError
 from backend.chimera_payments.schemas import PaymentDemoRequest, PaymentDemoScenario, PaymentEventResponse, PaymentAttemptResponse, PaymentLinkResponse, PaymentListResponse, PaymentOrderCreate, PaymentOrderResponse
 from backend.chimera_payments.order_service import PaymentOrderService
@@ -906,6 +907,18 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except VoiceDomainError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @router.websocket("/voice/exotel/stream")
+    async def exotel_stream(websocket: WebSocket, intervention_id: str | None = None, service: VoiceService = Depends(voice_service)):
+        """Receive Exotel bidirectional audio and run the Sarvam Hinglish loop."""
+        provider = service.provider
+        if not isinstance(provider, ExotelVoiceProvider) or not provider.agentstream_enabled:
+            await websocket.close(code=1008)
+            return
+        if service.speech_provider is None or not service.speech_provider.enabled or not service.speech_provider.api_key:
+            await websocket.close(code=1011)
+            return
+        await ExotelStreamSession(websocket, voice_service=service, speech_provider=service.speech_provider, intervention_id=intervention_id).run()
 
     @router.api_route("/voice/twilio/twiml", methods=["GET", "POST"], response_class=PlainTextResponse)
     def twilio_twiml(intervention_id: str, service: VoiceService = Depends(voice_service)):
