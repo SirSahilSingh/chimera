@@ -418,8 +418,29 @@ class ExotelVoiceProvider(VoiceProvider):
     def _request_error(exc: HTTPError) -> VoiceProviderError:
         try:
             body = exc.read().decode("utf-8")
-            root = ET.fromstring(body)
-            message = next((element.text for element in root.iter() if element.tag.rsplit("}", 1)[-1].casefold() == "message" and element.text), None)
+            try:
+                parsed = json.loads(body)
+            except json.JSONDecodeError:
+                parsed = None
+            message = None
+            if isinstance(parsed, dict):
+                values: list[Any] = [parsed]
+                while values and message is None:
+                    value = values.pop()
+                    if isinstance(value, dict):
+                        for key, child in value.items():
+                            if key.casefold() in {"message", "error_message", "error_description"} and isinstance(child, str) and child.strip():
+                                message = child.strip()
+                                break
+                            if isinstance(child, (dict, list)):
+                                values.append(child)
+                    elif isinstance(value, list):
+                        values.extend(value)
+            if message is None:
+                root = ET.fromstring(body)
+                message = next((element.text for element in root.iter() if element.tag.rsplit("}", 1)[-1].casefold() == "message" and element.text), None)
+            if message is None and body.strip():
+                message = body.strip()
         except (AttributeError, UnicodeDecodeError, ET.ParseError, ValueError):
             message = None
         return VoiceProviderError("provider_request_failed", message[:255] if message else None, f"exotel_http_{exc.code}")
