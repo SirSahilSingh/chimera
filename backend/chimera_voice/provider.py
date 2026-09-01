@@ -340,7 +340,11 @@ class ExotelVoiceProvider(VoiceProvider):
             stream_url = f"{self.stream_url}?{urlencode({'intervention_id': context.intervention_id})}"
             fields = [
                 ("from", self._format_e164(phone or "")),
-                ("callerid", self.caller_id or ""),
+                # AgentStream's connect API identifies an ExoPhone with the
+                # national 0XXXXXXXXXX representation. Keep the configured
+                # number unchanged semantically, but normalize +91/91 values
+                # before sending the request.
+                ("callerid", self._format_destination(self.caller_id or "")),
                 ("streamurl", stream_url),
                 ("streamtype", "bidirectional"),
                 ("record", "true"),

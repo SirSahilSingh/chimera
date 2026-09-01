@@ -234,6 +234,7 @@ class VoiceAgentTests(unittest.TestCase):
         self.assertIn(b"streamtype=bidirectional", request.data)
         self.assertIn(b"streamurl=wss%3A%2F%2Fchimera.example%2Fapi%2Fv1%2Fvoice%2Fexotel%2Fstream%3Fintervention_id%3Dint", request.data)
         self.assertIn(b"from=%2B919999999999", request.data)
+        self.assertIn(b"callerid=09888888888", request.data)
 
     def test_exotel_agentstream_retries_legacy_destination_after_invalid_from(self) -> None:
         context = VoiceContext(
