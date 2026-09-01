@@ -199,6 +199,7 @@ class VoiceAgentTests(unittest.TestCase):
         self.assertEqual(result.provider_call_reference, "call-123")
         self.assertIn("/v1/Accounts/account-sid/calls/connect", request.full_url)
         self.assertIn("Basic ", request.headers["Authorization"])
+        self.assertIn(b"From=09999999999", request.data)
         self.assertIn(b"CallerId=%2B919888888888", request.data)
         self.assertIn(b"CustomField=int%7C", request.data)
 

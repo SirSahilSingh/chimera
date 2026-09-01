@@ -331,7 +331,7 @@ class ExotelVoiceProvider(VoiceProvider):
         if self.webhook_secret:
             callback = f"{callback}?{urlencode({'token': self.webhook_secret})}"
         fields = {
-            "From": phone or "",
+            "From": self._format_destination(phone or ""),
             "CallerId": self.caller_id or "",
             "CallType": "trans",
             "Url": self.flow_url or "",
@@ -342,14 +342,13 @@ class ExotelVoiceProvider(VoiceProvider):
         request = Request(
             f"{self.api_base_url}/v1/Accounts/{self.account_sid}/calls/connect",
             data=urlencode(fields).encode(),
-            headers={"Authorization": f"Basic {token}", "Content-Type": "application/x-www-form-urlencoded"},
+            headers={"Authorization": f"Basic {token}", "Accept": "application/json, application/xml", "Content-Type": "application/x-www-form-urlencoded"},
             method="POST",
         )
         try:
             with urlopen(request, timeout=self.timeout_seconds) as response:
                 payload = response.read().decode("utf-8")
-            root = ET.fromstring(payload)
-            reference = next((element.text for element in root.iter() if element.tag.rsplit("}", 1)[-1].casefold() == "sid" and element.text), None)
+            reference = self._extract_call_reference(payload)
         except (TimeoutError, socket.timeout):
             raise VoiceProviderError("provider_timeout") from None
         except HTTPError as exc:
@@ -361,8 +360,45 @@ class ExotelVoiceProvider(VoiceProvider):
         except (ET.ParseError, ValueError):
             raise VoiceProviderError("provider_invalid_response") from None
         if not reference:
-            raise VoiceProviderError("provider_invalid_response")
+            raise VoiceProviderError("provider_invalid_response", "Exotel returned a successful response without a call SID.")
         return VoiceCallStartResult(provider=self.name, provider_call_reference=reference[:255])
+
+    @staticmethod
+    def _format_destination(phone: str) -> str:
+        """Exotel's legacy Connect API expects Indian mobile numbers with a leading zero."""
+        compact = phone.replace(" ", "").replace("-", "")
+        if compact.startswith("+91") and len(compact) == 13:
+            return f"0{compact[3:]}"
+        if compact.startswith("91") and len(compact) == 12:
+            return f"0{compact[2:]}"
+        if len(compact) == 10 and compact.isdigit():
+            return f"0{compact}"
+        return compact
+
+    @staticmethod
+    def _extract_call_reference(payload: str) -> str | None:
+        try:
+            parsed = json.loads(payload)
+        except (TypeError, json.JSONDecodeError):
+            parsed = None
+        if isinstance(parsed, dict):
+            candidates: list[Any] = [parsed]
+            while candidates:
+                value = candidates.pop()
+                if isinstance(value, dict):
+                    for key, child in value.items():
+                        if key.casefold() in {"sid", "callsid", "call_sid"} and isinstance(child, str) and child:
+                            return child
+                        if isinstance(child, (dict, list)):
+                            candidates.append(child)
+                elif isinstance(value, list):
+                    candidates.extend(value)
+            return None
+        try:
+            root = ET.fromstring(payload)
+        except ET.ParseError:
+            return None
+        return next((element.text for element in root.iter() if element.tag.rsplit("}", 1)[-1].casefold() in {"sid", "callsid"} and element.text), None)
 
     def verify_webhook(self, event: VoiceWebhookEvent) -> bool:
         if not self.webhook_secret:
