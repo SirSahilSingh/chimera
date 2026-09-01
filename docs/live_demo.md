@@ -8,8 +8,8 @@ Every operation is labelled `LOCAL`, `MOCK`, `TEST`, or `LIVE` and the value is 
 
 Server-side variables are listed in `.env.example`:
 
-- Razorpay: `PAYMENT_PROVIDER=razorpay`, `PAYMENT_MODE=TEST` (or `LIVE`), `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`.
-- Twilio WhatsApp: `MESSAGING_PROVIDER=twilio`, `MESSAGING_CHANNEL=whatsapp`, `MESSAGING_MODE=TEST`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM_NUMBER`, `TWILIO_WHATSAPP_TO_NUMBER`, and `TWILIO_WHATSAPP_CONTENT_SID`.
+- Razorpay: `PAYMENT_PROVIDER=razorpay`, `PAYMENT_MODE=TEST` (or `LIVE`), `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, and `RAZORPAY_WEBHOOK_SECRET`. Recovery payment links request Razorpay-native SMS/email notification when the corresponding customer contact is present.
+- Optional Twilio WhatsApp: `MESSAGING_PROVIDER=twilio`, `MESSAGING_CHANNEL=whatsapp`, `MESSAGING_MODE=TEST`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM_NUMBER`, `TWILIO_WHATSAPP_TO_NUMBER`, and `TWILIO_WHATSAPP_CONTENT_SID`. It is not used for Razorpay payment-link delivery.
 - Optional voice HTTP adapter: `VOICE_PROVIDER=live`, `VOICE_MODE=TEST` (or `LIVE`), `VOICE_ENABLED=true`, `VOICE_BASE_URL`, `VOICE_API_KEY`, `VOICE_AGENT_ID`, and `VOICE_PHONE_NUMBER`.
 
 Credentials stay on the server. Provider adapters bound timeouts, verify webhook signatures, retain only sanitized payloads/hashes, and deduplicate provider event IDs.

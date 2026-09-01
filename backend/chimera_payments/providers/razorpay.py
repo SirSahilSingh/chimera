@@ -38,6 +38,14 @@ class RazorpayPaymentProvider(PaymentProvider):
             body["expire_by"] = int(context.expires_at.timestamp())
         if context.customer_email or context.customer_phone:
             body["customer"] = {key: value for key, value in (("email", context.customer_email), ("contact", context.customer_phone)) if value}
+            # Let Razorpay deliver the recovery link through its native
+            # notification channel. This avoids WhatsApp template and
+            # Sandbox restrictions while keeping the payment provider as the
+            # owner of the customer contact details.
+            body["notify"] = {
+                "sms": bool(context.customer_phone),
+                "email": bool(context.customer_email),
+            }
         response = self._request("POST", "/payment_links", body)
         try:
             return PaymentLinkResult(response["id"], response["short_url"], PaymentStatus.ACTIVE, _timestamp(response.get("expire_by")), response)

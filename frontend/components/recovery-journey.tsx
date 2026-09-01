@@ -49,7 +49,10 @@ function OperationRow({ title, provider, mode, status, detail }: { title: string
 
 function PaymentOperation({ payment }: { payment: JourneyPayment }) {
   const paid = payment.status === "PAID";
-  return <article className={`provider-operation payment-operation ${paid ? "paid" : ""}`}><div className="provider-operation-icon">{paid ? <CheckIcon size={17} /> : <ClockIcon size={17} />}</div><div className="provider-operation-copy"><div><strong>Payment link</strong><StatusBadge status={payment.status} /></div><p>{paid ? `${formatPaise(payment.amount_paise)} recovered after provider confirmation.` : "Link created; recovery remains pending until payment confirmation."}</p><small>{payment.provider} · <b>{modeLabel(payment.provider_mode)}</b></small><Link href={payment.short_url} target="_blank" className="operation-link">Open payment link <ArrowRightIcon size={13} /></Link></div></article>;
+  const notification = payment.events.find((event) => event.event_type === "payment_link.created")?.payload.native_notification as { channels?: string[]; status?: string } | undefined;
+  const nativeNotification = payment.provider === "razorpay" && notification?.status === "REQUESTED";
+  const channels = notification?.channels?.join(" + ") ?? "";
+  return <article className={`provider-operation payment-operation ${paid ? "paid" : ""}`}><div className="provider-operation-icon">{paid ? <CheckIcon size={17} /> : <ClockIcon size={17} />}</div><div className="provider-operation-copy"><div><strong>Payment link</strong><StatusBadge status={payment.status} /></div><p>{paid ? `${formatPaise(payment.amount_paise)} recovered after provider confirmation.` : nativeNotification ? `Razorpay notification requested via ${channels}.` : "Link created; recovery remains pending until payment confirmation."}</p><small>{payment.provider} · <b>{modeLabel(payment.provider_mode)}</b></small><Link href={payment.short_url} target="_blank" className="operation-link">Open payment link <ArrowRightIcon size={13} /> </Link></div></article>;
 }
 
 function VoiceOperation({ call }: { call: JourneyVoiceCall }) {

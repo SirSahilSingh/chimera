@@ -179,13 +179,15 @@ class PaymentTests(unittest.TestCase):
 
     def test_razorpay_adapter_uses_integer_payload_and_hmac(self):
         provider = RazorpayPaymentProvider("key", "secret", "webhook", enabled=True)
-        context = PaymentContext(recovery_case_id="c", intervention_id="i", decision_id="d", amount_paise=12500, currency="INR", description="x", idempotency_key="c" * 64)
+        context = PaymentContext(recovery_case_id="c", intervention_id="i", decision_id="d", amount_paise=12500, currency="INR", description="x", customer_phone="+919999999999", idempotency_key="c" * 64)
         with patch("backend.chimera_payments.providers.razorpay.urlopen", return_value=FakeResponse({"id": "plink_1", "short_url": "https://rzp.io/i/1", "status": "issued"})) as mocked:
             result = provider.create_payment_link(context)
         request = mocked.call_args.args[0]
+        payload = json.loads(request.data)
         self.assertIn(b'"amount": 12500', request.data)
-        self.assertLessEqual(len(json.loads(request.data)["reference_id"]), 40)
-        self.assertTrue(json.loads(request.data)["reference_id"].startswith("chimera-"))
+        self.assertLessEqual(len(payload["reference_id"]), 40)
+        self.assertTrue(payload["reference_id"].startswith("chimera-"))
+        self.assertEqual(payload["notify"], {"sms": True, "email": False})
         self.assertNotIn(b"secret", request.data)
         with patch("backend.chimera_payments.providers.razorpay.urlopen", side_effect=[TimeoutError(), FakeResponse({"id": "plink_1", "short_url": "https://rzp.io/i/1", "status": "issued"})]) as retried:
             provider.create_payment_link(context)

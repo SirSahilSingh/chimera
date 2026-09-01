@@ -109,12 +109,16 @@ class RecoveryOrchestrator:
             return self.retry.schedule(intervention_id)
         if action == "PAYMENT_LINK":
             payment = self.payments.create_payment_link(intervention_id)
-            try:
-                self.messaging.send_for_payment_link(intervention_id, payment.short_url)
-            except ValueError:
-                # The payment artifact remains usable and the failed delivery
-                # is persisted by MessagingService for operator visibility.
-                pass
+            # Razorpay owns native SMS/email notification for its payment
+            # links. Do not send a second message through Twilio (or another
+            # configured messaging provider) for the same recovery action.
+            if payment.provider != "razorpay":
+                try:
+                    self.messaging.send_for_payment_link(intervention_id, payment.short_url)
+                except ValueError:
+                    # The payment artifact remains usable and the failed
+                    # delivery is persisted for operator visibility.
+                    pass
             return payment
         if action == "VOICE_RECOVERY":
             return self.voice.start(intervention_id, VoiceScenario.CUSTOMER_AGREES_TO_PAY)[0]

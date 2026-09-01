@@ -153,7 +153,13 @@ class PaymentService:
             row = PaymentLink(recovery_case_id=intervention.recovery_case_id, intervention_id=intervention.id, decision_id=intervention.decision_id, provider=self.provider.name, provider_mode=self.provider.mode, provider_payment_link_id=result.provider_payment_link_id, short_url=result.short_url, amount_paise=context.amount_paise, currency=context.currency, status=result.status.value, idempotency_key=key, request_hash=request_hash, result_hash=sha256_json(result.raw or {"id": result.provider_payment_link_id, "short_url": result.short_url, "status": result.status.value}), expires_at=result.expires_at)
             self.session.add(row)
             self.session.flush()
-            self.session.add(PaymentEvent(payment_link_id=row.id, provider=self.provider.name, provider_mode=self.provider.mode, provider_event_id=f"created-{row.id}", event_type="payment_link.created", status=row.status, amount_paise=row.amount_paise, currency=row.currency, signature_verified=False, source="system", occurred_at=self._now(), payload_hash=request_hash, payload_json={"provider_payment_link_id": row.provider_payment_link_id}))
+            notification_channels = []
+            if self.provider.name == "razorpay":
+                if context.customer_phone:
+                    notification_channels.append("sms")
+                if context.customer_email:
+                    notification_channels.append("email")
+            self.session.add(PaymentEvent(payment_link_id=row.id, provider=self.provider.name, provider_mode=self.provider.mode, provider_event_id=f"created-{row.id}", event_type="payment_link.created", status=row.status, amount_paise=row.amount_paise, currency=row.currency, signature_verified=False, source="system", occurred_at=self._now(), payload_hash=request_hash, payload_json={"provider_payment_link_id": row.provider_payment_link_id, "native_notification": {"provider": "razorpay", "channels": notification_channels, "status": "REQUESTED" if notification_channels else "NOT_REQUESTED"} if self.provider.name == "razorpay" else None}))
             self.session.add(AuditLog(recovery_case_id=row.recovery_case_id, decision_id=row.decision_id, event_type="PAYMENT_LINK_CREATED", actor="payment_service", payload_json={"payment_id": row.id, "provider": row.provider, "status": row.status}))
             self.session.commit()
             return self.get_payment(row.id)

@@ -4,8 +4,13 @@ CHIMERA keeps the decision engine and recovery accounting provider-neutral. The
 following optional adapters connect the existing persisted interventions to
 free or trial services for a buildathon demonstration:
 
-- WhatsApp uses the Twilio WhatsApp Sandbox. The recipient must join the
-  Sandbox and be verified; proactive messages use a Twilio-approved template.
+- Payment-link delivery uses Razorpay-native SMS/email notification when a
+  customer contact is present. This keeps the payment-link provider and its
+  customer notification in one boundary; no WhatsApp template or Sandbox is
+  involved in the primary recovery path.
+- WhatsApp remains an optional Twilio Sandbox integration. The recipient must
+  join the Sandbox and be verified; proactive messages use a Twilio-approved
+  template.
 - Voice uses Twilio only as the phone carrier. Sarvam is the India-first speech
   layer: Saaras v3 transcribes code-mixed Hindi/English recordings and Bulbul
   v3 speaks the next response. Trial calls can be placed only to verified
@@ -22,11 +27,11 @@ free or trial services for a buildathon demonstration:
    `recovery_cases.customer_phone` exists.
 2. Configure Razorpay webhooks. CHIMERA captures `payment.entity.contact` from
    a webhook and prefers that persisted number for customer routing.
-3. Configure the Twilio WhatsApp Sandbox and set `MESSAGING_PROVIDER=twilio`
-   and `MESSAGING_CHANNEL=whatsapp`. Set `TWILIO_WHATSAPP_TO_NUMBER` only as
-   a demo fallback; a case's persisted phone takes precedence. Set
-   `TWILIO_WHATSAPP_CONTENT_SID` to the approved template used for proactive
-   recovery messages.
+3. For payment-link delivery, no messaging provider is required: configure
+   Razorpay with the customer phone or email and CHIMERA requests native
+   notification delivery as part of link creation. Twilio WhatsApp can still
+   be configured separately with `MESSAGING_PROVIDER=twilio` and
+   `MESSAGING_CHANNEL=whatsapp`; it is not invoked for Razorpay links.
 4. Configure Twilio with `VOICE_PUBLIC_BASE_URL` set to the public backend
    origin, set `VOICE_PROVIDER=twilio` and `VOICE_MODE=TEST` for the trial
    demo. Add `SARVAM_API_KEY`, `SARVAM_ENABLED=true`,
