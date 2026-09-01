@@ -359,22 +359,46 @@ class ExotelVoiceProvider(VoiceProvider):
                 "CustomField": custom_field,
             }
         token = base64.b64encode(f"{self.api_key}:{self.api_token}".encode()).decode()
-        request = Request(
-            f"{self.api_base_url}/v1/Accounts/{self.account_sid}/calls/connect",
-            data=urlencode(fields, doseq=True).encode(),
-            headers={"Authorization": f"Basic {token}", "Accept": "application/json, application/xml", "Content-Type": "application/x-www-form-urlencoded"},
-            method="POST",
-        )
+
+        def post_call(request_fields: list[tuple[str, str]] | dict[str, str]) -> str:
+            request = Request(
+                f"{self.api_base_url}/v1/Accounts/{self.account_sid}/calls/connect",
+                data=urlencode(request_fields, doseq=True).encode(),
+                headers={"Authorization": f"Basic {token}", "Accept": "application/json, application/xml", "Content-Type": "application/x-www-form-urlencoded"},
+                method="POST",
+            )
+            try:
+                with urlopen(request, timeout=self.timeout_seconds) as response:
+                    return response.read().decode("utf-8")
+            except (TimeoutError, socket.timeout):
+                raise VoiceProviderError("provider_timeout") from None
+            except HTTPError as exc:
+                raise self._request_error(exc) from None
+            except (URLError, OSError):
+                raise VoiceProviderError("provider_request_failed") from None
+
         try:
-            with urlopen(request, timeout=self.timeout_seconds) as response:
-                payload = response.read().decode("utf-8")
+            payload = post_call(fields)
+        except VoiceProviderError as error:
+            # Some India-hosted Exotel accounts still validate the AgentStream
+            # destination using the legacy national format, even though the
+            # AgentStream documentation specifies E.164. Retry only this
+            # explicit validation error; never retry timeouts or unknown 4xx/5xx
+            # responses, and never retry after a successful provider response.
+            if not (
+                self.agentstream_enabled
+                and error.provider_code == "exotel_http_400"
+                and error.reason
+                and "invalid 'from' specified" in error.reason.casefold()
+                and self._format_destination(phone or "") != self._format_e164(phone or "")
+            ):
+                raise
+            fallback_fields = list(fields)
+            fallback_fields[0] = ("from", self._format_destination(phone or ""))
+            payload = post_call(fallback_fields)
+
+        try:
             reference = self._extract_call_reference(payload)
-        except (TimeoutError, socket.timeout):
-            raise VoiceProviderError("provider_timeout") from None
-        except HTTPError as exc:
-            raise self._request_error(exc) from None
-        except (URLError, OSError):
-            raise VoiceProviderError("provider_request_failed") from None
         except (ET.ParseError, ValueError):
             raise VoiceProviderError("provider_invalid_response") from None
         if not reference:

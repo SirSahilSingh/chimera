@@ -235,6 +235,41 @@ class VoiceAgentTests(unittest.TestCase):
         self.assertIn(b"streamurl=wss%3A%2F%2Fchimera.example%2Fapi%2Fv1%2Fvoice%2Fexotel%2Fstream%3Fintervention_id%3Dint", request.data)
         self.assertIn(b"from=%2B919999999999", request.data)
 
+    def test_exotel_agentstream_retries_legacy_destination_after_invalid_from(self) -> None:
+        context = VoiceContext(
+            intervention_id="int", recovery_case_id="case", decision_id="decision", selected_action="VOICE_RECOVERY",
+            customer_phone="+919999999999", payment_amount_paise=12500, currency="INR", failure_reason="issuer_decline", payment_method="card",
+            incident_flag=False, allowed_recovery_options=("PAY_NOW",),
+        )
+        provider = ExotelVoiceProvider(
+            "api-key", "api-token", "account-sid", None, "+919888888888",
+            "https://api.in.exotel.com", "https://chimera.example", "callback-secret", enabled=True,
+            agentstream_enabled=True, stream_url="wss://chimera.example/api/v1/voice/exotel/stream", mode="TEST",
+        )
+
+        class FakeResponse:
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return b'{"call":{"sid":"fallback-call-123"}}'
+
+        invalid_from = HTTPError(
+            "https://api.in.exotel.com", 400, "bad request", {},
+            BytesIO(b'{"message":"Invalid Call Parameters: Invalid \'From\' specified"}'),
+        )
+        with patch("backend.chimera_voice.provider.urlopen", side_effect=[invalid_from, FakeResponse()]) as transport:
+            result = provider.start_call(context, idempotency_key="k" * 64, scenario=VoiceScenario.CUSTOMER_AGREES_TO_PAY)
+
+        self.assertEqual(result.provider_call_reference, "fallback-call-123")
+        self.assertEqual(transport.call_count, 2)
+        self.assertIn(b"from=09999999999", transport.call_args_list[1].args[0].data)
+
     def test_full_local_demo_scenarios_and_idempotency(self) -> None:
         scenarios = (
             (VoiceScenario.CUSTOMER_AGREES_TO_PAY, "PAY_NOW", "AWAITING_OUTCOME"),
