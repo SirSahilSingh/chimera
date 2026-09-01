@@ -19,9 +19,11 @@ from backend.provider_modes import resolve_mode
 
 
 class VoiceProviderError(RuntimeError):
-    def __init__(self, code: str) -> None:
+    def __init__(self, code: str, reason: str | None = None, provider_code: str | None = None) -> None:
         self.code = code
-        super().__init__(code)
+        self.reason = reason
+        self.provider_code = provider_code
+        super().__init__(reason or code)
 
 
 @dataclass(frozen=True)
@@ -204,10 +206,30 @@ class TwilioVoiceProvider(VoiceProvider):
         except HTTPError as exc:
             if exc.code in {401, 403}:
                 raise VoiceProviderError("invalid_credentials") from None
+            raise self._request_error(exc) from None
+        except (URLError, OSError):
             raise VoiceProviderError("provider_request_failed") from None
-        except (URLError, OSError, ValueError, KeyError):
-            raise VoiceProviderError("provider_request_failed") from None
+        except (ValueError, KeyError):
+            raise VoiceProviderError("provider_request_failed", "Twilio returned an invalid call response.") from None
         return VoiceCallStartResult(provider=self.name, provider_call_reference=reference[:255])
+
+    @staticmethod
+    def _request_error(exc: HTTPError) -> VoiceProviderError:
+        """Keep Twilio's safe diagnostic without persisting credentials or request data."""
+        reason = None
+        provider_code = None
+        try:
+            payload = json.loads(exc.read().decode("utf-8"))
+        except (AttributeError, UnicodeDecodeError, ValueError):
+            payload = {}
+        if isinstance(payload, dict):
+            raw_code = payload.get("code")
+            if isinstance(raw_code, (int, str)) and str(raw_code).isdigit():
+                provider_code = f"twilio_{str(raw_code)}"
+            raw_message = payload.get("message")
+            if isinstance(raw_message, str) and raw_message.strip():
+                reason = raw_message.strip()[:255]
+        return VoiceProviderError("provider_request_failed", reason, provider_code or f"twilio_http_{exc.code}")
 
     def verify_connectivity(self) -> None:
         self._require_configuration()

@@ -121,7 +121,12 @@ class VoiceService:
             call.failure_code = safe_failure_code(exc.code)
             call.completed_at = self._now()
             self._transition(call, VoiceCallStatus.FAILED)
-            self._event(call, "CALL_FAILED", "provider", {"failure_code": call.failure_code})
+            failure_payload = {"failure_code": call.failure_code}
+            if exc.provider_code:
+                failure_payload["failure_classification"] = exc.provider_code
+            if exc.reason:
+                failure_payload["failure_reason"] = exc.reason
+            self._event(call, "CALL_FAILED", "provider", failure_payload)
             self.session.commit()
             raise VoiceProviderFailure(call.failure_code) from None
         except IntegrityError as exc:

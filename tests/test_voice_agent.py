@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import unittest
+from io import BytesIO
 from datetime import datetime, timezone
 from unittest.mock import patch
+from urllib.error import HTTPError
 
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
@@ -12,7 +14,7 @@ from backend.app.db.models import Decision, RecoveryCase, VoiceEvent, VoiceTurn
 from backend.app.main import create_app
 from backend.chimera_voice.agent import VoiceAgent
 from backend.chimera_voice.context import build_voice_context
-from backend.chimera_voice.provider import LocalDeterministicVoiceProvider, LiveHttpVoiceProvider, VoiceProviderError, sign_webhook_event
+from backend.chimera_voice.provider import LocalDeterministicVoiceProvider, LiveHttpVoiceProvider, TwilioVoiceProvider, VoiceProviderError, sign_webhook_event
 from backend.chimera_voice.schemas import ConversationTurn, VoiceContext, VoiceIntent, VoiceScenario, VoiceWebhookEvent
 from backend.chimera_voice.service import VoiceService
 from backend.chimera_voice.state_machine import VoiceCallStatus, VoiceLifecycleError, VoiceTerminalStateError, validate_voice_transition
@@ -154,6 +156,20 @@ class VoiceAgentTests(unittest.TestCase):
                 configured.start_call(context, idempotency_key="key", scenario=VoiceScenario.CUSTOMER_AGREES_TO_PAY)
         with self.assertRaisesRegex(VoiceProviderError, "provider_failure"):
             provider.start_call(context, idempotency_key="key", scenario=VoiceScenario.PROVIDER_FAILURE)
+
+    def test_twilio_http_failure_preserves_safe_provider_diagnostics(self) -> None:
+        context = VoiceContext(
+            intervention_id="int", recovery_case_id="case", decision_id="decision", selected_action="VOICE_RECOVERY",
+            customer_phone="+919999999999", payment_amount_paise=12500, currency="INR", failure_reason="issuer_decline", payment_method="card",
+            incident_flag=False, allowed_recovery_options=("PAY_NOW",),
+        )
+        provider = TwilioVoiceProvider("AC123", "token", "+14155550100", "https://chimera.example", enabled=True, mode="TEST")
+        error = HTTPError("https://api.twilio.com", 400, "bad request", {}, BytesIO(b'{"code": 21211, "message": "The provided phone number is not valid."}'))
+        with patch("backend.chimera_voice.provider.urlopen", side_effect=error):
+            with self.assertRaisesRegex(VoiceProviderError, "The provided phone number is not valid") as raised:
+                provider.start_call(context, idempotency_key="key", scenario=VoiceScenario.CUSTOMER_AGREES_TO_PAY)
+        self.assertEqual(raised.exception.code, "provider_request_failed")
+        self.assertEqual(raised.exception.provider_code, "twilio_21211")
 
     def test_full_local_demo_scenarios_and_idempotency(self) -> None:
         scenarios = (

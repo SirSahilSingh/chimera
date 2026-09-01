@@ -137,7 +137,7 @@ class RecoveryJourneyService:
 
     @staticmethod
     def _payment(row):
-        return {"id": row.id, "provider": row.provider, "provider_mode": row.provider_mode, "status": row.status,
+        return {"id": row.id, "intervention_id": row.intervention_id, "provider": row.provider, "provider_mode": row.provider_mode, "status": row.status,
                 "amount_paise": row.amount_paise, "short_url": row.short_url, "created_at": _iso(row.created_at),
                 "events": [_record(item, event_type=item.event_type, source=item.source, timestamp=item.occurred_at, payload=item.payload_json, provider_mode=item.provider_mode)
                            for item in sorted(row.events, key=lambda x: (x.occurred_at, x.id))]}
@@ -164,8 +164,12 @@ class RecoveryJourneyService:
 
     @staticmethod
     def _voice(row):
+        failed_event = next((item for item in reversed(sorted(row.events, key=lambda x: (x.created_at, x.id))) if item.event_type == "CALL_FAILED"), None)
+        failure_reason = failed_event.payload_json.get("failure_reason") if failed_event else None
+        failure_code = (failed_event.payload_json.get("failure_classification") or failed_event.payload_json.get("failure_code")) if failed_event else None
         return {"id": row.id, "provider": row.provider, "provider_mode": row.provider_mode, "status": row.status,
                 "scenario": row.scenario, "provider_call_reference": row.provider_call_reference, "outcome_intent": row.outcome_intent,
+                "failure_reason": failure_reason, "failure_code": failure_code,
                 "created_at": _iso(row.created_at), "turns": [{"id": item.id, "speaker": item.speaker, "text": item.text, "intent": item.intent, "timestamp": _iso(item.timestamp)} for item in sorted(row.turns, key=lambda x: (x.sequence_number, x.id))],
                 "events": [_record(item, event_type=item.event_type, source=item.source, timestamp=item.created_at, payload=item.payload_json, provider_mode=item.provider_mode) for item in sorted(row.events, key=lambda x: (x.created_at, x.id))]}
 
