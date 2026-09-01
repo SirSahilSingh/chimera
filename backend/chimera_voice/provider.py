@@ -340,7 +340,7 @@ class ExotelVoiceProvider(VoiceProvider):
         }
         token = base64.b64encode(f"{self.api_key}:{self.api_token}".encode()).decode()
         request = Request(
-            f"{self.api_base_url}/v1/accounts/{self.account_sid}/calls/connect",
+            f"{self.api_base_url}/v1/Accounts/{self.account_sid}/calls/connect",
             data=urlencode(fields).encode(),
             headers={"Authorization": f"Basic {token}", "Content-Type": "application/x-www-form-urlencoded"},
             method="POST",
