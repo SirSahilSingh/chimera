@@ -39,7 +39,7 @@ def build_provider_specs(settings, *, voice_provider, payment_provider, messagin
     voice_configured = (not voice_live) or (
         all((settings.voice_enabled, settings.twilio_account_sid, settings.twilio_auth_token, settings.voice_phone_number, settings.voice_public_base_url, getattr(settings, "sarvam_enabled", False), getattr(settings, "sarvam_api_key", None)))
         if voice_provider.name == "twilio"
-        else all((settings.voice_enabled, getattr(settings, "exotel_api_key", None), getattr(settings, "exotel_api_token", None), getattr(settings, "exotel_account_sid", None), getattr(settings, "exotel_flow_url", None), getattr(settings, "exotel_caller_id", None), settings.voice_public_base_url))
+        else all((settings.voice_enabled, getattr(settings, "exotel_api_key", None), getattr(settings, "exotel_api_token", None), getattr(settings, "exotel_account_sid", None), getattr(settings, "exotel_app_id", None) or getattr(settings, "exotel_flow_url", None), getattr(settings, "exotel_caller_id", None), settings.voice_public_base_url))
         if voice_provider.name == "exotel"
         else all((settings.voice_enabled, settings.voice_base_url, settings.voice_api_key, settings.voice_agent_id, settings.voice_phone_number))
     )
