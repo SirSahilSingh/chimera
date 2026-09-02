@@ -354,14 +354,16 @@ class ExotelVoiceProvider(VoiceProvider):
                 ("customfield", custom_field),
             ]
         else:
-            fields = {
-                "From": self._format_destination(phone or ""),
-                "CallerId": self.caller_id or "",
-                "CallType": "trans",
-                "Url": self.flow_url or "",
-                "StatusCallback": callback,
-                "CustomField": custom_field,
-            }
+            fields = [
+                ("from", self._format_e164(phone or "")),
+                ("callerid", self._format_destination(self.caller_id or "")),
+                ("calltype", "trans"),
+                ("url", self.flow_url or ""),
+                ("statuscallback", callback),
+                ("statuscallbackevents[]", "answered"),
+                ("statuscallbackevents[]", "terminal"),
+                ("customfield", custom_field),
+            ]
         token = base64.b64encode(f"{self.api_key}:{self.api_token}".encode()).decode()
 
         def post_call(request_fields: list[tuple[str, str]] | dict[str, str]) -> str:
@@ -413,12 +415,13 @@ class ExotelVoiceProvider(VoiceProvider):
                 ):
                     raise
                 payload = post_call({
-                    "From": self._format_destination(phone or ""),
-                    "CallerId": self._format_destination(self.caller_id or ""),
-                    "CallType": "trans",
-                    "Url": self.flow_url,
-                    "StatusCallback": callback,
-                    "CustomField": custom_field,
+                    "from": self._format_e164(phone or ""),
+                    "callerid": self._format_destination(self.caller_id or ""),
+                    "calltype": "trans",
+                    "url": self.flow_url,
+                    "statuscallback": callback,
+                    "statuscallbackevents[]": "answered",
+                    "customfield": custom_field,
                 })
 
         try:

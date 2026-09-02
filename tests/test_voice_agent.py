@@ -178,7 +178,7 @@ class VoiceAgentTests(unittest.TestCase):
             incident_flag=False, allowed_recovery_options=("PAY_NOW",),
         )
         provider = ExotelVoiceProvider(
-            "api-key", "api-token", "account-sid", "https://my.exotel.in/exoml/start/app-1", "+919888888888",
+            "api-key", "api-token", "account-sid", "https://my.exotel.com/account-sid/exoml/start_voice/app-1", "+919888888888",
             "https://api.in.exotel.com", "https://chimera.example", "callback-secret", enabled=True, mode="TEST",
         )
 
@@ -199,9 +199,10 @@ class VoiceAgentTests(unittest.TestCase):
         self.assertEqual(result.provider_call_reference, "call-123")
         self.assertIn("/v1/Accounts/account-sid/calls/connect", request.full_url)
         self.assertIn("Basic ", request.headers["Authorization"])
-        self.assertIn(b"From=09999999999", request.data)
-        self.assertIn(b"CallerId=%2B919888888888", request.data)
-        self.assertIn(b"CustomField=int%7C", request.data)
+        self.assertIn(b"from=%2B919999999999", request.data)
+        self.assertIn(b"callerid=09888888888", request.data)
+        self.assertIn(b"url=https%3A%2F%2Fmy.exotel.com%2Faccount-sid%2Fexoml%2Fstart_voice%2Fapp-1", request.data)
+        self.assertIn(b"customfield=int%7C", request.data)
 
     def test_exotel_agentstream_call_uses_bidirectional_pcm_stream(self) -> None:
         context = VoiceContext(
@@ -278,7 +279,7 @@ class VoiceAgentTests(unittest.TestCase):
             incident_flag=False, allowed_recovery_options=("PAY_NOW",),
         )
         provider = ExotelVoiceProvider(
-            "api-key", "api-token", "account-sid", "https://my.exotel.in/exoml/start/app-1", "+919888888888",
+            "api-key", "api-token", "account-sid", "https://my.exotel.com/account-sid/exoml/start_voice/app-1", "+919888888888",
             "https://api.in.exotel.com", "https://chimera.example", "callback-secret", enabled=True,
             agentstream_enabled=True, stream_url="wss://chimera.example/api/v1/voice/exotel/stream", mode="TEST",
         )
@@ -306,8 +307,8 @@ class VoiceAgentTests(unittest.TestCase):
 
         self.assertEqual(result.provider_call_reference, "flow-call-123")
         self.assertEqual(transport.call_count, 3)
-        self.assertIn(b"Url=https%3A%2F%2Fmy.exotel.in%2Fexoml%2Fstart%2Fapp-1", transport.call_args_list[2].args[0].data)
-        self.assertIn(b"CallerId=09888888888", transport.call_args_list[2].args[0].data)
+        self.assertIn(b"url=https%3A%2F%2Fmy.exotel.com%2Faccount-sid%2Fexoml%2Fstart_voice%2Fapp-1", transport.call_args_list[2].args[0].data)
+        self.assertIn(b"callerid=09888888888", transport.call_args_list[2].args[0].data)
 
     def test_full_local_demo_scenarios_and_idempotency(self) -> None:
         scenarios = (
