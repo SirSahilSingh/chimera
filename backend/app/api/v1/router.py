@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, Response, WebSocket
 from fastapi.responses import PlainTextResponse
-from urllib.parse import parse_qsl
+from urllib.parse import parse_qsl, urlencode
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -908,11 +908,27 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
         except VoiceDomainError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
+    @router.get("/voice/exotel/stream-resolver")
+    def exotel_stream_resolver(request: Request, service: VoiceService = Depends(voice_service)):
+        """Resolve a flow call SID to its CHIMERA websocket session."""
+        provider = service.provider
+        if not isinstance(provider, ExotelVoiceProvider) or not provider.stream_url:
+            raise HTTPException(status_code=404, detail="Exotel stream resolver is not configured")
+        call_reference = request.query_params.get("callsid") or request.query_params.get("call_sid")
+        if not call_reference:
+            raise HTTPException(status_code=400, detail="callsid is required")
+        try:
+            call = service.get_call_for_provider_reference(call_reference)
+        except VoiceNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        stream_url = f"{provider.stream_url}?{urlencode({'intervention_id': call.intervention_id})}"
+        return {"url": stream_url}
+
     @router.websocket("/voice/exotel/stream")
     async def exotel_stream(websocket: WebSocket, intervention_id: str | None = None, service: VoiceService = Depends(voice_service)):
         """Receive Exotel bidirectional audio and run the Sarvam Hinglish loop."""
         provider = service.provider
-        if not isinstance(provider, ExotelVoiceProvider) or not provider.agentstream_enabled:
+        if not isinstance(provider, ExotelVoiceProvider) or not provider.stream_url:
             await websocket.close(code=1008)
             return
         if service.speech_provider is None or not service.speech_provider.enabled or not service.speech_provider.api_key:

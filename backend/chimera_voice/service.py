@@ -73,6 +73,21 @@ class VoiceService:
             raise VoiceNotFoundError("voice call not found")
         return call
 
+    def get_call_for_provider_reference(self, provider_call_reference: str) -> VoiceCall:
+        call = self.session.scalar(
+            select(VoiceCall)
+            .options(
+                joinedload(VoiceCall.intervention).joinedload(Intervention.decision),
+                joinedload(VoiceCall.intervention).joinedload(Intervention.recovery_case),
+                selectinload(VoiceCall.turns),
+                selectinload(VoiceCall.events),
+            )
+            .where(VoiceCall.provider_call_reference == provider_call_reference)
+        )
+        if call is None:
+            raise VoiceNotFoundError("voice call not found")
+        return call
+
     def start(self, intervention_id: str, scenario: VoiceScenario, *, allow_secondary: bool = False, source: str = "decision") -> tuple[VoiceCall, bool]:
         intervention = self.interventions.get_intervention(intervention_id)
         self._assert_voice_intervention(intervention, allow_secondary=allow_secondary)

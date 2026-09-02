@@ -399,7 +399,27 @@ class ExotelVoiceProvider(VoiceProvider):
                 raise
             fallback_fields = list(fields)
             fallback_fields[0] = ("from", self._format_destination(phone or ""))
-            payload = post_call(fallback_fields)
+            try:
+                payload = post_call(fallback_fields)
+            except VoiceProviderError as fallback_error:
+                # If direct AgentStream is unavailable for this account, use
+                # the already-supported Exotel flow API. The flow must contain
+                # a Voicebot applet configured with CHIMERA's stream resolver.
+                if not (
+                    self.flow_url
+                    and fallback_error.provider_code == "exotel_http_400"
+                    and fallback_error.reason
+                    and "invalid 'from' specified" in fallback_error.reason.casefold()
+                ):
+                    raise
+                payload = post_call({
+                    "From": self._format_destination(phone or ""),
+                    "CallerId": self._format_destination(self.caller_id or ""),
+                    "CallType": "trans",
+                    "Url": self.flow_url,
+                    "StatusCallback": callback,
+                    "CustomField": custom_field,
+                })
 
         try:
             reference = self._extract_call_reference(payload)
