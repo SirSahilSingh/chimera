@@ -35,6 +35,13 @@ SAFE_PROVIDER_FAILURE_CODES = frozenset({
     "missing_customer_phone",
     "demo_requires_local_provider",
     "provider_failure",
+    "sarvam_credits_exhausted",
+    "sarvam_invalid_credentials",
+    "sarvam_rate_limited",
+    "sarvam_provider_error",
+    "sarvam_invalid_response",
+    "sarvam_timeout",
+    "voice_stream_failure",
 })
 
 

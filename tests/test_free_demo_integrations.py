@@ -4,6 +4,7 @@ import json
 import base64
 import io
 import unittest
+import wave
 from unittest.mock import patch
 from urllib.parse import parse_qsl
 from urllib.error import HTTPError
@@ -14,7 +15,7 @@ from backend.chimera_messaging.whatsapp_provider import WhatsAppMessagingProvide
 from backend.chimera_orchestration.telegram_provider import TelegramEscalationProvider
 from backend.chimera_payments.providers.razorpay import RazorpayPaymentProvider
 from backend.chimera_payments.schemas import PaymentStatus
-from backend.chimera_voice.sarvam_provider import SarvamSpeechProvider
+from backend.chimera_voice.sarvam_provider import SarvamSpeechError, SarvamSpeechProvider
 
 
 class FakeResponse:
@@ -126,24 +127,43 @@ class FreeDemoIntegrationTests(unittest.TestCase):
         self.assertEqual(transcript, "Haan, payment link bhej do")
         request = transport.call_args.args[0]
         self.assertEqual(request.headers["Api-subscription-key"], "sarvam-key")
-        body = request.data.decode("utf-8")
+        body = request.data.decode("utf-8", errors="ignore")
         self.assertIn("saaras:v3", body)
         self.assertIn("codemix", body)
         self.assertIn("hi-IN", body)
 
     def test_sarvam_bulbul_returns_telephony_wav(self):
-        audio = b"RIFF-chimera-audio"
+        audio = b"\x00\x01" * 160
         provider = SarvamSpeechProvider("sarvam-key", enabled=True)
         payload = {"audios": [base64.b64encode(audio).decode("ascii")]}
         with patch("backend.chimera_voice.sarvam_provider.urlopen", return_value=FakeResponse(payload)) as transport:
             result = provider.synthesize("नमस्ते, payment link ready है।")
-        self.assertEqual(result, audio)
+        self.assertTrue(result.startswith(b"RIFF"))
+        with wave.open(io.BytesIO(result), "rb") as decoded:
+            self.assertEqual(decoded.getnchannels(), 1)
+            self.assertEqual(decoded.getsampwidth(), 2)
+            self.assertEqual(decoded.getframerate(), 8000)
         request = transport.call_args.args[0]
         body = json.loads(request.data.decode("utf-8"))
         self.assertEqual(body["model"], "bulbul:v3")
         self.assertEqual(body["language_code"], "hi-IN")
         self.assertEqual(body["speech_sample_rate"], 8000)
-        self.assertEqual(body["output_audio_codec"], "wav")
+        self.assertEqual(body["output_audio_codec"], "linear16")
+
+    def test_sarvam_credit_error_is_preserved_for_voice_diagnostics(self):
+        provider = SarvamSpeechProvider("sarvam-key", enabled=True)
+        error = HTTPError(
+            "https://api.sarvam.ai/text-to-speech",
+            402,
+            "payment required",
+            {},
+            io.BytesIO(b'{"error":{"code":"insufficient_quota_error","message":"No credits available"}}'),
+        )
+        with patch("backend.chimera_voice.sarvam_provider.urlopen", side_effect=error):
+            with self.assertRaises(SarvamSpeechError) as raised:
+                provider.synthesize("Namaste")
+        self.assertEqual(raised.exception.code, "sarvam_credits_exhausted")
+        self.assertEqual(raised.exception.message, "No credits available")
 
     def test_twilio_whatsapp_uses_sandbox_addressing_and_template(self):
         provider = TwilioMessagingProvider(

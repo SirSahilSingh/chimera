@@ -153,6 +153,7 @@ class VoiceCallResponse(BaseModel):
     prompt_version: str
     outcome_intent: str | None
     payment_link: str | None
+    failure_reason: str | None
     failure_code: str | None
     created_at: datetime
     started_at: datetime | None

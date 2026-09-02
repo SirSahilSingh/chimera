@@ -295,11 +295,13 @@ class VoiceAgentTests(unittest.TestCase):
             def read(self):
                 return b'{"call":{"sid":"flow-call-123"}}'
 
-        invalid_from = HTTPError(
-            "https://api.in.exotel.com", 400, "bad request", {},
-            BytesIO(b'{"message":"Invalid Call Parameters: Invalid \'From\' specified"}'),
-        )
-        with patch("backend.chimera_voice.provider.urlopen", side_effect=[invalid_from, invalid_from, FakeResponse()]) as transport:
+        def invalid_from():
+            return HTTPError(
+                "https://api.in.exotel.com", 400, "bad request", {},
+                BytesIO(b'{"message":"Invalid Call Parameters: Invalid \'From\' specified"}'),
+            )
+
+        with patch("backend.chimera_voice.provider.urlopen", side_effect=[invalid_from(), invalid_from(), FakeResponse()]) as transport:
             result = provider.start_call(context, idempotency_key="k" * 64, scenario=VoiceScenario.CUSTOMER_AGREES_TO_PAY)
 
         self.assertEqual(result.provider_call_reference, "flow-call-123")

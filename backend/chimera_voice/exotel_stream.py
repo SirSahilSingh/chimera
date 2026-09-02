@@ -33,6 +33,7 @@ class ExotelStreamSession:
         self.silence_ms = 0
         self.elapsed_ms = 0
         self.close_after_mark = False
+        self.output_timestamp_ms = 0
 
     async def run(self) -> None:
         await self.websocket.accept()
@@ -56,20 +57,54 @@ class ExotelStreamSession:
                     continue
         except WebSocketDisconnect:
             return
-        except (VoiceDomainError, SarvamSpeechError, ValueError, KeyError):
+        except SarvamSpeechError as exc:
+            await asyncio.to_thread(
+                self.voice_service.exotel_stream_failed,
+                self.intervention_id,
+                stage="sarvam",
+                code=exc.code,
+                message=exc.message,
+            )
+            await self._close_with_error()
+        except (VoiceDomainError, ValueError, KeyError) as exc:
             # The call status callback remains the source of telephony truth. Close
-            # the media stream cleanly when the speech bridge cannot continue.
-            return
+            # the media stream cleanly when the bridge cannot continue, but retain
+            # the reason in the persisted journey for operator diagnosis.
+            await asyncio.to_thread(
+                self.voice_service.exotel_stream_failed,
+                self.intervention_id,
+                stage="bridge",
+                code="voice_stream_failure",
+                message=str(exc),
+            )
+            await self._close_with_error()
 
     async def _handle_start(self, message: dict[str, Any]) -> None:
-        self.stream_sid = message.get("stream_sid") or message.get("streamSid")
         start = message.get("start") if isinstance(message.get("start"), dict) else message
+        self.stream_sid = (
+            message.get("stream_sid")
+            or message.get("streamSid")
+            or message.get("stream sid")
+            or start.get("stream_sid")
+            or start.get("streamSid")
+            or start.get("stream sid")
+        )
         if not self.intervention_id:
-            custom = start.get("custom_parameters") or start.get("customParameters") or {}
+            custom = (
+                start.get("custom_parameters")
+                or start.get("customParameters")
+                or start.get("custom parameters")
+                or {}
+            )
             if isinstance(custom, dict):
-                self.intervention_id = custom.get("intervention_id") or custom.get("interventionId")
+                self.intervention_id = (
+                    custom.get("intervention_id")
+                    or custom.get("interventionId")
+                    or custom.get("intervention id")
+                )
         if not self.intervention_id:
             raise ValueError("Exotel stream is missing intervention_id")
+        await asyncio.to_thread(self.voice_service.exotel_stream_opened, self.intervention_id, self.stream_sid)
         opening = await asyncio.to_thread(self.voice_service.exotel_opening, self.intervention_id)
         await self._send_audio(await asyncio.to_thread(self.speech_provider.synthesize, opening))
 
@@ -131,7 +166,7 @@ class ExotelStreamSession:
         for offset in range(0, len(pcm), self._CHUNK_BYTES):
             chunk = pcm[offset : offset + self._CHUNK_BYTES]
             if len(chunk) % 320:
-                chunk = chunk[: len(chunk) - (len(chunk) % 320)]
+                chunk += b"\x00" * (320 - (len(chunk) % 320))
             if not chunk:
                 continue
             self.sequence_number += 1
@@ -139,8 +174,13 @@ class ExotelStreamSession:
                 "event": "media",
                 "stream_sid": self.stream_sid,
                 "sequence_number": str(self.sequence_number),
-                "media": {"chunk": str(self.sequence_number), "payload": base64.b64encode(chunk).decode("ascii")},
+                "media": {
+                    "chunk": str(self.sequence_number),
+                    "timestamp": str(self.output_timestamp_ms),
+                    "payload": base64.b64encode(chunk).decode("ascii"),
+                },
             })
+            self.output_timestamp_ms += len(chunk) // 16
         self.sequence_number += 1
         await self.websocket.send_json({
             "event": "mark",
@@ -148,6 +188,12 @@ class ExotelStreamSession:
             "sequence_number": str(self.sequence_number),
             "mark": {"name": f"chimera-audio-{self.sequence_number}"},
         })
+
+    async def _close_with_error(self) -> None:
+        try:
+            await self.websocket.close(code=1011, reason="voice bridge failure")
+        except Exception:
+            return
 
     @staticmethod
     def _has_voice(chunk: bytes) -> bool:

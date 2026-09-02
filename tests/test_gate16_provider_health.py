@@ -42,6 +42,55 @@ class Gate16ProviderHealthTests(unittest.TestCase):
             self.assertEqual(verified.status_code, 200)
             self.assertEqual(verified.json()["error_type"], "missing_configuration")
 
+    def test_exotel_flow_voicebot_reports_sarvam_bridge(self) -> None:
+        values = {
+            "VOICE_PROVIDER": "exotel",
+            "VOICE_ENABLED": "true",
+            "VOICE_MODE": "TEST",
+            "VOICE_PUBLIC_BASE_URL": "https://chimera.example",
+            "EXOTEL_API_KEY": "exotel-key",
+            "EXOTEL_API_TOKEN": "exotel-token",
+            "EXOTEL_ACCOUNT_SID": "exotel-account",
+            "EXOTEL_FLOW_URL": "https://my.exotel.in/exoml/start/app-1",
+            "EXOTEL_CALLER_ID": "+919888888888",
+            "EXOTEL_AGENTSTREAM_ENABLED": "false",
+            "EXOTEL_STREAM_URL": "wss://chimera.example/api/v1/voice/exotel/stream",
+            "SARVAM_ENABLED": "true",
+            "SARVAM_API_KEY": "sarvam-key",
+        }
+        with patch.dict(os.environ, values, clear=False):
+            app = create_app("sqlite+pysqlite:///:memory:")
+            response = TestClient(app).get("/api/v1/providers/voice")
+            self.assertEqual(response.status_code, 200, response.text)
+            body = response.json()
+            self.assertEqual(body["implementation"], "exotel+sarvam")
+            self.assertEqual(body["readiness_status"], "TEST_READY")
+            self.assertIn("exotel_bidirectional_audio", body["capabilities"])
+            self.assertIn("sarvam_hinglish_stt", body["capabilities"])
+            self.assertIn("sarvam_hinglish_tts", body["capabilities"])
+
+    def test_exotel_flow_voicebot_requires_sarvam_key(self) -> None:
+        values = {
+            "VOICE_PROVIDER": "exotel",
+            "VOICE_ENABLED": "true",
+            "VOICE_MODE": "TEST",
+            "VOICE_PUBLIC_BASE_URL": "https://chimera.example",
+            "EXOTEL_API_KEY": "exotel-key",
+            "EXOTEL_API_TOKEN": "exotel-token",
+            "EXOTEL_ACCOUNT_SID": "exotel-account",
+            "EXOTEL_FLOW_URL": "https://my.exotel.in/exoml/start/app-1",
+            "EXOTEL_CALLER_ID": "+919888888888",
+            "EXOTEL_AGENTSTREAM_ENABLED": "false",
+            "EXOTEL_STREAM_URL": "wss://chimera.example/api/v1/voice/exotel/stream",
+            "SARVAM_ENABLED": "true",
+            "SARVAM_API_KEY": "",
+        }
+        with patch.dict(os.environ, values, clear=False):
+            app = create_app("sqlite+pysqlite:///:memory:")
+            response = TestClient(app).get("/api/v1/providers/voice")
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(response.json()["readiness_status"], "NOT_CONFIGURED")
+
     def test_live_is_configured_but_blocked_without_explicit_safety_switch(self) -> None:
         values = {"PAYMENT_PROVIDER": "razorpay", "RAZORPAY_MODE": "LIVE", "RAZORPAY_KEY_ID": "key-id", "RAZORPAY_KEY_SECRET": "key-secret", "RAZORPAY_WEBHOOK_SECRET": "webhook-secret", "CHIMERA_ALLOW_LIVE_EXECUTION": "false"}
         with patch.dict(os.environ, values, clear=False):

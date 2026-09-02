@@ -164,7 +164,14 @@ class RecoveryJourneyService:
 
     @staticmethod
     def _voice(row):
-        failed_event = next((item for item in reversed(sorted(row.events, key=lambda x: (x.created_at, x.id))) if item.event_type == "CALL_FAILED"), None)
+        failed_event = next(
+            (
+                item
+                for item in reversed(sorted(row.events, key=lambda x: (x.created_at, x.id)))
+                if item.event_type in {"CALL_FAILED", "VOICE_STREAM_FAILED", "SPEECH_TRANSCRIPTION_FAILED"}
+            ),
+            None,
+        )
         failure_reason = failed_event.payload_json.get("failure_reason") if failed_event else None
         failure_code = (failed_event.payload_json.get("failure_classification") or failed_event.payload_json.get("failure_code")) if failed_event else None
         return {"id": row.id, "provider": row.provider, "provider_mode": row.provider_mode, "status": row.status,

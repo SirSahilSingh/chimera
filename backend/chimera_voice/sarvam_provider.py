@@ -1,18 +1,24 @@
 from __future__ import annotations
 
 import base64
+import array
+import io
 import json
 import socket
 from threading import Lock
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from uuid import uuid4
+import wave
 
 
 class SarvamSpeechError(RuntimeError):
-    def __init__(self, code: str) -> None:
+    def __init__(self, code: str, message: str | None = None, *, status: int | None = None, provider_code: str | None = None) -> None:
         self.code = code
-        super().__init__(code)
+        self.message = message or code
+        self.status = status
+        self.provider_code = provider_code
+        super().__init__(self.message)
 
 
 class SarvamSpeechProvider:
@@ -44,6 +50,9 @@ class SarvamSpeechProvider:
         self._require_configuration()
         if not audio:
             raise SarvamSpeechError("empty_recording")
+        pcm, sample_rate = self._pcm_from_audio(audio, fallback_rate=8000)
+        pcm = self._resample_pcm16(pcm, sample_rate, 16000)
+        audio = self._wav(pcm, 16000)
         boundary = f"----chimera-{uuid4().hex}"
         parts = [
             f"--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"recording.wav\"\r\nContent-Type: {content_type}\r\n\r\n".encode("utf-8") + audio + b"\r\n",
@@ -61,13 +70,21 @@ class SarvamSpeechProvider:
 
     def synthesize(self, text: str) -> bytes:
         self._require_configuration()
-        body = json.dumps({"text": text, "model": self.tts_model, "speaker": self.tts_speaker, "language_code": self.language_code, "speech_sample_rate": 8000, "output_audio_codec": "wav", "pace": 1.0, "temperature": 0.4}).encode("utf-8")
+        # Exotel's Voicebot applet ultimately expects raw 16-bit little-endian
+        # mono PCM at 8 kHz. Request Linear16 at that rate, normalize the
+        # response, and return a WAV container from this shared provider method
+        # so the existing Twilio audio endpoint remains valid. The Exotel
+        # stream adapter strips the WAV container immediately before sending.
+        body = json.dumps({"text": text, "model": self.tts_model, "speaker": self.tts_speaker, "language_code": self.language_code, "speech_sample_rate": 8000, "output_audio_codec": "linear16", "pace": 1.0, "temperature": 0.4}).encode("utf-8")
         request = Request(f"{self.base_url}/text-to-speech", data=body, headers={"api-subscription-key": self.api_key, "Content-Type": "application/json", "Accept": "application/json"}, method="POST")
         payload = self._request(request)
         try:
-            return base64.b64decode(payload["audios"][0])
+            audio = base64.b64decode(payload["audios"][0])
         except (KeyError, IndexError, TypeError, ValueError) as exc:
-            raise SarvamSpeechError("provider_invalid_response") from exc
+            raise SarvamSpeechError("provider_invalid_response", "Sarvam returned no audio payload.") from exc
+        pcm, sample_rate = self._pcm_from_audio(audio, fallback_rate=8000)
+        pcm = self._resample_pcm16(pcm, sample_rate, 8000)
+        return self._wav(pcm, 8000)
 
     def audio_token(self, text: str) -> str:
         audio = self.synthesize(text)
@@ -92,12 +109,93 @@ class SarvamSpeechProvider:
             with urlopen(request, timeout=self.timeout_seconds) as response:
                 return json.loads(response.read().decode("utf-8"))
         except (TimeoutError, socket.timeout):
-            raise SarvamSpeechError("provider_timeout") from None
+            raise SarvamSpeechError("provider_timeout", "Sarvam request timed out.") from None
         except HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            provider_code, message = self._provider_error(body)
+            normalized = f"{provider_code or ''} {message or ''}".casefold()
+            if exc.code == 402 or provider_code in {"insufficient_quota_error", "insufficient_credits_error"} or any(term in normalized for term in ("insufficient credit", "credits exhausted", "no credits", "quota exhausted")):
+                raise SarvamSpeechError("sarvam_credits_exhausted", message or "Sarvam credits are exhausted.", status=exc.code, provider_code=provider_code) from None
             if exc.code in {401, 403}:
-                raise SarvamSpeechError("invalid_credentials") from None
+                raise SarvamSpeechError("sarvam_invalid_credentials", message or "Sarvam rejected the API key.", status=exc.code, provider_code=provider_code) from None
             if exc.code == 429:
-                raise SarvamSpeechError("rate_limited") from None
-            raise SarvamSpeechError("provider_request_failed") from None
+                raise SarvamSpeechError("sarvam_rate_limited", message or "Sarvam rate limit exceeded.", status=exc.code, provider_code=provider_code) from None
+            raise SarvamSpeechError("sarvam_provider_error", message or "Sarvam request failed.", status=exc.code, provider_code=provider_code) from None
         except (URLError, OSError, ValueError):
-            raise SarvamSpeechError("provider_request_failed") from None
+            raise SarvamSpeechError("sarvam_provider_error", "Sarvam returned an invalid or unreachable response.") from None
+
+    @staticmethod
+    def _provider_error(body: str) -> tuple[str | None, str | None]:
+        try:
+            payload = json.loads(body)
+        except (TypeError, ValueError):
+            text = " ".join(body.split())
+            return None, text[:255] if text else None
+        error = payload.get("error") if isinstance(payload, dict) else None
+        if isinstance(error, dict):
+            code = error.get("code")
+            message = error.get("message")
+            return str(code)[:96] if code else None, str(message)[:255] if message else None
+        if isinstance(payload, dict):
+            code = payload.get("code")
+            message = payload.get("message") or payload.get("detail")
+            return str(code)[:96] if code else None, str(message)[:255] if message else None
+        return None, None
+
+    @classmethod
+    def _pcm_from_audio(cls, raw: bytes, *, fallback_rate: int) -> tuple[bytes, int]:
+        """Decode Sarvam audio into mono PCM and preserve its actual sample rate."""
+        if len(raw) >= 12 and raw[:4] == b"RIFF" and raw[8:12] == b"WAVE":
+            try:
+                with wave.open(io.BytesIO(raw), "rb") as wav_file:
+                    channels = wav_file.getnchannels()
+                    width = wav_file.getsampwidth()
+                    rate = wav_file.getframerate()
+                    if width != 2 or channels not in (1, 2):
+                        raise SarvamSpeechError("provider_invalid_response", f"Unsupported Sarvam WAV: channels={channels}, width={width}.")
+                    pcm = wav_file.readframes(wav_file.getnframes())
+                if channels == 2:
+                    pcm = cls._downmix_stereo(pcm)
+                return pcm, rate
+            except (wave.Error, EOFError) as exc:
+                raise SarvamSpeechError("provider_invalid_response", "Sarvam returned a malformed WAV payload.") from exc
+        return raw, fallback_rate
+
+    @staticmethod
+    def _downmix_stereo(pcm: bytes) -> bytes:
+        samples = array.array("h")
+        samples.frombytes(pcm[: len(pcm) - (len(pcm) % 2)])
+        mono = array.array("h")
+        for index in range(0, len(samples) - 1, 2):
+            mono.append(max(-32768, min(32767, (samples[index] + samples[index + 1]) // 2)))
+        return mono.tobytes()
+
+    @staticmethod
+    def _resample_pcm16(pcm: bytes, from_rate: int, to_rate: int) -> bytes:
+        if not pcm or from_rate == to_rate:
+            return pcm
+        samples = array.array("h")
+        samples.frombytes(pcm[: len(pcm) - (len(pcm) % 2)])
+        if len(samples) < 2 or from_rate <= 0 or to_rate <= 0:
+            return pcm
+        output_length = max(1, round(len(samples) * to_rate / from_rate))
+        output = array.array("h")
+        ratio = from_rate / to_rate
+        for index in range(output_length):
+            source = index * ratio
+            left = min(int(source), len(samples) - 1)
+            right = min(left + 1, len(samples) - 1)
+            fraction = source - left
+            value = round(samples[left] * (1.0 - fraction) + samples[right] * fraction)
+            output.append(max(-32768, min(32767, value)))
+        return output.tobytes()
+
+    @staticmethod
+    def _wav(pcm: bytes, sample_rate: int) -> bytes:
+        output = io.BytesIO()
+        with wave.open(output, "wb") as wav_file:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(sample_rate)
+            wav_file.writeframes(pcm)
+        return output.getvalue()

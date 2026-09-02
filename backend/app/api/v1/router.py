@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, Response, WebSocket
@@ -168,6 +169,15 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
     def as_voice_call(call) -> VoiceCallResponse:
         turns = sorted(call.turns, key=lambda item: (item.sequence_number, item.id))
         events = sorted(call.events, key=lambda item: (item.sequence_number, item.id))
+        failed_event = next(
+            (
+                item
+                for item in reversed(events)
+                if item.event_type in {"CALL_FAILED", "VOICE_STREAM_FAILED", "SPEECH_TRANSCRIPTION_FAILED"}
+            ),
+            None,
+        )
+        failure_reason = failed_event.payload_json.get("failure_reason") if failed_event else None
         return VoiceCallResponse(
             id=call.id,
             intervention_id=call.intervention_id,
@@ -184,6 +194,7 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
             prompt_version=call.prompt_version,
             outcome_intent=call.outcome_intent,
             payment_link=call.payment_link,
+            failure_reason=failure_reason,
             failure_code=call.failure_code,
             created_at=call.created_at,
             started_at=call.started_at,
@@ -932,7 +943,14 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
             await websocket.close(code=1008)
             return
         if service.speech_provider is None or not service.speech_provider.enabled or not service.speech_provider.api_key:
-            await websocket.close(code=1011)
+            await asyncio.to_thread(
+                service.exotel_stream_failed,
+                intervention_id,
+                stage="configuration",
+                code="provider_not_configured",
+                message="Sarvam speech credentials are not configured for the Exotel Voicebot stream.",
+            )
+            await websocket.close(code=1011, reason="Sarvam speech provider is not configured")
             return
         await ExotelStreamSession(websocket, voice_service=service, speech_provider=service.speech_provider, intervention_id=intervention_id).run()
 

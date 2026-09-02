@@ -36,9 +36,11 @@ constructed. Agent text is checked for unapproved numeric claims.
 ## Hinglish behavior
 
 The recovery call is designed for practical Hinglish rather than English-only
-speech. Twilio is the phone carrier; Sarvam Saaras v3 transcribes the caller's
-recording in `codemix` mode and Sarvam Bulbul v3 speaks the response at an
-8kHz WAV rate suitable for telephony. Prompts use native Hindi script mixed
+speech. Twilio or Exotel is the phone carrier; Sarvam Saaras v3 transcribes the caller's
+recording in `codemix` mode and Sarvam Bulbul v3 speaks the response as raw
+8kHz Linear16 PCM suitable for telephony. Exotel's Voicebot applet sends raw
+8kHz PCM, which CHIMERA converts to 16kHz WAV for Saaras and converts Bulbul's
+response back to 8kHz before sending it to Exotel. Prompts use native Hindi script mixed
 with payment terms, while the controlled intent classifier accepts both Roman
 Hindi and Devanagari phrases such as `haan`, `baad mein`, `link bhej do`,
 `maine payment kar diya`, and `galat number`. This is deterministic and does
@@ -52,8 +54,14 @@ set `VOICE_PROVIDER=twilio`, `VOICE_ENABLED=true`, `VOICE_MODE=TEST`,
 `VOICE_PUBLIC_BASE_URL`, `VOICE_LANGUAGE=hi-IN`, `SARVAM_ENABLED=true`, and
 `SARVAM_API_KEY`. The adapter starts a Twilio call, records the customer,
 transcribes the recording through Sarvam, serves the controlled CHIMERA intent
-loop, and creates a payment link without claiming recovery. The older
-provider-neutral HTTP adapter remains available with `VOICE_PROVIDER=live`.
+loop, and creates a payment link without claiming recovery. For Exotel, use
+`VOICE_PROVIDER=exotel` with the same public base URL and Sarvam settings. The
+recommended trial setup is a published Exotel Flow with a Voicebot applet
+pointing to CHIMERA's HTTPS stream resolver. The resolver maps Exotel's
+`callsid` to the intervention and returns the configured WSS stream. Direct
+AgentStream call creation is supported separately when the Exotel account has
+that feature enabled. The older provider-neutral HTTP adapter remains
+available with `VOICE_PROVIDER=live`.
 
 ## Demo
 

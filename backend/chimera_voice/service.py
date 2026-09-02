@@ -269,6 +269,40 @@ class VoiceService:
         self.session.commit()
         return call.turns[0].text
 
+    def exotel_stream_opened(self, intervention_id: str, stream_sid: str | None = None) -> VoiceCall:
+        """Persist the point at which Exotel hands the call to the bot."""
+        call = self.get_call_for_intervention(intervention_id)
+        if call.status in TERMINAL_VOICE_STATUSES:
+            return call
+        self._bring_to_conversation(call, source="exotel")
+        payload = {"stream_connected": True}
+        if stream_sid:
+            payload["stream_sid"] = stream_sid[:128]
+        self._event(call, "STREAM_CONNECTED", "exotel", payload)
+        self.session.commit()
+        return self.get_call(call.id)
+
+    def exotel_stream_failed(self, intervention_id: str | None, *, stage: str, code: str, message: str | None = None) -> None:
+        """Persist a visible bridge/provider failure instead of silently dropping the call."""
+        if not intervention_id:
+            return
+        try:
+            call = self.get_call_for_intervention(intervention_id)
+        except VoiceNotFoundError:
+            return
+        safe_code = safe_failure_code(code, default="voice_stream_failure")
+        payload = {"stage": stage, "failure_code": safe_code}
+        if message:
+            payload["failure_reason"] = message[:255]
+        if getattr(self.speech_provider, "name", None):
+            payload["provider"] = self.speech_provider.name
+        if call.status not in TERMINAL_VOICE_STATUSES:
+            call.failure_code = safe_code
+            call.completed_at = self._now()
+            self._transition(call, VoiceCallStatus.FAILED)
+        self._event(call, "VOICE_STREAM_FAILED", "sarvam" if stage == "sarvam" else "exotel", payload)
+        self.session.commit()
+
     def handle_exotel_transcript(self, intervention_id: str, transcript: str) -> tuple[str, bool]:
         """Apply one Sarvam transcript to the controlled recovery conversation."""
         return self._handle_customer_text(intervention_id, transcript, source="exotel", complete=False)
