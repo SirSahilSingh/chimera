@@ -119,7 +119,12 @@ def load_settings() -> AppSettings:
         exotel_app_id=os.getenv("EXOTEL_APP_ID") or None,
         exotel_flow_url=(
             os.getenv("EXOTEL_FLOW_URL")
-            or (f"{os.getenv('EXOTEL_PORTAL_BASE_URL', 'https://my.exotel.in').rstrip('/')}/exoml/start/{os.getenv('EXOTEL_APP_ID')}" if os.getenv("EXOTEL_APP_ID") else None)
+            or (
+                f"{os.getenv('EXOTEL_PORTAL_BASE_URL', 'https://my.exotel.com').rstrip('/')}/"
+                f"{os.getenv('EXOTEL_ACCOUNT_SID')}/exoml/start_voice/{os.getenv('EXOTEL_APP_ID')}"
+                if os.getenv("EXOTEL_ACCOUNT_SID") and os.getenv("EXOTEL_APP_ID")
+                else None
+            )
         ),
         exotel_caller_id=os.getenv("EXOTEL_CALLER_ID") or None,
         exotel_api_base_url=os.getenv("EXOTEL_API_BASE_URL", "https://api.in.exotel.com").rstrip("/"),
