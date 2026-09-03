@@ -5,9 +5,9 @@ import { api, ApiError } from "../../../lib/api";
 import type { RecoveryCase } from "../../../lib/types";
 import { formatAction, formatDate, formatPaise, formatPercent } from "../../../lib/formatters";
 import { isRecovered } from "../../../lib/operations";
-import { ArrowRightIcon, RefreshIcon } from "../../../components/icons";
+import { ArrowRightIcon, InfoIcon, RefreshIcon } from "../../../components/icons";
 import { ErrorState, LoadingState, StatusBadge } from "../../../components/shell";
-import { EvidenceBoundary, IntelligenceMetric, IntelligencePanel, IntelligenceTitle, IntelEmpty } from "../../../components/intelligence-workspace";
+import { IntelligenceMetric, IntelligencePanel, IntelligenceTitle, IntelEmpty } from "../../../components/intelligence-workspace";
 
 type ActionGroup = { action: string; selected: number; completed: number; recovered: number; gross: number; net: number };
 
@@ -59,20 +59,19 @@ export default function RecoveryPerformancePage() {
   if (error) return <div className="intelligence-page-v2"><IntelligenceTitle title="Recovery Outcomes" /><ErrorState message={error} onRetry={load} /></div>;
 
   return <div className="intelligence-page-v2">
-    <IntelligenceTitle title="Recovery Outcomes" action={<><button className="square-control" type="button" onClick={load} disabled={loading} aria-label="Refresh recovery outcomes"><RefreshIcon size={16} /></button><button className="square-control" type="button" aria-label="More recovery outcome actions"><span className="more-dots">•••</span></button></>} />
-    <EvidenceBoundary sampleSize={cases.length} lastUpdated="On refresh" />
+    <IntelligenceTitle title="Recovery Outcomes" action={<button className="square-control" type="button" onClick={load} disabled={loading} aria-label="Refresh recovery outcomes"><RefreshIcon size={16} /></button>} />
     {!cases.length ? <IntelEmpty label="No observed outcomes yet. Outcomes will appear after stored interventions reach a terminal state." /> : <>
       <section className="intelligence-metric-grid" aria-label="Recovery outcome summary">
-        <IntelligenceMetric label="Recovered revenue" value={formatPaise(recoveredValue)} note={`${recovered.length} recovered cases`} tone="mint" />
-        <IntelligenceMetric label="Observed recovery rate" value={rate === null ? "—" : formatPercent(rate)} note={`${completed.length} completed cases`} />
-        <IntelligenceMetric label="Unresolved value" value={formatPaise(unresolvedValue)} note="Persisted unresolved outcomes" tone="red" />
-        <IntelligenceMetric label="Completed cases" value={String(completed.length)} note={`${cases.length - completed.length} still pending`} />
+        <IntelligenceMetric label="Recovered revenue" value={formatPaise(recoveredValue)} tone="mint" />
+        <IntelligenceMetric label="Observed recovery rate" value={rate === null ? "—" : formatPercent(rate)} />
+        <IntelligenceMetric label="Unresolved value" value={formatPaise(unresolvedValue)} tone="red" />
+        <IntelligenceMetric label="Completed cases" value={String(completed.length)} />
       </section>
 
-      <IntelligencePanel title="Outcome by intervention" note="Stored decisions compared with stored outcomes"><div className="outcome-table"><div className="outcome-table-row outcome-table-header"><span>Action</span><span>Selected</span><span>Completed</span><span>Recovery rate</span><span>Gross value</span><span>Net value</span><span>Reliability</span></div>{groups.length ? groups.map((group) => <div className="outcome-table-row" key={group.action}><strong>{formatAction(group.action)}</strong><span>{group.selected}</span><span>{group.completed}</span><span>{group.completed ? formatPercent(group.recovered / group.completed) : "—"}</span><span className="money-cell">{formatPaise(group.gross)}</span><span className="money-cell">{formatPaise(group.net)}</span><StatusBadge status={reliability(group)} /></div>) : <IntelEmpty label="No stored decisions to compare." />}</div></IntelligencePanel>
+      <IntelligencePanel title="Outcome by intervention"><div className="outcome-table"><div className="outcome-table-row outcome-table-header"><span>Action</span><span>Selected</span><span>Completed</span><span>Recovery Rate</span><span>Gross Value</span><span>Net Value</span><span>Reliability</span></div>{groups.length ? groups.map((group) => <div className="outcome-table-row" key={group.action}><strong>{formatAction(group.action)}</strong><span>{group.selected}</span><span>{group.completed}</span><span>{group.completed ? formatPercent(group.recovered / group.completed) : "—"}</span><span className="money-cell">{formatPaise(group.gross)}</span><span className="money-cell">{formatPaise(group.net)}</span><StatusBadge status={reliability(group)} /></div>) : <IntelEmpty label="No stored decisions to compare." />}</div></IntelligencePanel>
 
       <div className="intelligence-two-column">
-        <IntelligencePanel title="Recovery funnel" note="Stored lifecycle states"><div className="outcome-funnel">{funnel.map((stage, index) => <div className="outcome-funnel-row" key={stage.label}><span>{stage.label}</span><div className="intel-bar"><i style={{ width: `${cases.length ? (stage.count / cases.length) * 100 : 0}%` }} /></div><strong>{stage.count}</strong>{index < funnel.length - 1 && <ArrowRightIcon size={14} />}</div>)}</div><div className="intel-boundary-line">A recorded provider action is not a recovered outcome. Only persisted outcome records count as completed.</div></IntelligencePanel>
+        <IntelligencePanel title="Recovery funnel" note="Stored lifecycle states"><div className="outcome-funnel">{funnel.map((stage, index) => <div className="outcome-funnel-row" key={stage.label}><span>{stage.label}</span><div className="intel-bar"><i style={{ width: `${cases.length ? (stage.count / cases.length) * 100 : 0}%` }} /></div><strong>{stage.count}</strong>{index < funnel.length - 1 && <ArrowRightIcon size={14} />}</div>)}</div><div className="intel-boundary-line"><InfoIcon size={18} /><span>A recorded provider action is not a recovered outcome. Only persisted outcome records count as completed.</span></div></IntelligencePanel>
         <IntelligencePanel title="Recent outcomes" note="Newest stored terminal states"><div className="recent-outcome-list">{completed.slice().sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 6).map((item) => <a href={`/cases/${item.id}`} key={item.id}><div><strong>{item.external_event_id || item.id}</strong><span>{item.status === "RECOVERED" ? "Recovered" : "Unresolved"} · {formatDate(item.updated_at)}</span></div><strong className={item.status === "RECOVERED" ? "mint-text" : "red-text"}>{item.status === "RECOVERED" ? formatPaise(item.amount_paise, item.currency) : "—"}</strong><ArrowRightIcon size={14} /></a>)}{!completed.length && <IntelEmpty label="No terminal outcomes recorded." />}</div></IntelligencePanel>
       </div>
 

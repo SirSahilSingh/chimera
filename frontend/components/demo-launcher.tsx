@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRightIcon, FlaskIcon } from "./icons";
 import { api, ApiError } from "../lib/api";
-import { Button } from "./shell";
+import { Button, DropdownField } from "./shell";
 
 const scenarios = [
   { value: "payment_recovery", label: "Expired method → payment link", note: "Creates, confirms, and records a local payment." },
@@ -44,8 +44,8 @@ export function DemoLauncher() {
   return <section className={`demo-launcher ${open ? "open" : ""}`}>
     <div className="demo-launcher-intro"><div className="demo-launcher-icon"><FlaskIcon size={19} /></div><div><strong>Run a real recovery journey</strong><p>Launch one of four synthetic scenarios through the persisted decision and provider boundaries.</p></div><Button kind="secondary" onClick={() => setOpen((value) => !value)}>{open ? "Close" : "Run recovery demo"}<ArrowRightIcon size={15} /></Button></div>
     {open && <form className="demo-form" onSubmit={submit}>
-      <label><span>Scenario</span><select value={scenario} onChange={(event) => setScenario(event.target.value as typeof scenario)}>{scenarios.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select><small>{selected.note}</small></label>
-      <label><span>Provider mode</span><select value="LOCAL" disabled><option value="LOCAL">LOCAL · Demo Provider Execution</option></select><small>Safe local mode; no external provider call is made.</small></label>
+      <label><DropdownField label="Scenario" value={scenario} onChange={(value) => setScenario(value as typeof scenario)} options={scenarios.map((item) => ({ value: item.value, label: item.label }))} /><small>{selected.note}</small></label>
+      <label><DropdownField label="Provider Mode" value="LOCAL" onChange={() => undefined} disabled options={[{ value: "LOCAL", label: "LOCAL · Demo Provider Execution" }]} /><small>Safe local mode; no external provider call is made.</small></label>
       <Button type="submit" disabled={busy}>{busy ? "Walking through recovery…" : "Launch scenario"}<ArrowRightIcon size={15} /></Button>
       {stage !== null && <div className="demo-stage-progress" aria-live="polite"><span>Live walkthrough</span><div>{["Detect", "Diagnose", "Decide", "Intervene", "Recover"].map((label, index) => <span className={index <= stage ? "complete" : ""} key={label}><i>{index < stage ? "✓" : index + 1}</i>{label}</span>)}</div></div>}
       {error && <p className="demo-error" role="alert">{error}</p>}

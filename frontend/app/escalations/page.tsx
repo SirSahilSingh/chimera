@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AlertIcon, ArrowRightIcon, CheckIcon, RefreshIcon } from "../../components/icons";
-import { ErrorState, LoadingState, StatusBadge } from "../../components/shell";
+import { DropdownField, ErrorState, LoadingState, StatusBadge } from "../../components/shell";
 import { IntelligenceMetric, IntelligencePanel, IntelligenceTitle, IntelEmpty } from "../../components/intelligence-workspace";
 import { api, ApiError } from "../../lib/api";
 import { formatDate, formatPaise, shortId } from "../../lib/formatters";
@@ -71,7 +71,7 @@ export default function EscalationsPage() {
     <IntelligencePanel title="Operator queue" note={`${visible.length} ${visible.length === 1 ? "record" : "records"}`}>
       <div className="queue-toolbar queue-toolbar-inline">
         <div><strong>Human review records</strong><span>Every action creates an append-only escalation event.</span></div>
-        <label className="queue-filter"><span>Status</span><select value={filter} onChange={(event) => setFilter(event.target.value as EscalationFilter)}><option value="ALL">All statuses</option><option value="OPEN">Open</option><option value="ACKNOWLEDGED">Acknowledged</option><option value="IN_PROGRESS">In progress</option><option value="RESOLVED">Resolved</option><option value="CANCELLED">Cancelled</option></select></label>
+        <DropdownField className="queue-filter" label="Status" value={filter} onChange={(value) => setFilter(value as EscalationFilter)} options={[{ value: "ALL", label: "All Statuses" }, { value: "OPEN", label: "Open", tone: "red" }, { value: "ACKNOWLEDGED", label: "Acknowledged", tone: "amber" }, { value: "IN_PROGRESS", label: "In Progress", tone: "blue" }, { value: "RESOLVED", label: "Resolved", tone: "mint" }, { value: "CANCELLED", label: "Cancelled" }]} />
       </div>
       {error ? <ErrorState message={error} onRetry={load} /> : loading ? <LoadingState label="Loading escalation queue" /> : notice ? <div className="queue-notice"><CheckIcon size={15} /><span>{notice}</span><button type="button" onClick={() => setNotice(null)} aria-label="Dismiss notification">Dismiss</button></div> : null}
       {!loading && !error && <div className="operations-queue-table"><div className="operations-queue-row operations-queue-header"><span>Priority</span><span>Case</span><span>Reason</span><span>Status</span><span>Created</span><span>Events</span><span /></div>{visible.map((item) => <EscalationRow item={item} pending={pendingId === item.id} onAcknowledge={() => void transition(item, "acknowledge")} onResolve={() => void transition(item, "resolve")} key={item.id} />)}</div>}

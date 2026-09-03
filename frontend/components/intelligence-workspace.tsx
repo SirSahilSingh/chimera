@@ -9,12 +9,12 @@ export function EvidenceBoundary({ sampleSize, providerModes = [], lastUpdated =
   return <div className="evidence-boundary"><span>Data: synthetic stored records</span><span>Sample size: {sampleSize} cases</span><span>Provider modes: {providerModes.length ? providerModes.join(", ") : "stored case records"}</span><span>Last updated: {lastUpdated}</span><strong>Interpretation: observed, not causal</strong></div>;
 }
 
-export function IntelligenceMetric({ label, value, note, tone = "default" }: { label: string; value: string; note: string; tone?: "default" | "mint" | "amber" | "red" }) {
-  return <div className={`intelligence-metric ${tone}`}><span>{label}</span><strong>{value}</strong><small>{note}</small></div>;
+export function IntelligenceMetric({ label, value, note, tone = "default" }: { label: string; value: string; note?: string; tone?: "default" | "mint" | "amber" | "red" }) {
+  return <div className={`intelligence-metric ${tone}`}><span>{label}</span><strong>{value}</strong>{note && <small>{note}</small>}</div>;
 }
 
-export function IntelligencePanel({ title, note, children, className = "" }: { title: string; note?: string; children: ReactNode; className?: string }) {
-  return <section className={`intelligence-panel ${className}`}><div className="intelligence-panel-head"><h2>{title}</h2>{note && <span>{note}</span>}</div>{children}</section>;
+export function IntelligencePanel({ title, note, headerAction, children, className = "" }: { title: string; note?: string; headerAction?: ReactNode; children: ReactNode; className?: string }) {
+  return <section className={`intelligence-panel ${className}`}><div className="intelligence-panel-head"><h2>{title}</h2>{headerAction ?? (note && <span>{note}</span>)}</div>{children}</section>;
 }
 
 export function DeepLink({ href, children }: { href: string; children: ReactNode }) {

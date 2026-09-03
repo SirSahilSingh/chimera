@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRightIcon, CheckIcon, ClockIcon, RefreshIcon, ShieldIcon } from "../../../components/icons";
-import { ErrorState, LoadingState, StatusBadge } from "../../../components/shell";
+import { DropdownField, ErrorState, LoadingState, StatusBadge } from "../../../components/shell";
 import { IntelligenceMetric, IntelligencePanel, IntelligenceTitle, IntelEmpty } from "../../../components/intelligence-workspace";
 import { api, ApiError } from "../../../lib/api";
 import { formatDate, shortId } from "../../../lib/formatters";
@@ -74,7 +74,7 @@ export default function ScheduledRetriesPage() {
     <IntelligencePanel title="Retry schedule" note={`${visible.length} ${visible.length === 1 ? "record" : "records"}`}>
       <div className="queue-toolbar queue-toolbar-inline">
         <div><strong>Deterministic retry windows</strong><span>Execution is available only when the backend marks a schedule eligible.</span></div>
-        <label className="queue-filter"><span>View</span><select value={filter} onChange={(event) => setFilter(event.target.value as RetryFilter)}><option value="ALL">All schedules</option><option value="SCHEDULED">Pending</option><option value="DUE">Due now</option><option value="EXECUTED">Executed</option></select></label>
+        <DropdownField className="queue-filter" label="View" value={filter} onChange={(value) => setFilter(value as RetryFilter)} options={[{ value: "ALL", label: "All Schedules" }, { value: "SCHEDULED", label: "Pending", tone: "blue" }, { value: "DUE", label: "Due Now", tone: "amber" }, { value: "EXECUTED", label: "Executed", tone: "mint" }]} />
       </div>
       {error ? <ErrorState message={error} onRetry={load} /> : loading ? <LoadingState label="Loading retry schedule" /> : notice ? <div className="queue-notice"><CheckIcon size={15} /><span>{notice}</span><button type="button" onClick={() => setNotice(null)} aria-label="Dismiss notification">Dismiss</button></div> : null}
       {!loading && !error && <div className="operations-queue-table"><div className="operations-queue-row retry-queue-header"><span>Schedule</span><span>Case</span><span>Reason</span><span>Eligibility</span><span>Execution</span><span>Provider</span><span /></div>{visible.map((item) => <RetryRow item={item} due={isDue(item)} pending={pendingId === item.id} onExecute={() => void execute(item)} key={item.id} />)}</div>}
