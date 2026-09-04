@@ -139,6 +139,12 @@ class VoiceService:
                     existing.failure_code = safe_failure_code(exc.code)
                     existing.completed_at = self._now()
                     self._transition(existing, VoiceCallStatus.FAILED)
+                    payload = {"failure_code": exc.code}
+                    if exc.provider_code:
+                        payload["failure_classification"] = exc.provider_code
+                    if exc.reason:
+                        payload["failure_reason"] = exc.reason
+                    self._event(existing, "CALL_FAILED", "provider", payload)
                     self.session.commit()
                     raise VoiceProviderFailure(existing.failure_code) from None
             if existing.scenario != scenario.value:

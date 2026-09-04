@@ -30,8 +30,8 @@ class SarvamSpeechProvider:
     _audio_lock = Lock()
 
     def __init__(self, api_key: str | None, *, enabled: bool = False, timeout_seconds: float = 20.0, base_url: str = "https://api.sarvam.ai", language_code: str = "hi-IN", stt_model: str = "saaras:v3", stt_mode: str = "codemix", tts_model: str = "bulbul:v3", tts_speaker: str = "shubh", mode: str | None = None) -> None:
-        self.api_key = api_key
-        self.enabled = bool(enabled) or bool(api_key and str(api_key).strip())
+        self.api_key = str(api_key).strip().strip('"').strip("'") if api_key else None
+        self.enabled = bool(enabled) or bool(self.api_key)
         self.timeout_seconds = timeout_seconds
         self.base_url = base_url.rstrip("/")
         self.language_code = language_code
