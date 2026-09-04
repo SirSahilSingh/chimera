@@ -60,13 +60,14 @@ export default function DemoScenariosPage() {
 }
 
 function RunMonitor({ run, journey }: { run: DemoRunResponse; journey: RecoveryJourney }) {
+  const browserVoice = run.scenario === "voice_recovery";
   const hasProviderAction = Boolean(journey.payments.length || journey.messages.length || journey.retries.length || journey.scheduled_retries.length || journey.voice_calls.length || journey.escalations.length);
   const recovered = journey.case.status === "RECOVERED";
   const stages = [
     { label: "Failure received", complete: true, detail: `${journey.case.failure_reason.replaceAll("_", " ")} · ${formatDate(journey.case.created_at)}` },
     { label: "Decision created", complete: Boolean(journey.decision), detail: journey.decision ? `${formatAction(journey.decision.selected_action)} selected · ${formatDate(journey.decision.created_at)}` : "No stored decision" },
     { label: "Intervention authorized", complete: Boolean(journey.interventions.length), detail: journey.interventions.length ? `${formatAction(journey.interventions[0].action)} · ${formatDate(journey.interventions[0].created_at)}` : "No stored intervention" },
-    { label: "Provider action", complete: hasProviderAction, detail: hasProviderAction ? `${run.provider_mode_label} · persisted receipt available` : "No provider action recorded" },
+    { label: browserVoice ? "Browser agent" : "Provider action", complete: browserVoice || hasProviderAction, detail: browserVoice ? "Pipecat + Sarvam session ready" : hasProviderAction ? `${run.provider_mode_label} · persisted receipt available` : "No provider action recorded" },
     { label: "Outcome", complete: recovered || journey.case.status === "UNRECOVERED", detail: recovered ? "Recovered outcome is persisted" : journey.case.status === "UNRECOVERED" ? "Unresolved outcome is persisted" : "Outcome remains pending" },
   ];
   return <section className="run-monitor"><div className="run-monitor-head"><div><h2>Persisted run</h2><p>{run.scenario.replaceAll("_", " ")} · case {shortId(run.case_id)}</p></div><div className="run-monitor-actions"><StatusBadge status={run.current_status} /><Link className="button button-secondary" href={`/cases/${run.case_id}`}>Open Decision Room <ArrowRightIcon size={14} /></Link></div></div><div className="run-stage-list">{stages.map((stage) => <div className={`run-stage ${stage.complete ? "complete" : "pending"}`} key={stage.label}><span className="run-stage-mark">{stage.complete ? <CheckIcon size={14} /> : <span />}</span><div><strong>{stage.label}</strong><span>{stage.detail}</span></div></div>)}</div><div className="run-proof-grid"><RunProof run={run} journey={journey} /><RunEvidence journey={journey} /></div>{run.scenario === "voice_recovery" && <BrowserVoiceAgent interventionId={run.intervention_id} amountPaise={journey.case.amount_paise} failureReason={journey.case.failure_reason} paymentMethod={journey.case.payment_method} />}</section>;

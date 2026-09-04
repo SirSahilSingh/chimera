@@ -207,7 +207,7 @@ CHIMERA has two voice surfaces with a shared case context:
 - **Telephony:** Exotel AgentStream remains the phone transport for a real call, with the existing controlled voice policy and Sarvam speech adapter behind it. The browser demo does not depend on Exotel connectivity.
 - **Safe conversation boundary:** The agent can explain the abandoned payment, answer questions, and discuss next steps. A real payment link or recovered state must come from the existing provider and reconciliation boundaries, not from a generated reply.
 
-To run the browser demo, set `SARVAM_API_KEY`, install the optional backend dependency from `requirements.txt`, start the API and frontend, then open **Demo Scenarios → Voice-Assisted Recovery → Run scenario**. The **Talk through the abandoned payment** panel appears below the persisted run. The microphone is the primary input; the panel also has a typed-turn fallback for a live presentation when browser microphone permission is unavailable.
+To run the browser demo, set `SARVAM_API_KEY`, install the optional backend dependency from `requirements.txt`, start the API and frontend, then open **Demo Scenarios → Voice-Assisted Recovery → Run scenario**. The setup creates the case and intervention without requiring the configured phone provider to be local, so Exotel/Twilio can remain configured for telephony work. The **Talk through the abandoned payment** panel appears below the persisted run. The microphone is the primary input; the panel also has a typed-turn fallback for a live presentation when browser microphone permission is unavailable.
 
 ### Razorpay Test Checkout and Dynamic Payment Links
 

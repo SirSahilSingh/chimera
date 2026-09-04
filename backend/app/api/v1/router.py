@@ -339,9 +339,16 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
             elif payload.scenario.value == "technical_retry":
                 result = orchestration.retry.schedule(intervention.id)
             elif payload.scenario.value == "voice_recovery":
-                call = orchestration.voice.run_demo(intervention.id, VoiceScenario.CUSTOMER_REQUESTS_PAYMENT_LINK)
-                payments = orchestration.payments.list_for_intervention(intervention.id)
-                result = orchestration.payments.demo_complete(payments[-1].id, PaymentDemoScenario.PAYMENT_SUCCESS) if payments else call
+                # The browser Pipecat demo must remain available when the
+                # configured phone provider is Exotel/Twilio. Preserve the
+                # historical deterministic transcript only for local runs;
+                # the browser session itself starts from the queued case.
+                if orchestration.voice.provider.name == "local":
+                    call = orchestration.voice.run_demo(intervention.id, VoiceScenario.CUSTOMER_REQUESTS_PAYMENT_LINK)
+                    payments = orchestration.payments.list_for_intervention(intervention.id)
+                    result = orchestration.payments.demo_complete(payments[-1].id, PaymentDemoScenario.PAYMENT_SUCCESS) if payments else call
+                else:
+                    result = intervention
             else:
                 result = orchestration.escalations.create(intervention.id, "Operator review requested by demo scenario")
             provider_mode = getattr(result, "provider_mode", ProviderMode.LOCAL.value)

@@ -9,7 +9,7 @@ import { Button, DropdownField } from "./shell";
 const scenarios = [
   { value: "payment_recovery", label: "Expired method → payment link", note: "Creates, confirms, and records a local payment." },
   { value: "technical_retry", label: "Technical degradation → retry later", note: "Schedules the stored retry without contacting a customer." },
-  { value: "voice_recovery", label: "Voice recovery → customer requests link", note: "Runs the Demo Voice Agent, then confirms the link." },
+  { value: "voice_recovery", label: "Voice recovery → browser agent", note: "Opens the read-only Pipecat + Sarvam voice demo." },
   { value: "escalation", label: "Escalation → human review", note: "Opens a real operator review record." },
 ] as const;
 
