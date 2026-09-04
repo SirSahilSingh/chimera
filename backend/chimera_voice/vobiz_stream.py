@@ -242,6 +242,21 @@ class VobizStreamSession:
             except Exception as exc:
                 logger.warning("Groq reasoning failed, falling back to VoiceService: %s", exc)
 
+        # If customer said yes or requested link, immediately trigger Razorpay payment link delivery
+        norm = transcript.lower().strip()
+        affirmative_words = (
+            "yes", "haan", "han", "ji haan", "sahi hai", "theek hai", "accha",
+            "hmm", "ok", "okay", "sure", "bhej", "send", "link", "kardo", "kar do",
+            "kar dunga", "kar dungi", "abhi", "pay", "payment", "हाँ", "सही है", "ठीक है", "भेज", "लिंक"
+        )
+        if any(w in norm for w in affirmative_words) and self.intervention_id:
+            try:
+                payment_url = await asyncio.to_thread(self.voice_service.ensure_payment_link_sent, self.intervention_id)
+                if payment_url:
+                    logger.info("Payment link delivered via Razorpay / messaging for intervention %s: %s", self.intervention_id, payment_url)
+            except Exception as exc:
+                logger.warning("Failed triggering payment link on affirmative turn: %s", exc)
+
         if response_text:
             should_end = await asyncio.to_thread(
                 self.voice_service.record_vobiz_turn,

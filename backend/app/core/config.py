@@ -168,6 +168,22 @@ def load_settings() -> AppSettings:
     else:
         voice_enabled = False
 
+    razorpay_key_id = os.getenv("RAZORPAY_KEY_ID") or None
+    razorpay_key_secret = os.getenv("RAZORPAY_KEY_SECRET") or None
+    payment_provider = os.getenv("PAYMENT_PROVIDER")
+    if not payment_provider and razorpay_key_id and razorpay_key_secret:
+        payment_provider = "razorpay"
+    elif not payment_provider:
+        payment_provider = "local"
+
+    payment_enabled_raw = os.getenv("PAYMENT_ENABLED")
+    if payment_enabled_raw is not None:
+        payment_enabled = payment_enabled_raw.casefold() in {"1", "true", "yes"}
+    elif payment_provider == "razorpay":
+        payment_enabled = bool(razorpay_key_id and razorpay_key_secret)
+    else:
+        payment_enabled = True
+
     return AppSettings(
         database_url=os.getenv("DATABASE_URL", AppSettings.database_url),
         api_environment=os.getenv("API_ENVIRONMENT", "development"),
@@ -224,10 +240,10 @@ def load_settings() -> AppSettings:
         sarvam_tts_speaker=os.getenv("SARVAM_TTS_SPEAKER", "shubh"),
         sarvam_timeout_seconds=float(os.getenv("SARVAM_TIMEOUT_SECONDS", "20")),
         sarvam_mode=os.getenv("SARVAM_MODE") or None,
-        payment_provider=os.getenv("PAYMENT_PROVIDER", "local"),
-        payment_enabled=os.getenv("PAYMENT_ENABLED", "true").casefold() in {"1", "true", "yes"},
-        razorpay_key_id=os.getenv("RAZORPAY_KEY_ID") or None,
-        razorpay_key_secret=os.getenv("RAZORPAY_KEY_SECRET") or None,
+        payment_provider=payment_provider,
+        payment_enabled=payment_enabled,
+        razorpay_key_id=razorpay_key_id,
+        razorpay_key_secret=razorpay_key_secret,
         razorpay_webhook_secret=os.getenv("RAZORPAY_WEBHOOK_SECRET") or None,
         razorpay_mode=os.getenv("RAZORPAY_MODE") or os.getenv("PAYMENT_MODE") or None,
         payment_timeout_seconds=float(os.getenv("PAYMENT_TIMEOUT_SECONDS", "10")),
