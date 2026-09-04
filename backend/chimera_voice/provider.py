@@ -392,8 +392,7 @@ class ExotelVoiceProvider(VoiceProvider):
             # explicit validation error; never retry timeouts or unknown 4xx/5xx
             # responses, and never retry after a successful provider response.
             if not (
-                self.agentstream_enabled
-                and error.provider_code == "exotel_http_400"
+                error.provider_code == "exotel_http_400"
                 and error.reason
                 and "invalid 'from' specified" in error.reason.casefold()
                 and self._format_destination(phone or "") != self._format_e164(phone or "")
