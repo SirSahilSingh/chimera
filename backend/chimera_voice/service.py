@@ -483,6 +483,64 @@ class VoiceService:
         self.session.commit()
         return should_end
 
+    def vobiz_call_completed(
+        self,
+        intervention_id: str,
+        reason: str = "completed",
+        hangup_cause: str | None = None,
+    ) -> VoiceCall:
+        """Mark a live Vobiz outbound call as complete upon carrier hangup, user disconnection, or bot resolution."""
+        call = self.get_call_for_intervention(intervention_id)
+        if call.status in TERMINAL_VOICE_STATUSES:
+            return call
+
+        target = VoiceCallStatus.COMPLETED
+        if call.outcome_intent in {VoiceIntent.DECLINE.value, VoiceIntent.WRONG_PERSON.value}:
+            target = VoiceCallStatus.DECLINED
+
+        # Advance through intermediate states if needed
+        if call.status in {VoiceCallStatus.CALL_INITIATED.value, VoiceCallStatus.RINGING.value}:
+            try:
+                self._advance(call, VoiceCallStatus.CONNECTED, "CALL_CONNECTED", "vobiz")
+            except Exception:
+                pass
+
+        if call.status in {VoiceCallStatus.CONNECTED.value, VoiceCallStatus.CONVERSATION.value}:
+            try:
+                self._advance(call, VoiceCallStatus.AWAITING_RESOLUTION, "AWAITING_RESOLUTION", "vobiz")
+            except Exception:
+                pass
+
+        payload = {
+            "reason": reason,
+            "hangup_source": "vobiz",
+            "intent": call.outcome_intent or "UNKNOWN",
+            "payment_link_attached": call.payment_link is not None,
+        }
+        if hangup_cause:
+            payload["hangup_cause"] = str(hangup_cause)[:128]
+
+        if target == VoiceCallStatus.DECLINED:
+            self._complete(call, VoiceCallStatus.DECLINED, "CALL_DECLINED", payload)
+            try:
+                self.interventions.record_outcome(
+                    call.intervention_id,
+                    InterventionOutcomeCreate(
+                        status="NOT_RECOVERED",
+                        recovered_amount_paise=0,
+                        currency=call.intervention.recovery_case.currency,
+                        occurred_at=self._now(),
+                        source="voice_agent",
+                    ),
+                )
+            except Exception:
+                pass
+        else:
+            self._complete(call, VoiceCallStatus.COMPLETED, "CALL_COMPLETED", payload)
+
+        self.session.commit()
+        return self.get_call(call.id)
+
     def _handle_customer_text(self, intervention_id: str, text: str, *, source: str, complete: bool) -> tuple[str, bool]:
         call = self.get_call_for_intervention(intervention_id)
         if call.status in TERMINAL_VOICE_STATUSES:

@@ -314,9 +314,12 @@ export type JourneyVoiceCall = {
   scenario: string;
   provider_call_reference: string | null;
   outcome_intent: string | null;
+  payment_link?: string | null;
   failure_reason: string | null;
   failure_code: string | null;
   created_at: string;
+  started_at?: string | null;
+  completed_at?: string | null;
   turns: { id: string; speaker: string; text: string; intent: string | null; timestamp: string }[];
   events: JourneyEvent[];
 };

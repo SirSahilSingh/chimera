@@ -3,6 +3,9 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timezone
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, Response, WebSocket
 from fastapi.responses import PlainTextResponse
@@ -1106,7 +1109,63 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
         return PlainTextResponse(xml_content, media_type="application/xml")
 
     @router.api_route("/voice/vobiz/hangup", methods=["GET", "POST"], response_class=PlainTextResponse)
-    async def vobiz_hangup(request: Request):
+    async def vobiz_hangup(request: Request, service: VoiceService = Depends(voice_service)):
+        raw_body = (await request.body()).decode("utf-8", errors="replace")
+        fields: dict[str, str] = {}
+        if raw_body.strip().startswith("{"):
+            try:
+                parsed = json.loads(raw_body)
+                if isinstance(parsed, dict):
+                    fields = {str(k): str(v) for k, v in parsed.items()}
+            except Exception:
+                pass
+        if not fields and raw_body:
+            try:
+                fields = dict(parse_qsl(raw_body, keep_blank_values=True))
+            except Exception:
+                pass
+
+        def get_param(*keys: str) -> str | None:
+            normalized_keys = {k.casefold() for k in keys}
+            for k, v in fields.items():
+                if k.casefold() in normalized_keys and str(v).strip():
+                    return str(v).strip()
+            for k, v in request.query_params.items():
+                if k.casefold() in normalized_keys and str(v).strip():
+                    return str(v).strip()
+            return None
+
+        target_id = get_param("intervention_id", "interventionid")
+        call_reference = get_param("CallUUID", "calluuid", "call_uuid", "CallSid", "call_sid")
+        hangup_cause = get_param("HangupCause", "hangup_cause", "reason") or "carrier_hangup"
+
+        if not target_id and call_reference:
+            try:
+                call = await asyncio.to_thread(service.get_call_for_provider_reference, call_reference)
+                target_id = call.intervention_id
+            except Exception:
+                pass
+
+        if not target_id:
+            try:
+                latest = await asyncio.to_thread(service.get_latest_active_call)
+                if latest:
+                    target_id = latest.intervention_id
+            except Exception:
+                pass
+
+        if target_id:
+            try:
+                await asyncio.to_thread(
+                    service.vobiz_call_completed,
+                    target_id,
+                    reason="carrier_hangup_webhook",
+                    hangup_cause=hangup_cause,
+                )
+                logger.info("Vobiz hangup processed for intervention %s (cause: %s)", target_id, hangup_cause)
+            except Exception as exc:
+                logger.warning("Failed processing Vobiz hangup callback: %s", exc)
+
         return PlainTextResponse("OK")
 
     @router.websocket("/voice/vobiz/stream")

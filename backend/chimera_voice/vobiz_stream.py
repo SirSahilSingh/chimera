@@ -75,12 +75,27 @@ class VobizStreamSession:
                     self.is_playing = False
                     if self.close_after_playback:
                         await asyncio.sleep(0.8)
+                        if self.intervention_id:
+                            try:
+                                await asyncio.to_thread(self.voice_service.vobiz_call_completed, self.intervention_id, reason="playback_resolution_complete")
+                            except Exception as exc:
+                                logger.warning("Failed to mark call complete after playback: %s", exc)
                         return
                 elif event in {"stop", "hangup", "disconnect", "close"}:
                     logger.info("Vobiz stream terminated by carrier: event=%s", event)
+                    if self.intervention_id:
+                        try:
+                            await asyncio.to_thread(self.voice_service.vobiz_call_completed, self.intervention_id, reason=f"carrier_event_{event}")
+                        except Exception as exc:
+                            logger.warning("Failed to mark call complete on %s: %s", event, exc)
                     return
         except WebSocketDisconnect:
             logger.info("Vobiz WebSocket disconnected for stream %s", self.stream_id)
+            if self.intervention_id:
+                try:
+                    await asyncio.to_thread(self.voice_service.vobiz_call_completed, self.intervention_id, reason="websocket_disconnect")
+                except Exception as exc:
+                    logger.warning("Failed to mark call complete on disconnect: %s", exc)
             return
         except Exception as exc:
             logger.exception("Vobiz voice stream failure: %s", exc)
@@ -384,6 +399,13 @@ class VobizStreamSession:
         if self._tasks:
             await asyncio.gather(*self._tasks, return_exceptions=True)
         self._tasks.clear()
+
+        # As a safety net, ensure the call is transitioned out of active states if stream closed
+        if self.intervention_id:
+            try:
+                await asyncio.to_thread(self.voice_service.vobiz_call_completed, self.intervention_id, reason="session_cleanup")
+            except Exception:
+                pass
 
     async def _close_with_error(self) -> None:
         try:

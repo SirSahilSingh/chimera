@@ -75,7 +75,7 @@ class VobizVoiceProvider(VoiceProvider):
         caller = self._format_phone(self.caller_id or "")
 
         answer_url = f"{self.public_base_url}/api/v1/voice/vobiz/answer?intervention_id={context.intervention_id}"
-        hangup_url = f"{self.public_base_url}/api/v1/voice/vobiz/hangup"
+        hangup_url = f"{self.public_base_url}/api/v1/voice/vobiz/hangup?intervention_id={context.intervention_id}"
 
         payload = {
             "from": caller,

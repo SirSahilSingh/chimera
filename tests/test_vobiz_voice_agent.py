@@ -89,3 +89,31 @@ class VobizVoiceAgentTests(unittest.TestCase):
         self.assertIn("insufficient_funds", prompt)
         self.assertIn("Hinglish", prompt)
         self.assertIn("NEVER ask for card numbers", prompt)
+
+    def test_vobiz_hangup_callback_completes_call(self):
+        case, decision, intervention = self._setup_intervention()
+        with patch("backend.chimera_voice.vobiz_provider.urlopen") as mock_urlopen:
+            mock_resp = MagicMock()
+            mock_resp.read.return_value = json.dumps({"call_uuid": "vobiz-call-uuid-888"}).encode("utf-8")
+            mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+            start_resp = self.client.post(
+                "/api/v1/voice/outbound/call",
+                json={"intervention_id": intervention["id"], "customer_phone": "+919876543210"},
+            )
+            self.assertEqual(start_resp.status_code, 200)
+
+        # Send hangup webhook
+        hangup_resp = self.client.post(
+            f"/api/v1/voice/vobiz/hangup?intervention_id={intervention['id']}",
+            json={"CallUUID": "vobiz-call-uuid-888", "HangupCause": "NORMAL_CLEARING"},
+        )
+        self.assertEqual(hangup_resp.status_code, 200)
+        self.assertEqual(hangup_resp.text, "OK")
+
+        # Verify call transitioned to COMPLETED in history
+        history_resp = self.client.get(f"/api/v1/interventions/{intervention['id']}/voice/history")
+        self.assertEqual(history_resp.status_code, 200)
+        history = history_resp.json()
+        self.assertEqual(history["call"]["status"], "COMPLETED")
+        self.assertIsNotNone(history["call"]["completed_at"])

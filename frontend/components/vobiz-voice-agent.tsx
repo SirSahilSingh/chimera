@@ -17,7 +17,7 @@ function statusBadge(status: CallStatus) {
     case "in_call":
       return { label: "In Call · Sarvam AI Speaking", className: "listening" };
     case "completed":
-      return { label: "Call Completed", className: "idle" };
+      return { label: "Call Completed", className: "completed" };
     case "failed":
       return { label: "Call Needs Attention", className: "error" };
     default:
@@ -57,12 +57,12 @@ export function VobizVoiceAgent({
     try {
       const history = await api.getVoiceHistory(interventionId);
       if (history && history.call) {
-        const rawStatus = history.call.status.toLowerCase();
-        if (rawStatus.includes("ring")) {
-          setCallStatus("ringing");
-        } else if (rawStatus.includes("connect") || rawStatus.includes("conversation")) {
-          setCallStatus("in_call");
-        } else if (rawStatus.includes("completed") || rawStatus.includes("declined")) {
+        const rawStatus = (history.call.status || "").toLowerCase();
+        if (
+          rawStatus.includes("completed") ||
+          rawStatus.includes("declined") ||
+          rawStatus.includes("cancelled")
+        ) {
           setCallStatus("completed");
           stopPolling();
         } else if (rawStatus.includes("failed") || rawStatus.includes("no_answer")) {
@@ -71,18 +71,30 @@ export function VobizVoiceAgent({
             setErrorMessage(history.call.failure_reason);
           }
           stopPolling();
+        } else if (
+          rawStatus.includes("connect") ||
+          rawStatus.includes("conversation") ||
+          rawStatus.includes("resolution")
+        ) {
+          setCallStatus("in_call");
+        } else if (rawStatus.includes("ring")) {
+          setCallStatus("ringing");
         }
 
         if (history.turns && history.turns.length > 0) {
           setTurns(history.turns);
         }
 
-        // Look for payment link event in history
-        const paymentEvent = history.events?.find(
-          (e) => e.event_type === "PAYMENT_LINK_ATTACHED" || Boolean(e.payload?.payment_link)
-        );
-        if (paymentEvent?.payload?.payment_link) {
-          setPaymentLink(String(paymentEvent.payload.payment_link));
+        // Look for payment link either directly on call record or in attached events
+        if (history.call.payment_link) {
+          setPaymentLink(history.call.payment_link);
+        } else {
+          const paymentEvent = history.events?.find(
+            (e) => e.event_type === "PAYMENT_LINK_ATTACHED" || Boolean(e.payload?.payment_link)
+          );
+          if (paymentEvent?.payload?.payment_link) {
+            setPaymentLink(String(paymentEvent.payload.payment_link));
+          }
         }
       }
     } catch {
@@ -111,7 +123,7 @@ export function VobizVoiceAgent({
 
       // Start polling for live call progress and turns
       stopPolling();
-      pollingRef.current = setInterval(pollHistory, 1500);
+      pollingRef.current = setInterval(pollHistory, 1000);
       void pollHistory();
     } catch (err) {
       const detail = err instanceof ApiError ? err.detail : "Failed to initiate outbound call.";
