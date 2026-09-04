@@ -45,6 +45,9 @@ class DemoRunRequest(BaseModel):
     scenario: DemoScenario
     provider_mode: Literal["LOCAL", "MOCK", "TEST", "LIVE"] = "LOCAL"
     customer_phone: str | None = Field(default=None, max_length=32)
+    amount_paise: StrictInt | None = Field(default=None, ge=1)
+    failure_reason: Literal["issuer_decline", "expired_method", "technical_degradation", "insufficient_funds", "abandonment", "other"] | None = None
+    payment_method: Literal["card", "upi", "netbanking"] | None = None
 
     @property
     def expected_action(self) -> str:
@@ -70,11 +73,11 @@ class DemoRunRequest(BaseModel):
             external_event_id=f"gate14-demo-{self.scenario.value}-{token}",
             payment_id=f"synthetic-payment-{token}",
             customer_id=f"synthetic-customer-{token}",
-            amount_paise=amount_paise,
+            amount_paise=self.amount_paise or amount_paise,
             currency="INR",
-            failure_reason=failure_reason,
+            failure_reason=self.failure_reason or failure_reason,
             incident_flag=incident_flag,
-            payment_method=payment_method,
+            payment_method=self.payment_method or payment_method,
             customer_phone=self.customer_phone,
             decision_timestamp=datetime(2026, 8, 26, hour, tzinfo=timezone.utc),
         )

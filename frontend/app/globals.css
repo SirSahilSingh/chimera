@@ -2084,3 +2084,115 @@ html::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb, .main-shell::-webk
   .decision-room .candidate-meta { grid-template-columns: repeat(2, minmax(80px, 1fr)); }
   .audit-row { min-width: 930px; grid-template-columns: 120px minmax(150px, 1.25fr) minmax(90px, 1fr) minmax(130px, 1fr) 95px 112px 20px; }
 }
+
+/* Final responsive adjustments for the annotated evidence and demo surfaces. */
+.audit-table { overflow-x: auto; }
+.audit-row { min-width: 0; grid-template-columns: minmax(116px, .9fr) minmax(156px, 1.25fr) minmax(82px, .85fr) minmax(130px, 1.15fr) minmax(80px, .8fr) minmax(120px, 1fr) 20px; gap: 10px; padding-left: 16px; padding-right: 16px; }
+.audit-row .status-badge { min-width: 0; padding-left: 7px; padding-right: 7px; }
+
+.queue-table th:nth-child(1) { width: 22%; }
+.queue-table th:nth-child(2) { width: 15%; }
+.queue-table th:nth-child(3) { width: 12%; }
+.queue-table th:nth-child(4) { width: 17%; }
+.queue-table th:nth-child(5) { width: 19%; }
+.queue-table th:nth-child(6) { width: 15%; }
+.queue-table .next-action { gap: 5px; white-space: nowrap; }
+.queue-table .next-action strong { color: #fff; font-weight: 700; }
+.queue-table .next-action span { color: #b3b3b3; font-weight: 650; }
+
+.evaluation-banner { min-height: 96px; }
+.evaluation-banner strong { font-size: 21px; letter-spacing: -.03em; }
+.evaluation-banner p { color: #8a8a8a; font-size: 12px; }
+
+/* Blue interaction treatment and form hierarchy for the annotated demo flows. */
+.evaluation-page { --demo-accent: #78aefb; }
+.evaluation-page .section-overline, .voice-recovery-page .section-overline { color: #78aefb; }
+.evaluation-page .scenario-card.selected { background: #08101c; border-color: #2e5e99; }
+.evaluation-page .scenario-card:hover { border-color: #345b88; }
+.evaluation-page .scenario-selected { color: var(--demo-accent); }
+.evaluation-page .scenario-card.selected .scenario-icon { color: var(--demo-accent); background: #0d1728; border-color: #2e5e99; }
+.evaluation-page .button-primary { color: #06101f; background: var(--demo-accent); border-color: var(--demo-accent); }
+.evaluation-page .button-primary:hover:not(:disabled) { background: #a7caff; border-color: #a7caff; }
+.evaluation-page .scenario-setup { border-color: #263b58; }
+.evaluation-page .scenario-setup { align-items: flex-start; flex-direction: column; }
+.evaluation-page .scenario-setup-actions { align-self: flex-start; }
+
+.checkout-surface { --checkout-accent: #78aefb; }
+.checkout-surface .checkout-kicker, .checkout-surface .checkout-step, .checkout-surface .checkout-guide-list b { color: var(--checkout-accent); }
+.checkout-surface .checkout-card-icon { color: var(--checkout-accent); background: #0d1728; border-color: #2e5e99; }
+.checkout-surface .checkout-form-card .checkout-form input:focus { border-color: var(--checkout-accent); box-shadow: 0 0 0 3px rgba(120, 174, 251, .12); }
+.checkout-surface .checkout-submit { color: #06101f; background: var(--checkout-accent); border-color: var(--checkout-accent); }
+.checkout-surface .checkout-submit:hover:not(:disabled) { background: #a7caff; border-color: #a7caff; }
+.checkout-surface .checkout-message { color: #c7dcff; background: #0d1728; border-color: #2e5e99; }
+.checkout-surface .checkout-guide-note svg { color: var(--checkout-accent); }
+.checkout-surface .checkout-guide-list > div { grid-template-columns: 42px minmax(0, 1fr); align-items: center; gap: 15px; }
+.checkout-surface .checkout-guide-list b { display: grid; place-items: center; min-height: 32px; font-size: 13px; text-align: center; }
+.checkout-surface .checkout-guide-list strong { font-size: 15px; }
+.checkout-surface .checkout-guide-list p { font-size: 12px; }
+.checkout-surface .checkout-form-card .checkout-form label { font-size: 13px; }
+.checkout-surface .checkout-topline h1 { font-size: 42px; }
+.checkout-surface .required-mark { color: var(--checkout-accent); }
+.checkout-surface .phone-field, .voice-recovery-page .phone-field { display: flex; align-items: center; min-height: 44px; background: #000; border: 1px solid #303030; border-radius: 7px; }
+.checkout-surface .phone-field:focus-within, .voice-recovery-page .phone-field:focus-within { border-color: var(--checkout-accent, #78aefb); box-shadow: 0 0 0 3px rgba(120, 174, 251, .12); }
+.phone-field .phone-prefix { padding-left: 13px; color: #a9c5f5; font-size: 13px; font-weight: 650; }
+.checkout-surface .phone-field input, .voice-recovery-page .phone-field input { min-height: 42px; flex: 1; border: 0; background: transparent; box-shadow: none; padding-left: 6px; }
+.checkout-surface .phone-field input:focus, .voice-recovery-page .phone-field input:focus { border: 0; box-shadow: none; }
+.checkout-order { text-decoration: none; cursor: pointer; transition: border-color 160ms ease, background 160ms ease; }
+.checkout-order:hover { background: #0d1728; border-color: #2e5e99; }
+.checkout-order > div svg { flex: 0 0 auto; color: #78aefb; }
+
+.voice-recovery-page { min-width: 0; display: grid; gap: 17px; }
+.voice-recovery-intro { display: flex; align-items: flex-start; gap: 15px; padding: 22px 24px; background: #08101c; border: 1px solid #263b58; border-radius: 11px; }
+.voice-recovery-intro-icon { display: grid; place-items: center; width: 36px; height: 36px; flex: 0 0 auto; color: #78aefb; background: #0d1728; border: 1px solid #2e5e99; border-radius: 8px; }
+.voice-recovery-intro h1 { margin: 8px 0 6px; color: #f1f1f1; font-size: 24px; letter-spacing: -.035em; }
+.voice-recovery-intro p { max-width: 680px; margin: 0; color: #8a98aa; font-size: 12px; line-height: 1.55; }
+.voice-context-card { overflow: hidden; background: #050505; border: 1px solid #263b58; border-radius: 11px; }
+.voice-context-head, .voice-run-context { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 20px 23px; border-bottom: 1px solid #242424; }
+.voice-context-head h2, .voice-run-context h2 { margin: 9px 0 0; color: #ededed; font-size: 20px; letter-spacing: -.025em; }
+.voice-context-note { display: inline-flex; align-items: center; gap: 6px; color: #78aefb; font: 10px var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+.voice-context-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; padding: 23px; }
+.voice-context-form label, .voice-context-field { display: grid; gap: 8px; color: #bcbcbc; font-size: 13px; font-weight: 550; }
+.field-label { display: inline-flex; align-items: center; gap: 4px; }
+.voice-context-form input { min-height: 38px; width: 100%; padding: 0 13px; color: #eee; background: #000; border: 1px solid #303030; border-radius: 7px; outline: none; font-size: 13px; }
+.voice-context-form input:focus { border-color: #78aefb; box-shadow: 0 0 0 3px rgba(120, 174, 251, .12); }
+.voice-context-field .dropdown-field { width: 100%; }
+.voice-context-field .dropdown-trigger { min-height: 38px; padding: 0 11px; border-radius: 7px; }
+.voice-context-field .dropdown-trigger-label { color: #bcbcbc; font-size: 13px; font-weight: 550; }
+.voice-context-field .dropdown-trigger-value { margin-left: auto; color: #eee; font-size: 13px; }
+.voice-context-field .required-mark { color: #78aefb; }
+.voice-context-form small { color: #666; font-size: 10px; font-weight: 400; line-height: 1.4; }
+.voice-context-form .required-mark { color: #78aefb; }
+.voice-context-submit { grid-column: 1 / -1; width: fit-content; min-height: 41px; color: #06101f; background: #78aefb; border-color: #78aefb; }
+.voice-context-submit:hover:not(:disabled) { background: #a7caff; border-color: #a7caff; }
+.voice-run-context { border: 1px solid #263b58; border-radius: 11px; }
+.voice-run-context p { margin: 5px 0 0; color: #777; font-size: 11px; }
+.voice-recovery-page .voice-agent-demo { margin-top: 0; border-color: #263b58; }
+.voice-recovery-page .voice-agent-status.listening .voice-agent-status-dot, .voice-recovery-page .voice-agent-status.speaking .voice-agent-status-dot { background: #78aefb; box-shadow: 0 0 10px rgba(120, 174, 251, .7); }
+.voice-recovery-page .voice-agent-case { background: #08101c; border-bottom-color: #263b58; }
+.voice-recovery-page .voice-agent-case > div { border-right-color: #263b58; }
+.voice-recovery-page .voice-agent-case > div:first-child strong { color: #78aefb; }
+.voice-recovery-page .voice-agent-transcript { display: grid; gap: 0; padding: 18px 20px; }
+.voice-recovery-page .voice-agent-empty { min-height: 148px; width: min(100%, 560px); display: grid; grid-template-columns: 24px minmax(0, 1fr); align-items: center; justify-content: initial; gap: 14px; margin: 0 auto; text-align: left; line-height: 1.6; }
+.voice-recovery-page .voice-agent-empty svg { color: #78aefb; }
+.voice-recovery-page .voice-agent-line { grid-template-columns: 100px minmax(0, 1fr); gap: 15px; padding: 13px 0; }
+.voice-recovery-page .voice-agent-line > span { padding-top: 3px; }
+.voice-recovery-page .voice-agent-line.agent > span { color: #78aefb; }
+.voice-recovery-page .voice-agent-text-form { padding: 0 20px 18px; }
+.voice-recovery-page .voice-agent-text-form > div.voice-phone-row { display: flex; align-items: center; gap: 10px; width: 100%; }
+.voice-phone-field { display: flex; align-items: center; flex: 1; min-width: 0; min-height: 38px; background: #030303; border: 1px solid #2d3836; border-radius: 5px; }
+.voice-phone-field:focus-within { border-color: #78aefb; }
+.voice-phone-field input { min-height: 36px; border: 0; }
+.voice-phone-field .phone-prefix { color: #a9c5f5; }
+.voice-recovery-page .voice-agent-mic, .voice-recovery-page .voice-agent-text-form .button-primary { color: #06101f; background: #78aefb; border-color: #78aefb; }
+.voice-recovery-page .voice-agent-guardrail { background: #08101c; border-color: #263b58; }
+.voice-recovery-page .voice-agent-guardrail-head, .voice-recovery-page .voice-agent-guardrail-list svg { color: #78aefb; }
+
+@media (max-width: 760px) {
+  .checkout-surface .checkout-topline h1 { font-size: 32px; }
+  .voice-recovery-intro { padding: 18px; }
+  .voice-context-form { grid-template-columns: 1fr; padding: 18px; }
+  .voice-context-submit { grid-column: auto; width: 100%; }
+  .voice-run-context { align-items: flex-start; flex-direction: column; padding: 18px; }
+  .voice-recovery-page .voice-agent-line { grid-template-columns: 1fr; gap: 5px; }
+  .voice-recovery-page .voice-agent-text-form > div.voice-phone-row { align-items: stretch; flex-direction: column; }
+}

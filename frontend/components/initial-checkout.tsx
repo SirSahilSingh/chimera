@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import { ArrowRightIcon, CheckIcon, ShieldIcon } from "./icons";
 import { ApiError, api } from "../lib/api";
 import type { PaymentOrder } from "../lib/types";
@@ -17,7 +18,7 @@ type InitialCheckoutProps = {
 
 export function InitialCheckout({ embedded = false }: InitialCheckoutProps) {
   const [amount, setAmount] = useState("1000");
-  const [phone, setPhone] = useState("");
+  const [phoneDigits, setPhoneDigits] = useState("");
   const [order, setOrder] = useState<PaymentOrder | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +32,20 @@ export function InitialCheckout({ embedded = false }: InitialCheckoutProps) {
     return () => script.remove();
   }, []);
 
+  useEffect(() => {
+    if (!order || order.recovery_case_id) return;
+    const timer = window.setInterval(async () => {
+      try {
+        const latestOrder = await api.getPaymentOrder(order.id);
+        setOrder(latestOrder);
+        if (latestOrder.recovery_case_id) window.clearInterval(timer);
+      } catch {
+        // The order remains useful even while the provider webhook is pending.
+      }
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [order?.id, order?.recovery_case_id]);
+
   const startCheckout = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setBusy(true);
@@ -41,10 +56,14 @@ export function InitialCheckout({ embedded = false }: InitialCheckoutProps) {
       if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
         throw new Error("Enter an amount greater than zero.");
       }
+      if (!/^\d{10}$/.test(phoneDigits)) {
+        throw new Error("Enter a valid 10-digit Indian mobile number.");
+      }
+      const phone = `+91${phoneDigits}`;
       const nextOrder = await api.createPaymentOrder({
         external_reference_id: `checkout-${Date.now()}`,
-        customer_id: phone || "checkout-customer",
-        customer_phone: phone || undefined,
+        customer_id: phone,
+        customer_phone: phone,
         amount_paise: Math.round(numericAmount * 100),
         currency: "INR",
         description: "CHIMERA checkout test",
@@ -60,7 +79,7 @@ export function InitialCheckout({ embedded = false }: InitialCheckoutProps) {
         description: nextOrder.description,
         order_id: nextOrder.provider_order_id,
         prefill: { contact: nextOrder.customer_phone ?? undefined },
-        theme: { color: "#46e083" },
+        theme: { color: "#78aefb" },
         modal: { ondismiss: () => setMessage("Checkout closed. CHIMERA is waiting for the provider outcome.") },
       });
       checkout.open();
@@ -83,13 +102,13 @@ export function InitialCheckout({ embedded = false }: InitialCheckoutProps) {
         <div className="checkout-card-icon"><ShieldIcon size={19} /></div>
       </div>
       <form className="checkout-form" onSubmit={startCheckout}>
-        <label>Amount in INR<input inputMode="decimal" min="1" step="1" value={amount} onChange={(event) => setAmount(event.target.value)} required /><small>The amount sent to Razorpay TEST.</small></label>
-        <label>Customer phone <span className="optional-label">Optional</span><input inputMode="tel" placeholder="+91XXXXXXXXXX" value={phone} onChange={(event) => setPhone(event.target.value)} /><small>Used as the customer reference for the test.</small></label>
+        <label>Amount in INR <span className="required-mark" aria-hidden="true">*</span><input inputMode="decimal" min="1" step="1" value={amount} onChange={(event) => setAmount(event.target.value)} required /><small>The amount sent to Razorpay TEST.</small></label>
+        <label>Customer phone <span className="required-mark" aria-hidden="true">*</span><div className="phone-field"><span className="phone-prefix">+91</span><input aria-label="10-digit Indian mobile number" inputMode="numeric" type="tel" placeholder="9876543210" value={phoneDigits} onChange={(event) => setPhoneDigits(event.target.value.replace(/\D/g, "").slice(0, 10))} minLength={10} maxLength={10} pattern="[0-9]{10}" required /></div><small>Enter exactly 10 digits.</small></label>
         <button className="button button-primary checkout-submit" type="submit" disabled={busy}>{busy ? "Creating order…" : "Open Razorpay Checkout"}<ArrowRightIcon size={15} /></button>
       </form>
       {message && <div className="checkout-message" role="status"><CheckIcon size={15} /><span>{message}</span></div>}
       {error && <div className="checkout-error" role="alert">{error}</div>}
-      {order && <div className="checkout-order"><div><span>Order created</span><strong>{order.provider_order_id}</strong></div><small>{order.status} · {order.provider_mode} · {order.amount_paise / 100} INR</small></div>}
+      {order && <Link href={order.recovery_case_id ? `/cases/${order.recovery_case_id}` : "/cases"} className="checkout-order" aria-label="Open this order in Decision Room"><div><span>Order created</span><strong>{order.provider_order_id}</strong><ArrowRightIcon size={14} /></div><small>{order.status} · {order.provider_mode} · {order.amount_paise / 100} INR{order.recovery_case_id ? " · Open Decision Room" : " · Waiting for failure outcome"}</small></Link>}
     </section>
     <aside className="checkout-guide">
       <span className="checkout-step">02 / What happens next</span>

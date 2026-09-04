@@ -11,11 +11,11 @@ type CallStatus = "idle" | "dialing" | "ringing" | "in_call" | "completed" | "fa
 function statusBadge(status: CallStatus) {
   switch (status) {
     case "dialing":
-      return { label: "Dialing via Vobiz...", className: "connecting" };
+      return { label: "Dialing...", className: "connecting" };
     case "ringing":
       return { label: "Phone Ringing...", className: "speaking" };
     case "in_call":
-      return { label: "In Call · Sarvam AI Speaking", className: "listening" };
+      return { label: "In Call · Agent speaking", className: "listening" };
     case "completed":
       return { label: "Call Completed", className: "completed" };
     case "failed":
@@ -38,7 +38,10 @@ export function VobizVoiceAgent({
   paymentMethod: string;
   initialPhone?: string | null;
 }) {
-  const [phoneNumber, setPhoneNumber] = useState(initialPhone || "+919876543210");
+  const [phoneDigits, setPhoneDigits] = useState(() => {
+    const digits = (initialPhone || "+919876543210").replace(/\D/g, "");
+    return digits.startsWith("91") ? digits.slice(2, 12) : digits.slice(-10);
+  });
   const [callStatus, setCallStatus] = useState<CallStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [turns, setTurns] = useState<VoiceTurn[]>([]);
@@ -104,11 +107,11 @@ export function VobizVoiceAgent({
 
   const handleStartCall = async (e?: FormEvent) => {
     if (e) e.preventDefault();
-    const cleanPhone = phoneNumber.trim();
-    if (!cleanPhone || cleanPhone.length < 8) {
-      setErrorMessage("Please enter a valid phone number (e.g. +919876543210)");
+    if (!/^\d{10}$/.test(phoneDigits)) {
+      setErrorMessage("Please enter a valid 10-digit Indian mobile number.");
       return;
     }
+    const cleanPhone = `+91${phoneDigits}`;
 
     setErrorMessage(null);
     setCallStatus("dialing");
@@ -153,10 +156,10 @@ export function VobizVoiceAgent({
     <section className="voice-agent-demo" aria-labelledby="vobiz-voice-agent-title">
       <div className="voice-agent-head">
         <div>
-          <span className="section-overline">LIVE OUTBOUND TELEPHONY · VOBIZ + SARVAM</span>
+          <span className="section-overline">LIVE OUTBOUND TELEPHONY</span>
           <h2 id="vobiz-voice-agent-title">Live Hinglish Voice Recovery Call</h2>
           <p>
-            Vobiz dials your mobile phone, Sarvam Saaras transcribes spoken Hinglish, Groq reasons in 150ms, and Sarvam Bulbul speaks the recovery response.
+            CHIMERA dials your mobile phone, understands spoken Hinglish, and responds with the next safe recovery step.
           </p>
         </div>
         <span className={`voice-agent-status ${badge.className}`}>
@@ -191,33 +194,30 @@ export function VobizVoiceAgent({
           </div>
 
           <form className="voice-agent-text-form" onSubmit={handleStartCall} style={{ marginTop: 0 }}>
-            <div style={{ display: "flex", gap: "0.75rem", width: "100%" }}>
+            <div className="voice-phone-row">
+              <div className="voice-phone-field">
+                <span className="phone-prefix">+91</span>
               <input
                 id="target-phone-input"
                 type="tel"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="+919876543210"
+                value={phoneDigits}
+                onChange={(e) => setPhoneDigits(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                placeholder="9876543210"
+                inputMode="numeric"
+                minLength={10}
+                maxLength={10}
+                pattern="[0-9]{10}"
+                aria-label="10-digit Indian mobile number"
                 disabled={isCalling}
-                style={{
-                  fontFamily: "monospace",
-                  fontSize: "1rem",
-                  flex: 1,
-                  padding: "0.6rem 0.85rem",
-                  borderRadius: "6px",
-                  border: "1px solid var(--border, #333)",
-                  background: "var(--surface-input, rgba(255,255,255,0.04))",
-                  color: "inherit",
-                }}
               />
+              </div>
               <button
                 className="button button-primary"
                 type="submit"
                 disabled={isCalling}
-                style={{ whiteSpace: "nowrap", display: "flex", alignItems: "center", gap: "0.5rem" }}
               >
                 <PhoneCallIcon size={16} />
-                {isCalling ? "Call in Progress..." : "Call My Phone via Vobiz"}
+                {isCalling ? "Call in Progress..." : "Call My Phone"}
               </button>
             </div>
           </form>
@@ -251,7 +251,7 @@ export function VobizVoiceAgent({
               <div className="voice-agent-empty">
                 <PhoneCallIcon size={20} />
                 <span>
-                  Click <strong>&quot;Call My Phone via Vobiz&quot;</strong> above. Answer the incoming phone call and speak in Hinglish (e.g. &quot;payment link bhej do&quot; or &quot;kyun fail hua?&quot;).
+                  Click <strong>&quot;Call My Phone&quot;</strong> above. Answer the incoming phone call and speak in Hinglish (e.g. &quot;payment link bhej do&quot; or &quot;kyun fail hua?&quot;).
                 </span>
               </div>
             )}
@@ -263,7 +263,7 @@ export function VobizVoiceAgent({
             )}
             {turns.map((t, idx) => (
               <div className={`voice-agent-line ${t.speaker === "agent" ? "agent" : "customer"}`} key={t.id || idx}>
-                <span>{t.speaker === "agent" ? "CHIMERA AI (Sarvam + Groq)" : "YOU (Hinglish)"}</span>
+                <span>{t.speaker === "agent" ? "CHIMERA AGENT" : "YOU (Hinglish)"}</span>
                 <p>{t.text}</p>
                 {t.intent && (
                   <small style={{ opacity: 0.7, fontSize: "0.75rem", display: "inline-block", marginTop: "2px" }}>
@@ -314,20 +314,20 @@ export function VobizVoiceAgent({
           </div>
           <h3>Direct Outbound PSTN</h3>
           <p>
-            Unlike browser microphone demos, this dials a real phone on Indian telecom networks via Vobiz, passing audio directly to Sarvam.
+            Unlike browser microphone demos, this dials a real phone on Indian telecom networks and passes the conversation through CHIMERA's voice bridge.
           </p>
           <div className="voice-agent-guardrail-list">
             <span>
-              <CheckIcon size={13} /> Vobiz Indian Cloud Telephony
+              <CheckIcon size={13} /> Indian cloud telephony
             </span>
             <span>
-              <CheckIcon size={13} /> Sarvam Saaras v3 STT (Hinglish)
+              <CheckIcon size={13} /> Hinglish speech recognition
             </span>
             <span>
-              <CheckIcon size={13} /> Groq Llama 3.3 (~150ms TTFT)
+              <CheckIcon size={13} /> Low-latency response generation
             </span>
             <span>
-              <CheckIcon size={13} /> Sarvam Bulbul v3 TTS (Shubh)
+              <CheckIcon size={13} /> Natural speech response
             </span>
             <span>
               <CheckIcon size={13} /> Zero credential leakage

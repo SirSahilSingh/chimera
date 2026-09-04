@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertIcon, ArrowLeftIcon, AuditIcon, CheckIcon, ChevronDownIcon, FlaskIcon, GridIcon, ListIcon, SearchIcon, ShieldIcon, TuneIcon } from "./icons";
 import logo from "../chimera-logo.png";
@@ -14,36 +14,20 @@ type NavItem = {
   disabled?: boolean;
 };
 
-type NavSection = {
-  label: string;
-  items: NavItem[];
-};
-
-const navSections: NavSection[] = [
-  { label: "Recovery Operations", items: [
-    { href: "/cases", label: "Case Queue", icon: ListIcon },
-    { href: "/cases?status=DECIDED", label: "Action Queue", icon: AlertIcon },
-    { href: "/escalations", label: "Escalations", icon: AlertIcon },
-    { href: "/retries/scheduled", label: "Scheduled Retries", icon: ShieldIcon },
-  ] },
-  { label: "Intelligence", items: [
-    { href: "/intelligence/failures", label: "Failure Patterns", icon: SearchIcon },
-    { href: "/intelligence/performance", label: "Recovery Outcomes", icon: GridIcon },
-    { href: "/learn", label: "Outcome Learning", icon: SearchIcon },
-  ] },
-  { label: "System", items: [
-    { href: "/system/health", label: "System Health", icon: ShieldIcon },
-    { href: "/system/decision-engine", label: "Decision Engine", icon: ShieldIcon },
-    { href: "/audit", label: "Audit Trail", icon: AuditIcon },
-  ] },
-  { label: "Providers", items: [
-    { href: "/providers", label: "Provider Readiness", icon: ShieldIcon },
-  ] },
-  { label: "Evaluation Lab", items: [
-    { href: "/demo", label: "Demo Scenarios", icon: FlaskIcon },
-    { href: "/arena", label: "Policy Lab", icon: GridIcon },
-    { href: "/methodology", label: "Methodology & Guardrails", icon: ShieldIcon },
-  ] },
+const navItems: NavItem[] = [
+  { href: "/cases", label: "Case Queue", icon: ListIcon },
+  { href: "/cases?status=DECIDED", label: "Action Queue", icon: AlertIcon },
+  { href: "/retries/scheduled", label: "Scheduled Retries", icon: ShieldIcon },
+  { href: "/intelligence/failures", label: "Failure Patterns", icon: SearchIcon },
+  { href: "/intelligence/performance", label: "Recovery Outcomes", icon: GridIcon },
+  { href: "/learn", label: "Outcome Learning", icon: SearchIcon },
+  { href: "/system/health", label: "System Health", icon: ShieldIcon },
+  { href: "/system/decision-engine", label: "Decision Engine", icon: ShieldIcon },
+  { href: "/audit", label: "Audit Trail", icon: AuditIcon },
+  { href: "/providers", label: "Provider Readiness", icon: ShieldIcon },
+  { href: "/demo", label: "Demo Scenarios", icon: FlaskIcon },
+  { href: "/arena", label: "Policy Lab", icon: GridIcon },
+  { href: "/methodology", label: "Methodology & Guardrails", icon: ShieldIcon },
 ];
 
 const settingsItems = [
@@ -57,7 +41,7 @@ const settingsItems = [
 
 const searchItems = [
   { href: "/", label: "Overview", detail: "Command Center", icon: GridIcon },
-  ...navSections.flatMap((section) => section.items.map((item) => ({ href: item.href!, label: item.label, detail: section.label, icon: item.icon }))),
+  ...navItems.map((item) => ({ href: item.href!, label: item.label, detail: "Workspace", icon: item.icon })),
   ...settingsItems.map((item) => ({ href: item.href, label: item.label, detail: "Settings", icon: TuneIcon })),
 ];
 
@@ -68,10 +52,6 @@ function isItemActive(pathname: string, search: string, href?: string) {
   if (route === "/") return pathname === "/" && !search;
   if (route === "/cases") return pathname === route && !search.includes("status=DECIDED");
   return pathname === route || pathname.startsWith(`${route}/`);
-}
-
-function sectionIsActive(section: NavSection, pathname: string, search: string) {
-  return section.items.some((item) => isItemActive(pathname, search, item.href));
 }
 
 function pageName(pathname: string, search: string) {
@@ -85,6 +65,7 @@ function pageName(pathname: string, search: string) {
   if (pathname.startsWith("/arena")) return "Policy Lab";
   if (pathname.startsWith("/methodology")) return "Methodology & Guardrails";
   if (pathname.startsWith("/demo")) return "Demo Scenarios";
+  if (pathname.startsWith("/voice-recovery")) return "Voice-Assisted Recovery";
   if (pathname.startsWith("/checkout")) return "Demo Scenarios";
   if (pathname.startsWith("/intelligence/failures")) return "Failure Patterns";
   if (pathname.startsWith("/intelligence/performance")) return "Recovery Outcomes";
@@ -104,21 +85,12 @@ function pageName(pathname: string, search: string) {
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const search = useSearchParams().toString();
   const router = useRouter();
   const settingsMode = pathname.startsWith("/settings");
-  const [search, setSearch] = useState("");
   const [findQuery, setFindQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>(() => Object.fromEntries(navSections.map((section) => [section.label, false])));
-  const [hoveredSection, setHoveredSection] = useState<string | null>(null);
   const [selectedSearchIndex, setSelectedSearchIndex] = useState(0);
-
-  useEffect(() => {
-    const nextSearch = window.location.search.slice(1);
-    setSearch(nextSearch);
-    const activeSection = navSections.find((section) => sectionIsActive(section, pathname, nextSearch));
-    if (activeSection) setExpanded((current) => ({ ...current, [activeSection.label]: true }));
-  }, [pathname]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -159,21 +131,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       {settingsMode ? <SettingsNavigation pathname={pathname} /> : <nav className="side-nav" aria-label="Primary navigation">
         <Link href="/" className={`nav-item nav-overview ${pathname === "/" && !search.includes("view=engine") ? "active" : ""}`}><GridIcon size={16} /><span>Overview</span></Link>
         <div className="nav-rule" />
-        {navSections.map((section, index) => {
-          const active = sectionIsActive(section, pathname, search);
-          const open = expanded[section.label] || hoveredSection === section.label;
-          return <div className={`nav-section ${active ? "section-active" : ""} ${open ? "open" : ""}`} key={section.label} onMouseEnter={() => setHoveredSection(section.label)} onMouseLeave={() => setHoveredSection((current) => current === section.label ? null : current)}>
-            <button className="nav-section-toggle" type="button" aria-expanded={open} onClick={() => setExpanded((current) => ({ ...current, [section.label]: !current[section.label] }))}>
-              <span>{section.label}</span><span className="nav-section-arrow"><ChevronDownIcon size={13} className={open ? "" : "collapsed"} /></span>
-            </button>
-            <div className="nav-children" aria-hidden={!open}><div className="nav-children-inner">{section.items.map((item) => {
-              const itemActive = isItemActive(pathname, search, item.href);
-              if (item.disabled) return <span className="nav-item nav-child disabled" aria-disabled="true" title="Coming next" key={item.label}><item.icon size={15} /><span>{item.label}</span></span>;
-              return <Link href={item.href!} className={`nav-item nav-child ${itemActive ? "active" : ""}`} key={item.label}><item.icon size={15} /><span>{item.label}</span></Link>;
-            })}</div></div>
-            {index === 1 && <div className="nav-rule section-rule" />}
-          </div>;
-        })}
+        {navItems.map((item) => <Link href={item.href!} className={`nav-item nav-child ${isItemActive(pathname, search, item.href) ? "active" : ""}`} key={item.label}><item.icon size={15} /><span>{item.label}</span></Link>)}
         <div className="nav-rule settings-rule" />
         <Link href="/settings/general" className={`nav-item nav-settings ${settingsMode ? "active" : ""}`}><TuneIcon size={16} /><span>Settings</span></Link>
       </nav>}
@@ -233,7 +191,7 @@ export function Button({ children, kind = "primary", onClick, disabled, type = "
 
 export type DropdownOption = { value: string; label: string; tone?: "neutral" | "blue" | "mint" | "amber" | "red" | "violet" };
 
-export function DropdownField({ label, value, onChange, options, className = "", disabled = false }: { label: string; value: string; onChange: (value: string) => void; options: DropdownOption[]; className?: string; disabled?: boolean }) {
+export function DropdownField({ label, value, onChange, options, className = "", disabled = false, required = false }: { label: string; value: string; onChange: (value: string) => void; options: DropdownOption[]; className?: string; disabled?: boolean; required?: boolean }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const selected = options.find((option) => option.value === value) ?? options[0];
@@ -251,7 +209,7 @@ export function DropdownField({ label, value, onChange, options, className = "",
 
   return <div className={`dropdown-field ${open ? "open" : ""} ${className}`} ref={rootRef}>
     <button className="dropdown-trigger" type="button" aria-haspopup="listbox" aria-expanded={open} disabled={disabled} onClick={() => setOpen((current) => !current)}>
-      <span className="dropdown-trigger-label">{label}</span><span className="dropdown-trigger-value">{selected?.label ?? "Select"}</span><ChevronDownIcon size={13} />
+      <span className="dropdown-trigger-label">{label}{required && <span className="required-mark" aria-hidden="true"> *</span>}</span><span className="dropdown-trigger-value">{selected?.label ?? "Select"}</span><ChevronDownIcon size={13} />
     </button>
     {open && <div className="dropdown-menu" role="listbox" aria-label={label}>
       {options.map((option) => <button className={`dropdown-option ${option.value === value ? "selected" : ""}`} type="button" role="option" aria-selected={option.value === value} key={option.value} onClick={() => { onChange(option.value); setOpen(false); }}>
