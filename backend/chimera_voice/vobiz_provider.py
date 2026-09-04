@@ -35,7 +35,10 @@ class VobizVoiceProvider(VoiceProvider):
         self.auth_id = str(auth_id).strip().strip('"').strip("'") if auth_id else None
         self.auth_token = str(auth_token).strip().strip('"').strip("'") if auth_token else None
         self.caller_id = str(caller_id).strip().strip('"').strip("'") if caller_id else None
-        self.public_base_url = public_base_url.rstrip("/") if public_base_url else None
+        raw_public = str(public_base_url).strip().rstrip("/") if public_base_url else None
+        if raw_public and raw_public.endswith("/api/v1"):
+            raw_public = raw_public[:-len("/api/v1")].rstrip("/")
+        self.public_base_url = raw_public
         self.api_base_url = api_base_url.rstrip("/")
         self.enabled = enabled
         self.timeout_seconds = timeout_seconds
@@ -72,12 +75,15 @@ class VobizVoiceProvider(VoiceProvider):
         caller = self._format_phone(self.caller_id or "")
 
         answer_url = f"{self.public_base_url}/api/v1/voice/vobiz/answer?intervention_id={context.intervention_id}"
+        hangup_url = f"{self.public_base_url}/api/v1/voice/vobiz/hangup"
 
         payload = {
             "from": caller,
             "to": destination,
             "answer_url": answer_url,
             "answer_method": "POST",
+            "hangup_url": hangup_url,
+            "hangup_method": "POST",
         }
 
         url = f"{self.api_base_url}/api/v1/Account/{self.auth_id}/Call/"

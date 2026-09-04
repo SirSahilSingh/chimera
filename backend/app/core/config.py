@@ -119,7 +119,14 @@ def _load_env_file() -> None:
 
 def load_settings() -> AppSettings:
     _load_env_file()
-    voice_public_base_url = os.getenv("VOICE_PUBLIC_BASE_URL") or None
+    raw_public_base = os.getenv("VOICE_PUBLIC_BASE_URL") or None
+    if raw_public_base:
+        voice_public_base_url = raw_public_base.strip().rstrip("/")
+        if voice_public_base_url.endswith("/api/v1"):
+            voice_public_base_url = voice_public_base_url[:-len("/api/v1")].rstrip("/")
+    else:
+        voice_public_base_url = None
+
     exotel_stream_url = os.getenv("EXOTEL_STREAM_URL")
     if not exotel_stream_url and voice_public_base_url:
         wss_base = voice_public_base_url.replace("https://", "wss://").replace("http://", "ws://").rstrip("/")

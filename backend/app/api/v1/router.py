@@ -7,6 +7,7 @@ import json
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, Response, WebSocket
 from fastapi.responses import PlainTextResponse
 from urllib.parse import parse_qsl, urlencode
+from xml.sax.saxutils import escape
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -1055,33 +1056,58 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
     ):
         """Return VobizXML instructions connecting the answered call to Chimera's WebSocket."""
         provider = service.provider
-        stream_base = None
+        raw_base = None
         if isinstance(provider, VobizVoiceProvider) and provider.public_base_url:
-            wss_base = provider.public_base_url.replace("https://", "wss://").replace("http://", "ws://").rstrip("/")
-            stream_base = f"{wss_base}/api/v1/voice/vobiz/stream"
+            raw_base = provider.public_base_url
         elif hasattr(provider, "public_base_url") and getattr(provider, "public_base_url", None):
-            wss_base = getattr(provider, "public_base_url").replace("https://", "wss://").replace("http://", "ws://").rstrip("/")
+            raw_base = getattr(provider, "public_base_url")
+
+        if raw_base:
+            clean_base = str(raw_base).strip().rstrip("/")
+            if clean_base.endswith("/api/v1"):
+                clean_base = clean_base[:-len("/api/v1")].rstrip("/")
+            wss_base = clean_base.replace("https://", "wss://").replace("http://", "ws://")
             stream_base = f"{wss_base}/api/v1/voice/vobiz/stream"
         else:
-            host = request.headers.get("host", "localhost:8000")
-            scheme = "wss" if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https" else "ws"
+            host = request.headers.get("x-forwarded-host") or request.headers.get("host", "localhost:8000")
+            proto = request.headers.get("x-forwarded-proto") or request.url.scheme
+            scheme = "wss" if proto == "https" else "ws"
             stream_base = f"{scheme}://{host}/api/v1/voice/vobiz/stream"
 
         target_intervention_id = intervention_id or request.query_params.get("intervention_id")
+        if not target_intervention_id and request.method == "POST":
+            try:
+                form_data = await request.form()
+                target_intervention_id = form_data.get("intervention_id") or form_data.get("InterventionId")
+                call_uuid = form_data.get("CallUUID") or form_data.get("CallId") or form_data.get("CallSid")
+                if not target_intervention_id and call_uuid:
+                    try:
+                        call = service.get_call_for_provider_reference(str(call_uuid).strip())
+                        target_intervention_id = call.intervention_id
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
         if not target_intervention_id:
             latest = service.get_latest_active_call()
             if latest:
                 target_intervention_id = latest.intervention_id
 
-        stream_url = f"{stream_base}?{urlencode({'intervention_id': target_intervention_id})}" if target_intervention_id else stream_base
+        query_part = f"?{urlencode({'intervention_id': target_intervention_id})}" if target_intervention_id else ""
+        stream_url = f"{stream_base}{query_part}"
+        escaped_url = escape(stream_url)
 
         xml_content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Stream bidirectional="true" keepCallAlive="true" contentType="audio/x-l16;rate=16000">
-    {stream_url}
-  </Stream>
+  <Stream bidirectional="true" audioTrack="inbound" keepCallAlive="true" contentType="audio/x-l16;rate=16000">{escaped_url}</Stream>
+  <Hangup/>
 </Response>"""
         return PlainTextResponse(xml_content, media_type="application/xml")
+
+    @router.api_route("/voice/vobiz/hangup", methods=["GET", "POST"], response_class=PlainTextResponse)
+    async def vobiz_hangup(request: Request):
+        return PlainTextResponse("OK")
 
     @router.websocket("/voice/vobiz/stream")
     async def vobiz_stream(
@@ -1090,6 +1116,7 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
         service: VoiceService = Depends(voice_service),
     ):
         """Receive Vobiz bidirectional audio and run the Sarvam Saaras/Bulbul + Groq Hinglish loop."""
+        target_intervention_id = intervention_id or websocket.query_params.get("intervention_id")
         speech = service.speech_provider
         if speech is not None and speech.api_key and not speech.enabled:
             speech.enabled = True
@@ -1097,7 +1124,7 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
         if speech is None or not speech.enabled or not speech.api_key:
             await asyncio.to_thread(
                 service.vobiz_stream_failed,
-                intervention_id,
+                target_intervention_id,
                 stage="configuration",
                 code="provider_not_configured",
                 message="Sarvam speech credentials are not configured for Vobiz voice stream.",
@@ -1110,7 +1137,7 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
             websocket,
             voice_service=service,
             speech_provider=speech,
-            intervention_id=intervention_id,
+            intervention_id=target_intervention_id,
             groq_agent=groq_agent,
         ).run()
 

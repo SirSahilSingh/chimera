@@ -6,6 +6,7 @@ import io
 import json
 import logging
 import struct
+import uuid
 import wave
 from typing import Any
 
@@ -23,9 +24,10 @@ class VobizStreamSession:
 
     _SAMPLE_RATE = 16000
     _BYTES_PER_MS = 32  # 16 kHz * 2 bytes/sample (16-bit mono) / 1000 ms
-    _SILENCE_FLUSH_MS = 750
+    _SILENCE_FLUSH_MS = 800
+    _MIN_SPEECH_MS = 180
     _MAX_TURN_MS = 10000
-    _ENERGY_THRESHOLD = 350
+    _ENERGY_THRESHOLD = 300
 
     def __init__(
         self,
@@ -48,55 +50,70 @@ class VobizStreamSession:
         self.silence_ms = 0
         self.elapsed_ms = 0
         self.is_playing = False
+        self.is_processing = False
         self.close_after_playback = False
+        self._tasks: set[asyncio.Task] = set()
 
     async def run(self) -> None:
         await self.websocket.accept()
+        logger.info("Vobiz WebSocket connected: intervention_id=%s", self.intervention_id)
         try:
             while True:
-                message = await self.websocket.receive_json()
+                text = await self.websocket.receive_text()
+                try:
+                    message = json.loads(text)
+                except Exception:
+                    continue
+
                 event = str(message.get("event", "")).strip()
 
                 if event == "start":
                     await self._handle_start(message)
                 elif event == "media":
                     await self._handle_media(message)
-                elif event == "playedStream":
+                elif event in {"playedStream", "clearedAudio"}:
                     self.is_playing = False
                     if self.close_after_playback:
+                        await asyncio.sleep(0.8)
                         return
-                elif event in {"stop", "disconnect", "close"}:
-                    await self._flush_audio()
+                elif event in {"stop", "hangup", "disconnect", "close"}:
+                    logger.info("Vobiz stream terminated by carrier: event=%s", event)
                     return
         except WebSocketDisconnect:
             logger.info("Vobiz WebSocket disconnected for stream %s", self.stream_id)
             return
-        except SarvamSpeechError as exc:
-            logger.error("Sarvam speech error during Vobiz stream: %s", exc)
+        except Exception as exc:
+            logger.exception("Vobiz voice stream failure: %s", exc)
             if self.intervention_id:
-                await asyncio.to_thread(
-                    self.voice_service.vobiz_stream_failed,
-                    self.intervention_id,
-                    stage="sarvam",
-                    code=exc.code,
-                    message=exc.message,
-                )
+                try:
+                    await asyncio.to_thread(
+                        self.voice_service.vobiz_stream_failed,
+                        self.intervention_id,
+                        stage="bridge",
+                        code="voice_stream_failure",
+                        message=str(exc),
+                    )
+                except Exception:
+                    pass
             await self._close_with_error()
-        except (VoiceDomainError, ValueError, KeyError, Exception) as exc:
-            logger.error("Vobiz voice stream failure: %s", exc)
-            if self.intervention_id:
-                await asyncio.to_thread(
-                    self.voice_service.vobiz_stream_failed,
-                    self.intervention_id,
-                    stage="bridge",
-                    code="voice_stream_failure",
-                    message=str(exc),
-                )
-            await self._close_with_error()
+        finally:
+            await self._cleanup()
 
     async def _handle_start(self, message: dict[str, Any]) -> None:
-        self.stream_id = message.get("streamId") or message.get("stream_id") or message.get("streamSid")
-        self.call_id = message.get("callId") or message.get("call_id") or message.get("callSid")
+        start_data = message.get("start") if isinstance(message.get("start"), dict) else {}
+        self.stream_id = (
+            message.get("streamId")
+            or start_data.get("streamId")
+            or message.get("stream_id")
+            or message.get("streamSid")
+        )
+        self.call_id = (
+            message.get("callId")
+            or start_data.get("callId")
+            or start_data.get("callUUID")
+            or message.get("call_id")
+            or message.get("callSid")
+        )
 
         # Associate intervention_id if not present from query params
         if not self.intervention_id and self.call_id:
@@ -114,17 +131,38 @@ class VobizStreamSession:
             except Exception:
                 pass
 
-        if not self.intervention_id:
-            logger.warning("Vobiz stream started without intervention_id for call %s", self.call_id)
-            return
+        logger.info("Vobiz stream started: call_id=%s stream_id=%s intervention_id=%s", self.call_id, self.stream_id, self.intervention_id)
 
-        await asyncio.to_thread(self.voice_service.vobiz_stream_opened, self.intervention_id, self.stream_id)
-        opening_text = await asyncio.to_thread(self.voice_service.vobiz_opening, self.intervention_id)
-        audio_wav = await asyncio.to_thread(self.speech_provider.synthesize, opening_text, sample_rate=self._SAMPLE_RATE)
-        await self._send_audio(audio_wav)
+        if self.intervention_id:
+            try:
+                await asyncio.to_thread(self.voice_service.vobiz_stream_opened, self.intervention_id, self.stream_id)
+            except Exception as exc:
+                logger.warning("Failed to record stream opened: %s", exc)
+
+        # Spawn greeting in background task so WebSocket loop is NEVER blocked
+        self._spawn(self._play_greeting())
+
+    async def _play_greeting(self) -> None:
+        try:
+            if not self.intervention_id:
+                opening_text = "नमस्ते, मैं Chimera Payments से बात कर रहा हूँ। क्या मेरी बात Rohit से हो रही है?"
+            else:
+                opening_text = await asyncio.to_thread(self.voice_service.vobiz_opening, self.intervention_id)
+
+            logger.info("Synthesizing greeting for intervention %s: %s", self.intervention_id, opening_text)
+            audio_wav = await asyncio.to_thread(self.speech_provider.synthesize, opening_text, sample_rate=self._SAMPLE_RATE)
+            await self._send_audio(audio_wav)
+        except Exception as exc:
+            logger.exception("Failed to synthesize or play greeting: %s", exc)
 
     async def _handle_media(self, message: dict[str, Any]) -> None:
+        if self.is_processing:
+            return
+
         media = message.get("media") if isinstance(message.get("media"), dict) else {}
+        if media.get("track") not in {None, "inbound"}:
+            return
+
         payload = media.get("payload")
         if not isinstance(payload, str) or not payload:
             return
@@ -134,55 +172,61 @@ class VobizStreamSession:
         except (ValueError, TypeError):
             return
 
-        if not chunk:
+        if not chunk or len(chunk) % 2 != 0:
             return
 
-        self.audio_buffer.extend(chunk)
         chunk_ms = max(1, len(chunk) // self._BYTES_PER_MS)
-        self.elapsed_ms += chunk_ms
-
         speaking = self._has_voice(chunk)
+
         if speaking:
-            # Barge-in: if bot was speaking and caller interrupts, stop playback
+            # Barge-in: if bot is currently speaking, stop playback
             if self.is_playing:
                 await self._clear_audio()
                 self.is_playing = False
             self.speech_started = True
             self.silence_ms = 0
+            self.audio_buffer.extend(chunk)
+            self.elapsed_ms += chunk_ms
         elif self.speech_started:
             self.silence_ms += chunk_ms
+            self.audio_buffer.extend(chunk)
+            self.elapsed_ms += chunk_ms
 
         if (self.speech_started and self.silence_ms >= self._SILENCE_FLUSH_MS) or self.elapsed_ms >= self._MAX_TURN_MS:
-            await self._flush_audio()
+            if self.elapsed_ms >= self._MIN_SPEECH_MS and len(self.audio_buffer) >= 3200:
+                audio_to_process = bytes(self.audio_buffer)
+                self._reset_vad()
+                self.is_processing = True
+                self._spawn(self._process_utterance(audio_to_process))
+            else:
+                self._reset_vad()
 
-    async def _clear_audio(self) -> None:
-        if not self.stream_id:
-            return
-        try:
-            await self.websocket.send_json({
-                "event": "clearAudio",
-                "streamId": self.stream_id,
-            })
-        except Exception:
-            pass
-
-    async def _flush_audio(self) -> None:
-        if not self.speech_started or len(self.audio_buffer) < 1280:
-            self.audio_buffer.clear()
-            self.speech_started = False
-            self.silence_ms = 0
-            self.elapsed_ms = 0
-            return
-
-        audio_wav = self._wav(bytes(self.audio_buffer))
+    def _reset_vad(self) -> None:
         self.audio_buffer.clear()
         self.speech_started = False
         self.silence_ms = 0
         self.elapsed_ms = 0
 
-        transcript = await asyncio.to_thread(self.speech_provider.transcribe, audio_wav, content_type="audio/wav")
-        if transcript and self.intervention_id:
-            await self._respond(transcript)
+    async def _process_utterance(self, pcm_bytes: bytes) -> None:
+        try:
+            audio_wav = self._wav(pcm_bytes)
+            transcript: str | None = None
+            try:
+                transcript = await asyncio.to_thread(self.speech_provider.transcribe, audio_wav, content_type="audio/wav")
+            except Exception as exc:
+                logger.info("Speech transcription skipped (noise or silence): %s", exc)
+                return
+
+            if not transcript or not transcript.strip():
+                return
+
+            clean_text = transcript.strip()
+            logger.info("Caller utterance transcribed: %s", clean_text)
+            await self._respond(clean_text)
+        except Exception as exc:
+            logger.exception("Error processing caller utterance: %s", exc)
+        finally:
+            self.is_processing = False
 
     async def _respond(self, transcript: str) -> None:
         response_text: str | None = None
@@ -200,7 +244,6 @@ class VobizStreamSession:
                 logger.warning("Groq reasoning failed, falling back to VoiceService: %s", exc)
 
         if response_text:
-            # Record the turn and check for termination
             should_end = await asyncio.to_thread(
                 self.voice_service.record_vobiz_turn,
                 self.intervention_id,
@@ -212,9 +255,14 @@ class VobizStreamSession:
                 self.voice_service.handle_vobiz_transcript, self.intervention_id, transcript
             )
 
+        logger.info("Agent reply: %s (close_after_playback=%s)", response_text, should_end)
         self.close_after_playback = should_end
-        audio_wav = await asyncio.to_thread(self.speech_provider.synthesize, response_text, sample_rate=self._SAMPLE_RATE)
-        await self._send_audio(audio_wav)
+
+        try:
+            audio_wav = await asyncio.to_thread(self.speech_provider.synthesize, response_text, sample_rate=self._SAMPLE_RATE)
+            await self._send_audio(audio_wav)
+        except Exception as exc:
+            logger.exception("Failed to synthesize or send agent reply: %s", exc)
 
     async def _send_audio(self, audio_wav: bytes) -> None:
         pcm = self._pcm_from_wav(audio_wav)
@@ -222,9 +270,13 @@ class VobizStreamSession:
             return
 
         self.is_playing = True
-        chunk_size = 3200  # 100 ms of 16 kHz, 16-bit mono PCM (3200 bytes)
+        # Chunk into 40ms frames (1280 bytes for 16 kHz 16-bit mono)
+        chunk_size = 1280
 
         for offset in range(0, len(pcm), chunk_size):
+            if not self.is_playing and offset > 0:
+                # Interrupted by user speaking (barge-in)
+                break
             chunk = pcm[offset : offset + chunk_size]
             if len(chunk) % 2 != 0:
                 chunk += b"\x00"
@@ -244,8 +296,26 @@ class VobizStreamSession:
             except Exception:
                 return
 
-            if offset >= chunk_size * 2:
-                await asyncio.sleep(0.08)
+        # Send checkpoint so Vobiz reports playedStream once all audio completes
+        try:
+            await self.websocket.send_json({
+                "event": "checkpoint",
+                "streamId": self.stream_id,
+                "name": f"tts-{uuid.uuid4().hex[:8]}",
+            })
+        except Exception:
+            pass
+
+    async def _clear_audio(self) -> None:
+        if not self.stream_id:
+            return
+        try:
+            await self.websocket.send_json({
+                "event": "clearAudio",
+                "streamId": self.stream_id,
+            })
+        except Exception:
+            pass
 
     def _has_voice(self, pcm: bytes) -> bool:
         """Measure RMS energy of 16-bit mono PCM."""
@@ -278,6 +348,20 @@ class VobizStreamSession:
             except Exception:
                 pass
         return audio_bytes
+
+    def _spawn(self, coroutine) -> asyncio.Task:
+        task = asyncio.create_task(coroutine)
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+        return task
+
+    async def _cleanup(self) -> None:
+        for task in list(self._tasks):
+            if not task.done():
+                task.cancel()
+        if self._tasks:
+            await asyncio.gather(*self._tasks, return_exceptions=True)
+        self._tasks.clear()
 
     async def _close_with_error(self) -> None:
         try:
