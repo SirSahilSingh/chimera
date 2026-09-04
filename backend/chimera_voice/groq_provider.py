@@ -39,7 +39,7 @@ class GroqVoiceAgent:
             else "No bank outage flag."
         )
 
-        return f"""You are CHIMERA's courteous, professional AI Voice Recovery Agent calling an Indian customer regarding an incomplete payment.
+        return f"""You are CHIMERA's courteous, conversational AI Voice Recovery Agent calling an Indian customer regarding an incomplete payment.
 
 Case Facts:
 - Amount: {amount_inr} {context.currency}
@@ -47,14 +47,17 @@ Case Facts:
 - Failure Reason: {context.failure_reason}
 - {incident_info}
 
-CRITICAL PHONE CALL RULES:
-1. Speak in natural, friendly, conversational Hinglish (blend of Hindi and English, written in natural Hindi script or Hinglish).
-2. Keep responses VERY SHORT: exactly 1 or 2 brief sentences (maximum 25-35 words). This is a real-time phone call. Do not give long lectures.
-3. If customer agrees or asks for a payment link: affirm politely and state that a secure payment link will be sent to their WhatsApp/SMS.
-4. If customer says they will pay later: acknowledge politely and say we have noted the retry preference.
-5. If customer says they already paid: thank them and explain that our finance team will verify the bank status.
-6. If customer declines or says wrong number: politely apologize and say we will close the call.
-7. HARD SAFETY: NEVER ask for card numbers, OTP, CVV, or UPI PIN. Never claim money is recovered until the gateway confirms it.
+CRITICAL CONVERSATIONAL RULES:
+1. Speak in warm, natural, friendly conversational Hinglish (blend of Hindi and English, written in natural Hindi script or Hinglish).
+2. Keep replies VERY CONCISE: 1 to 2 short sentences (maximum 20-30 words). Never give long speeches or monologues.
+3. If customer agrees, says 'hmm sahi hai', 'haan', 'theek hai', 'accha', 'ok', or asks for payment link:
+   Politely affirm and ask if you should send the direct payment link on their WhatsApp right now.
+4. If customer asks ANY questions (e.g. 'किसका payment है?', 'क्यों fail हुआ?', 'क्या समस्या थी?', 'कैसे pay करूँ?', 'kya call hai?'):
+   Answer directly, helpfully and accurately using the Case Facts ({amount_inr} via {context.payment_method} due to {context.failure_reason}), then ask if they'd like the payment link sent to WhatsApp.
+5. If customer says they will pay later: acknowledge politely and say we have noted the retry preference.
+6. If customer says they already paid: thank them and explain our finance team will verify the payment status.
+7. If customer declines or says wrong number: politely apologize and close the call.
+8. HARD SAFETY: NEVER ask for card numbers, OTP, CVV, passwords, or UPI PIN.
 """
 
     def generate_response(
@@ -64,6 +67,7 @@ CRITICAL PHONE CALL RULES:
         user_text: str,
     ) -> str | None:
         if not self.is_configured:
+            logger.warning("GroqVoiceAgent is not configured (missing GROQ_API_KEY)")
             return None
 
         system_instruction = self._build_system_prompt(context)
@@ -93,6 +97,7 @@ CRITICAL PHONE CALL RULES:
                 "Authorization": f"Bearer {self.api_key.strip()}",
                 "Content-Type": "application/json",
                 "Accept": "application/json",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             },
             method="POST",
         )
@@ -104,7 +109,12 @@ CRITICAL PHONE CALL RULES:
             clean_text = choice.strip().strip('"')
             return clean_text
         except HTTPError as exc:
-            logger.warning("Groq API HTTP error %s: %s", exc.code, exc.reason)
+            body = ""
+            try:
+                body = exc.read().decode("utf-8")
+            except Exception:
+                pass
+            logger.warning("Groq API HTTP error %s: %s | %s", exc.code, exc.reason, body)
             return None
         except (URLError, TimeoutError, KeyError, Exception) as exc:
             logger.warning("Groq API request failed: %s", exc)

@@ -1132,7 +1132,10 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
             await websocket.close(code=1011, reason="Sarvam speech provider is not configured")
             return
 
-        groq_agent = GroqVoiceAgent()
+        settings = getattr(websocket.app.state, "settings", None) if hasattr(websocket, "app") and hasattr(websocket.app, "state") else None
+        groq_key = (getattr(settings, "groq_api_key", None) if settings else None) or os.getenv("GROQ_API_KEY")
+        groq_model = (getattr(settings, "groq_model", None) if settings else None) or os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+        groq_agent = GroqVoiceAgent(api_key=groq_key, model=groq_model)
         await VobizStreamSession(
             websocket,
             voice_service=service,

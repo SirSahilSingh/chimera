@@ -40,9 +40,9 @@ class VoiceAgent:
             return VoiceIntent.CALLBACK_REQUEST
         if any(phrase in normalized for phrase in ("not interested", "do not want", "nahi chahiye", "nahin chahiye", "mat karo", "cancel", "नहीं चाहिए", "मत करो")) or normalized.strip() in {"no", "no thanks", "nahi", "nahin", "नहीं"}:
             return VoiceIntent.DECLINE
-        if any(phrase in normalized for phrase in ("yes", "pay now", "i can pay", "haan", "han", "ji haan", "abhi pay", "abhi payment", "pay kar", "payment karunga", "payment karungi", "kar deta", "kar dunga", "कर दूंगा", "अभी भुगतान")):
+        if any(phrase in normalized for phrase in ("yes", "pay now", "i can pay", "haan", "han", "ji haan", "sahi hai", "theek hai", "accha", "hmm", "ok", "okay", "सही है", "ठीक है", "अच्छा", "हाँ", "abhi pay", "abhi payment", "pay kar", "payment karunga", "payment karungi", "kar deta", "kar dunga", "कर दूंगा", "अभी भुगतान")):
             return VoiceIntent.PAY_NOW
-        if "?" in text or normalized.startswith(("why", "how", "what", "kyun", "kyon", "kaise", "kya", "क्यों", "कैसे", "क्या")):
+        if "?" in text or any(word in normalized for word in ("why", "how", "what", "kyun", "kyon", "kaise", "kya", "kiska", "kaunsa", "क्यों", "कैसे", "क्या", "किसका", "कौनसा")):
             return VoiceIntent.QUESTION
         return VoiceIntent.UNKNOWN
 

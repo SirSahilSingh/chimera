@@ -494,6 +494,14 @@ class VoiceService:
                     self._event(call, "PAYMENT_LINK_NOTIFIED", "messaging_service", {"message_id": message.id, "provider": message.provider, "provider_message_id": message.provider_message_id})
                 except Exception as exc:
                     self._event(call, "PAYMENT_LINK_NOTIFICATION_FAILED", "messaging_service", {"provider": getattr(self.messaging_service.provider, "name", "unknown"), "error": str(exc)[:128]})
+        if source == "vobiz" and intent == VoiceIntent.UNKNOWN:
+            default_text = "जी, क्या मैं आपके WhatsApp पर direct payment link share कर दूँ, या आप बाद में pay करना चाहेंगे?"
+        elif source == "vobiz" and intent == VoiceIntent.QUESTION:
+            amount_str = f"₹{context.payment_amount_paise / 100:,.0f}" if context.payment_amount_paise else "recent"
+            default_text = f"यह आपके {amount_str} के payment के बारे में है जो complete नहीं हो पाया। क्या मैं WhatsApp पर payment link भेज दूँ?"
+        else:
+            default_text = "मैं incorrect information नहीं देना चाहता। आपका response record कर लिया है और team follow up करेगी।"
+
         response_text = {
             VoiceIntent.PAY_NOW: "Payment link ready है। कृपया अभी complete कीजिए। Razorpay success confirm करेगा, तभी recovery mark होगी।",
             VoiceIntent.SEND_PAYMENT_LINK: "Payment link ready है और approved message channel के लिए request record हो गई है। Payment confirm होने के बाद ही recovery mark होगी।",
@@ -501,7 +509,7 @@ class VoiceService:
             VoiceIntent.ALREADY_PAID: "आपकी payment claim record हो गई है। Recovery से पहले payment team verify करेगी।",
             VoiceIntent.DECLINE: "समझ गया। आप continue नहीं करना चाहते, यह record कर लिया है।",
             VoiceIntent.WRONG_PERSON: "समझ गया। यह गलत number है, मैं call end कर रहा हूँ।",
-        }.get(intent, "मैं incorrect information नहीं देना चाहता। आपका response record कर लिया है और team follow up करेगी।")
+        }.get(intent, default_text)
         response = agent.response_turn(intent, self._now(), payment_link=None)
         response = response.model_copy(update={"text": response_text})
         self._record_turn(call, response, context)
