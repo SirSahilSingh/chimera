@@ -53,7 +53,7 @@ export default function CheckoutPage() {
         description: nextOrder.description,
         order_id: nextOrder.provider_order_id,
         prefill: { contact: nextOrder.customer_phone ?? undefined },
-        theme: { color: "#55d6a7" },
+        theme: { color: "#46e083" },
         modal: { ondismiss: () => setMessage("Checkout closed. CHIMERA is waiting for the provider outcome.") },
       });
       checkout.open();
@@ -65,19 +65,11 @@ export default function CheckoutPage() {
     }
   };
 
-  return <div className="overview-page checkout-page">
-    <div className="overview-toolbar"><div className="overview-toolbar-left"><h1>Initial checkout</h1></div><Link href="/" className="overview-button overview-button-light">Back to overview</Link></div>
-    <section className="overview-feature checkout-card">
-      <div className="overview-feature-head"><h2>Run a real Razorpay checkout</h2><ShieldIcon size={18} /></div>
-      <p className="checkout-copy">This creates a Razorpay Order. A failed attempt becomes a CHIMERA recovery case only after Razorpay delivers the signed payment.failed webhook.</p>
-      <form className="checkout-form" onSubmit={startCheckout}>
-        <label>Amount in INR<input inputMode="decimal" min="1" step="1" value={amount} onChange={(event) => setAmount(event.target.value)} required /></label>
-        <label>Customer phone<input inputMode="tel" placeholder="+91XXXXXXXXXX" value={phone} onChange={(event) => setPhone(event.target.value)} /></label>
-        <button className="button button-primary" type="submit" disabled={busy}>{busy ? "Creating order…" : "Open Razorpay Checkout"}<ArrowRightIcon size={15} /></button>
-      </form>
-      {message && <div className="queue-notice" role="status"><CheckIcon size={15} /><span>{message}</span></div>}
-      {error && <div className="state-panel error-state"><span>{error}</span></div>}
-      {order && <div className="checkout-order"><span>Order created</span><strong>{order.provider_order_id}</strong><small>{order.status} · {order.provider_mode} · {order.amount_paise / 100} INR</small></div>}
-    </section>
+  return <div className="checkout-page checkout-surface">
+    <div className="checkout-topline"><div><span className="checkout-kicker">Evaluation Lab <i /> Razorpay test</span><h1>Start a real payment test</h1><p>Open a Razorpay test checkout with a stored amount and customer number. CHIMERA creates a recovery case only after a signed failure webhook.</p></div><Link href="/demo" className="checkout-back">Back to Demo Scenarios <ArrowRightIcon size={14} /></Link></div>
+    <div className="checkout-layout">
+      <section className="checkout-form-card"><div className="checkout-card-head"><div><span className="checkout-step">01 / Checkout details</span><h2>Set the test inputs</h2><p>Use test data only. No live charge is made from this workspace.</p></div><div className="checkout-card-icon"><ShieldIcon size={19} /></div></div><form className="checkout-form" onSubmit={startCheckout}><label>Amount in INR<input inputMode="decimal" min="1" step="1" value={amount} onChange={(event) => setAmount(event.target.value)} required /><small>The amount sent to Razorpay TEST.</small></label><label>Customer phone <span className="optional-label">Optional</span><input inputMode="tel" placeholder="+91XXXXXXXXXX" value={phone} onChange={(event) => setPhone(event.target.value)} /><small>Used as the customer reference for the test.</small></label><button className="button button-primary checkout-submit" type="submit" disabled={busy}>{busy ? "Creating order…" : "Open Razorpay Checkout"}<ArrowRightIcon size={15} /></button></form>{message && <div className="checkout-message" role="status"><CheckIcon size={15} /><span>{message}</span></div>}{error && <div className="checkout-error" role="alert">{error}</div>}{order && <div className="checkout-order"><div><span>Order created</span><strong>{order.provider_order_id}</strong></div><small>{order.status} · {order.provider_mode} · {order.amount_paise / 100} INR</small></div>}</section>
+      <aside className="checkout-guide"><span className="checkout-step">02 / What happens next</span><h2>One test, three records.</h2><div className="checkout-guide-list"><div><b>01</b><div><strong>Create the order</strong><p>Razorpay returns a test order reference.</p></div></div><div><b>02</b><div><strong>Complete or fail checkout</strong><p>The provider remains the source of payment truth.</p></div></div><div><b>03</b><div><strong>Inspect the recovery case</strong><p>A signed failure webhook opens the path into Demo Scenarios and Decision Room.</p></div></div></div><div className="checkout-guide-note"><ShieldIcon size={15} /><span>CHIMERA does not infer a failure from the browser. It waits for the signed provider event.</span></div></aside>
+    </div>
   </div>;
 }

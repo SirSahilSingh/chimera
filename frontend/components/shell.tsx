@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertIcon, ArrowLeftIcon, AuditIcon, CheckIcon, ChevronDownIcon, FlaskIcon, GridIcon, ListIcon, SearchIcon, ShieldIcon, TuneIcon } from "./icons";
+import logo from "../chimera-logo.png";
 
 type NavItem = {
   href?: string;
@@ -38,7 +40,6 @@ const navSections: NavSection[] = [
     { href: "/providers", label: "Provider Readiness", icon: ShieldIcon },
   ] },
   { label: "Evaluation Lab", items: [
-    { href: "/checkout", label: "Initial Checkout", icon: ShieldIcon },
     { href: "/demo", label: "Demo Scenarios", icon: FlaskIcon },
     { href: "/arena", label: "Policy Lab", icon: GridIcon },
     { href: "/methodology", label: "Methodology & Guardrails", icon: ShieldIcon },
@@ -84,7 +85,7 @@ function pageName(pathname: string, search: string) {
   if (pathname.startsWith("/arena")) return "Policy Lab";
   if (pathname.startsWith("/methodology")) return "Methodology & Guardrails";
   if (pathname.startsWith("/demo")) return "Demo Scenarios";
-  if (pathname.startsWith("/checkout")) return "Initial Checkout";
+  if (pathname.startsWith("/checkout")) return "Demo Scenarios";
   if (pathname.startsWith("/intelligence/failures")) return "Failure Patterns";
   if (pathname.startsWith("/intelligence/performance")) return "Recovery Outcomes";
   if (pathname.startsWith("/learn")) return "Outcome Learning";
@@ -147,7 +148,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   return <div className="app-shell">
     <aside className="sidebar">
       <Link href="/" className="brand" aria-label="CHIMERA overview">
-        <span className="brand-mark"><span /></span>
+        <Image className="brand-logo" src={logo} alt="" width={23} height={23} priority />
         <span className="brand-name">CHIMERA</span>
         <span className="workspace-plan">Demo</span>
         <ChevronDownIcon size={13} />

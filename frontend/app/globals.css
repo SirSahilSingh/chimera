@@ -1858,6 +1858,82 @@ html::-webkit-scrollbar-thumb, body::-webkit-scrollbar-thumb, .main-shell::-webk
   .audit-row { grid-template-columns: 120px minmax(150px, 1.25fr) minmax(90px, 1fr) minmax(130px, 1fr) 95px 112px 20px; }
 }
 
+/* Current product refinements. */
+.brand-logo { display: block; width: 23px; height: 23px; object-fit: contain; border-radius: 6px; }
+.decision-tab.active { color: #fff; background: rgba(255, 255, 255, .045); border-color: #3a3a3a; box-shadow: none; }
+.decision-tab.active span { border-color: #fff; background: #fff; color: #000; box-shadow: none; }
+.decision-room .diagnosis-main { grid-template-columns: 32px minmax(0, 1fr) minmax(170px, .6fr); }
+.decision-room .diagnosis-mark { width: 32px; height: 32px; align-self: center; }
+.decision-room .diagnosis-mark svg { width: 32px; height: 32px; }
+.decision-room .diagnosis-tab .diagnosis-statement { padding: 4px 28px 24px; line-height: 1.7; }
+.decision-room .diagnosis-tab .diagnosis-facts { grid-template-columns: 1fr; padding: 0 28px 24px; }
+.decision-room .diagnosis-tab .diagnosis-facts div { padding: 12px 0 0; }
+.decision-room .diagnosis-tab .diagnosis-facts div + div { padding-left: 0; border-top: 1px solid #1d1d1d; border-left: 0; }
+.decision-room .diagnosis-tab .diagnosis-facts strong { white-space: nowrap; }
+.payment-operation .operation-link { margin-top: 4px; }
+.scenario-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 760px; }
+.scenario-setup { align-items: center; padding: 4px 1px; background: transparent; border: 0; }
+.scenario-setup-actions { display: flex; align-items: center; justify-content: flex-end; gap: 18px; }
+.demo-checkout-link { display: inline-flex; align-items: center; gap: 6px; color: #999; font-size: 11px; }
+.demo-checkout-link:hover { color: #fff; }
+.health-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px; }
+.health-panels > .intelligence-panel:first-child { grid-column: 1 / -1; }
+
+.checkout-surface { max-width: 1080px; }
+.checkout-topline { display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; padding: 6px 0 32px; }
+.checkout-topline > div { max-width: 720px; }
+.checkout-kicker, .checkout-step { display: inline-flex; align-items: center; gap: 9px; color: #46e083; font: 600 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.checkout-kicker i { width: 4px; height: 4px; background: #555; border-radius: 50%; }
+.checkout-topline h1 { margin: 11px 0 10px; color: #f1f1f1; font-size: 36px; line-height: 1; font-weight: 650; letter-spacing: -.055em; }
+.checkout-topline p { max-width: 660px; margin: 0; color: #888; font-size: 13px; line-height: 1.6; }
+.checkout-back { display: inline-flex; align-items: center; gap: 7px; color: #aaa; font-size: 11px; white-space: nowrap; }
+.checkout-back:hover { color: #fff; }
+.checkout-layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr); gap: 17px; }
+.checkout-form-card, .checkout-guide { min-width: 0; overflow: hidden; background: #050505; border: 1px solid #262626; border-radius: 11px; }
+.checkout-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 23px 23px 20px; border-bottom: 1px solid #242424; }
+.checkout-card-head h2, .checkout-guide h2 { margin: 10px 0 6px; color: #ededed; font-size: 18px; font-weight: 600; letter-spacing: -.025em; }
+.checkout-card-head p { margin: 0; color: #777; font-size: 11px; }
+.checkout-card-icon { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 auto; color: #46e083; background: #0a1b10; border: 1px solid #1c5730; border-radius: 8px; }
+.checkout-form-card .checkout-form { grid-template-columns: 1fr 1fr; gap: 20px; margin: 0; padding: 24px 23px 25px; }
+.checkout-form-card .checkout-form label { gap: 8px; color: #bcbcbc; font-size: 11px; font-weight: 550; }
+.checkout-form-card .checkout-form input { min-height: 44px; padding: 0 13px; color: #eee; background: #000; border: 1px solid #303030; border-radius: 7px; font-size: 13px; }
+.checkout-form-card .checkout-form input:focus { border-color: #46e083; box-shadow: 0 0 0 3px rgba(70, 224, 131, .08); }
+.checkout-form-card .checkout-form label small { color: #666; font-size: 10px; font-weight: 400; line-height: 1.4; }
+.optional-label { margin-left: 4px; color: #666; font-size: 10px; font-weight: 400; }
+.checkout-submit { grid-column: 1 / -1; width: fit-content; min-height: 41px; margin-top: 3px; padding: 0 16px; }
+.checkout-message, .checkout-error, .checkout-order { margin: 0 23px 23px; }
+.checkout-message { display: flex; align-items: flex-start; gap: 9px; padding: 11px 12px; color: #a6efbc; background: #08150d; border: 1px solid #1d4d2b; border-radius: 7px; font-size: 11px; }
+.checkout-message svg { flex: 0 0 auto; }
+.checkout-error { padding: 11px 12px; color: #ffaaa5; background: #1c0c0c; border: 1px solid #512525; border-radius: 7px; font-size: 11px; }
+.checkout-order { display: grid; gap: 5px; padding: 14px; color: #aaa; background: #0a0a0a; border: 1px solid #2b2b2b; border-radius: 7px; }
+.checkout-order > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.checkout-order span, .checkout-order small { color: #777; font-size: 10px; }
+.checkout-order strong { overflow: hidden; color: #ededed; font: 11px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
+.checkout-guide { padding: 23px; }
+.checkout-guide h2 { max-width: 180px; font-size: 22px; line-height: 1.1; }
+.checkout-guide-list { display: grid; margin-top: 28px; }
+.checkout-guide-list > div { display: grid; grid-template-columns: 27px 1fr; gap: 11px; padding: 17px 0; border-top: 1px solid #242424; }
+.checkout-guide-list b { color: #46e083; font: 10px var(--mono); }
+.checkout-guide-list strong { color: #ddd; font-size: 12px; font-weight: 550; }
+.checkout-guide-list p { margin: 5px 0 0; color: #777; font-size: 11px; line-height: 1.5; }
+.checkout-guide-note { display: flex; align-items: flex-start; gap: 8px; margin-top: 20px; padding-top: 16px; color: #777; border-top: 1px solid #242424; font-size: 10px; line-height: 1.5; }
+.checkout-guide-note svg { flex: 0 0 auto; color: #46e083; }
+
+@media (max-width: 760px) {
+  .scenario-grid { grid-template-columns: 1fr; max-width: none; }
+  .scenario-setup { align-items: flex-start; flex-direction: column; gap: 13px; }
+  .scenario-setup-actions { align-items: flex-start; flex-direction: column-reverse; gap: 12px; }
+  .health-panels { grid-template-columns: 1fr; }
+  .health-panels > .intelligence-panel:first-child { grid-column: auto; }
+  .checkout-topline { align-items: flex-start; flex-direction: column; gap: 18px; padding-bottom: 24px; }
+  .checkout-topline h1 { font-size: 30px; }
+  .checkout-layout { grid-template-columns: 1fr; }
+  .checkout-form-card .checkout-form { grid-template-columns: 1fr; }
+  .checkout-submit { grid-column: auto; width: 100%; }
+  .decision-room .diagnosis-main { grid-template-columns: 32px minmax(0, 1fr); }
+  .decision-room .diagnosis-main-facts { grid-column: 2; }
+}
+
 /* Decision room: quiet hierarchy, rounded black surfaces, and an explicit action path. */
 .decision-room .detail-hero { align-items: start; }
 .decision-room .detail-actions { align-self: start; }
