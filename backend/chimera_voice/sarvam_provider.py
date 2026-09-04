@@ -113,28 +113,40 @@ class SarvamSpeechProvider:
             else:
                 raise
 
-        raw_b64 = None
+        audio_chunks: list[bytes] = []
         if isinstance(payload, dict):
             audios = payload.get("audios")
-            if isinstance(audios, list) and audios:
-                raw_b64 = audios[0]
-            elif isinstance(audios, str):
-                raw_b64 = audios
+            if isinstance(audios, list):
+                for item in audios:
+                    if isinstance(item, str) and item.strip():
+                        try:
+                            audio_chunks.append(base64.b64decode(item.strip()))
+                        except (TypeError, ValueError):
+                            pass
+            elif isinstance(audios, str) and audios.strip():
+                try:
+                    audio_chunks.append(base64.b64decode(audios.strip()))
+                except (TypeError, ValueError):
+                    pass
             else:
-                raw_b64 = payload.get("audio") or payload.get("audio_content")
+                raw_single = payload.get("audio") or payload.get("audio_content")
+                if isinstance(raw_single, str) and raw_single.strip():
+                    try:
+                        audio_chunks.append(base64.b64decode(raw_single.strip()))
+                    except (TypeError, ValueError):
+                        pass
 
-        if not raw_b64 or not isinstance(raw_b64, str):
+        if not audio_chunks:
             raise SarvamSpeechError("provider_invalid_response", "Sarvam returned no audio payload.")
 
-        try:
-            audio = base64.b64decode(raw_b64)
-        except (TypeError, ValueError) as exc:
-            raise SarvamSpeechError("provider_invalid_response", "Sarvam returned invalid base64 audio.") from exc
-
         target_rate = sample_rate
-        pcm, actual_rate = self._pcm_from_audio(audio, fallback_rate=target_rate)
-        pcm = self._resample_pcm16(pcm, actual_rate, target_rate)
-        return self._wav(pcm, target_rate)
+        all_pcm = bytearray()
+        for chunk in audio_chunks:
+            pcm_segment, actual_rate = self._pcm_from_audio(chunk, fallback_rate=target_rate)
+            pcm_segment = self._resample_pcm16(pcm_segment, actual_rate, target_rate)
+            all_pcm.extend(pcm_segment)
+
+        return self._wav(bytes(all_pcm), target_rate)
 
     def audio_token(self, text: str) -> str:
         audio = self.synthesize(text)

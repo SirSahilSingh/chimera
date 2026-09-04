@@ -25,9 +25,9 @@ class VobizStreamSession:
     _SAMPLE_RATE = 16000
     _BYTES_PER_MS = 32  # 16 kHz * 2 bytes/sample (16-bit mono) / 1000 ms
     _SILENCE_FLUSH_MS = 800
-    _MIN_SPEECH_MS = 180
+    _MIN_SPEECH_MS = 250
     _MAX_TURN_MS = 10000
-    _ENERGY_THRESHOLD = 300
+    _ENERGY_THRESHOLD = 350
 
     def __init__(
         self,
@@ -139,7 +139,7 @@ class VobizStreamSession:
             except Exception as exc:
                 logger.warning("Failed to record stream opened: %s", exc)
 
-        # Spawn greeting in background task so WebSocket loop is NEVER blocked
+        # Spawn greeting in background task so WebSocket receive loop is NEVER blocked
         self._spawn(self._play_greeting())
 
     async def _play_greeting(self) -> None:
@@ -156,7 +156,10 @@ class VobizStreamSession:
             logger.exception("Failed to synthesize or play greeting: %s", exc)
 
     async def _handle_media(self, message: dict[str, Any]) -> None:
-        if self.is_processing:
+        # CRITICAL: Ignore microphone input while bot is speaking or processing.
+        # This prevents acoustic echo from the phone speaker leaking into the mic
+        # and cutting off the agent mid-sentence.
+        if self.is_playing or self.is_processing:
             return
 
         media = message.get("media") if isinstance(message.get("media"), dict) else {}
@@ -179,10 +182,6 @@ class VobizStreamSession:
         speaking = self._has_voice(chunk)
 
         if speaking:
-            # Barge-in: if bot is currently speaking, stop playback
-            if self.is_playing:
-                await self._clear_audio()
-                self.is_playing = False
             self.speech_started = True
             self.silence_ms = 0
             self.audio_buffer.extend(chunk)
@@ -270,13 +269,15 @@ class VobizStreamSession:
             return
 
         self.is_playing = True
-        # Chunk into 40ms frames (1280 bytes for 16 kHz 16-bit mono)
-        chunk_size = 1280
+        duration_seconds = len(pcm) / (self._SAMPLE_RATE * 2)
+        logger.info("Sending TTS audio: stream_id=%s bytes=%d duration=%.2fs", self.stream_id, len(pcm), duration_seconds)
+
+        # 20ms chunks (640 bytes for 16 kHz 16-bit mono)
+        chunk_size = 640
+        initial_burst_chunks = 20
+        chunk_index = 0
 
         for offset in range(0, len(pcm), chunk_size):
-            if not self.is_playing and offset > 0:
-                # Interrupted by user speaking (barge-in)
-                break
             chunk = pcm[offset : offset + chunk_size]
             if len(chunk) % 2 != 0:
                 chunk += b"\x00"
@@ -293,8 +294,16 @@ class VobizStreamSession:
                         "payload": base64.b64encode(chunk).decode("ascii"),
                     },
                 })
-            except Exception:
+            except Exception as exc:
+                logger.warning("Failed sending playAudio frame: %s", exc)
+                self.is_playing = False
                 return
+
+            chunk_index += 1
+            # Flow subsequent chunks at steady paced rate (~1.3x real-time)
+            # This fills Vobiz's buffer without overwhelming the WebSocket connection
+            if chunk_index > initial_burst_chunks:
+                await asyncio.sleep(0.015)
 
         # Send checkpoint so Vobiz reports playedStream once all audio completes
         try:
@@ -306,16 +315,14 @@ class VobizStreamSession:
         except Exception:
             pass
 
-    async def _clear_audio(self) -> None:
-        if not self.stream_id:
-            return
-        try:
-            await self.websocket.send_json({
-                "event": "clearAudio",
-                "streamId": self.stream_id,
-            })
-        except Exception:
-            pass
+        # Schedule safety fallback to reset is_playing in case playedStream event is delayed or missed
+        self._spawn(self._safety_reset_playback(duration_seconds + 0.8))
+
+    async def _safety_reset_playback(self, delay: float) -> None:
+        await asyncio.sleep(delay)
+        if self.is_playing:
+            logger.info("Playback safety timer expired (%.2fs), resetting is_playing", delay)
+            self.is_playing = False
 
     def _has_voice(self, pcm: bytes) -> bool:
         """Measure RMS energy of 16-bit mono PCM."""
