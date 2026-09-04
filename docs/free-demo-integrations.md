@@ -11,17 +11,13 @@ free or trial services for a buildathon demonstration:
 - WhatsApp remains an optional Twilio Sandbox integration. The recipient must
   join the Sandbox and be verified; proactive messages use a Twilio-approved
   template.
-- Voice uses Twilio only as the phone carrier. Sarvam is the India-first speech
+- Voice uses Vobiz (or Twilio/Exotel) as the phone carrier. Sarvam is the India-first speech
   layer: Saaras v3 transcribes code-mixed Hindi/English recordings and Bulbul
-  v3 speaks the next response. Trial calls can be placed only to verified
-  destinations and are subject to Twilio's trial limits. The call uses CHIMERA
-  TwiML endpoints and the existing controlled intent classifier; no LLM key is
-  required.
-- The browser voice demo is a separate Pipecat + Sarvam path for presentations
-  when Exotel is unavailable. It streams microphone audio over a FastAPI
-  WebSocket, uses Sarvam Saaras v3, a grounded Sarvam LLM, and Sarvam Bulbul
-  v3, and remains read-only: it cannot create a payment link or mutate case
-  state.
+  v3 speaks the next response. Vobiz provides self-serve signup credits for outbound testing
+  directly to Indian mobile destinations over a bidirectional 16 kHz WebSocket stream.
+- The outbound voice demo integrates Vobiz, Sarvam AI, and Groq (Llama 3.3 for ~150ms TTFT
+  reasoning). It triggers an actual outbound call to the target phone, captures spoken
+  customer speech, reasons in Hinglish, and can attach a live payment link upon agreement.
 - Escalation uses the free Telegram Bot API as an optional operator
   notification. The internal CHIMERA escalation queue remains the source of
   truth when Telegram is disabled or unavailable.
@@ -75,8 +71,8 @@ Prompts use native Hindi script mixed with English payment terms because Sarvam'
 
 Install the optional backend dependency with `pip install -r requirements.txt`.
 Configure `SARVAM_API_KEY`, `SARVAM_ENABLED=true`,
-`PIPECAT_SARVAM_LLM_MODEL=sarvam-105b`, and the local frontend origins in
-`PIPECAT_ALLOWED_ORIGINS`. Set the browser-visible
+`PIPECAT_SARVAM_LLM_MODEL=sarvam-105b`, and the frontend origins (including
+`http://localhost:3003` for this demo) in `PIPECAT_ALLOWED_ORIGINS`. Set the browser-visible
 `NEXT_PUBLIC_API_WS_BASE_URL` to `ws://localhost:8000/api/v1` locally or
 `wss://<api-host>/api/v1` when the frontend is served over HTTPS. The normal
 Next HTTP rewrite does not carry this WebSocket connection. The browser

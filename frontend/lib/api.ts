@@ -1,4 +1,4 @@
-import type { ArenaResponse, Decision, DemoRecoveryResponse, DemoRunResponse, Escalation, Explanation, LearningDrift, LearningFunnel, LearningOverview, LearningProvider, PaginatedCases, JourneyPayment, PaymentOrder, ProviderReadiness, ProviderVerificationResponse, RecoveryCase, Execution, RecoveryIntelligence, RecoveryJourney, ScheduledRetry, SystemHealth, JourneyVoiceCall } from "./types";
+import type { ArenaResponse, Decision, DemoRecoveryResponse, DemoRunResponse, Escalation, Explanation, LearningDrift, LearningFunnel, LearningOverview, LearningProvider, PaginatedCases, JourneyPayment, PaymentOrder, ProviderReadiness, ProviderVerificationResponse, RecoveryCase, Execution, RecoveryIntelligence, RecoveryJourney, ScheduledRetry, SystemHealth, JourneyVoiceCall, VoiceHistoryResponse } from "./types";
 
 // Prefer the same-origin Next.js proxy locally so the browser does not need a
 // separate CORS policy. An explicit public base remains available for a
@@ -83,5 +83,12 @@ export const api = {
   listScheduledRetries: () => request<ScheduledRetry[]>("/retries/scheduled"),
   executeScheduledRetry: (retryId: string) => request<Execution>(`/retries/${encodeURIComponent(retryId)}/execute`, { method: "POST" }),
   runArena: (payload: { seeds?: number[]; count_per_seed?: number } = {}) => request<ArenaResponse>("/arena/run", { method: "POST", body: JSON.stringify({ seeds: payload.seeds ?? [400000], count_per_seed: payload.count_per_seed ?? 25 }) }),
+  startOutboundCall: (payload: { intervention_id: string; customer_phone?: string }) =>
+    request<JourneyVoiceCall>("/voice/outbound/call", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  getVoiceHistory: (interventionId: string) =>
+    request<VoiceHistoryResponse>(`/interventions/${encodeURIComponent(interventionId)}/voice/history`),
   pipecatVoiceUrl,
 };

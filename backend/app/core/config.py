@@ -40,6 +40,13 @@ class AppSettings:
     exotel_webhook_secret: str | None = None
     exotel_agentstream_enabled: bool = False
     exotel_stream_url: str | None = None
+    vobiz_auth_id: str | None = None
+    vobiz_auth_token: str | None = None
+    vobiz_caller_id: str | None = None
+    vobiz_api_base_url: str = "https://api.vobiz.ai"
+    vobiz_stream_url: str | None = None
+    groq_api_key: str | None = None
+    groq_model: str = "llama-3.3-70b-versatile"
     sarvam_enabled: bool = False
     sarvam_api_key: str | None = None
     sarvam_base_url: str = "https://api.sarvam.ai"
@@ -126,20 +133,33 @@ def load_settings() -> AppSettings:
         else bool(sarvam_api_key)
     )
 
+    vobiz_auth_id = os.getenv("VOBIZ_AUTH_ID") or None
+    vobiz_auth_token = os.getenv("VOBIZ_AUTH_TOKEN") or None
+    vobiz_caller_id = os.getenv("VOBIZ_CALLER_ID") or os.getenv("VOBIZ_FROM_NUMBER") or None
+    vobiz_stream_url = os.getenv("VOBIZ_STREAM_URL")
+    if not vobiz_stream_url and voice_public_base_url:
+        wss_base = voice_public_base_url.replace("https://", "wss://").replace("http://", "ws://").rstrip("/")
+        vobiz_stream_url = f"{wss_base}/api/v1/voice/vobiz/stream"
+
     exotel_api_key = os.getenv("EXOTEL_API_KEY") or None
     exotel_account_sid = os.getenv("EXOTEL_ACCOUNT_SID") or None
     voice_provider = os.getenv("VOICE_PROVIDER")
-    if not voice_provider and exotel_api_key and exotel_account_sid:
+    if not voice_provider and vobiz_auth_id and vobiz_auth_token:
+        voice_provider = "vobiz"
+    elif not voice_provider and exotel_api_key and exotel_account_sid:
         voice_provider = "exotel"
     elif not voice_provider:
         voice_provider = "local"
 
     voice_enabled_raw = os.getenv("VOICE_ENABLED")
-    voice_enabled = (
-        voice_enabled_raw.casefold() in {"1", "true", "yes"}
-        if voice_enabled_raw is not None
-        else (bool(exotel_api_key and exotel_account_sid) if voice_provider == "exotel" else False)
-    )
+    if voice_enabled_raw is not None:
+        voice_enabled = voice_enabled_raw.casefold() in {"1", "true", "yes"}
+    elif voice_provider == "vobiz":
+        voice_enabled = bool(vobiz_auth_id and vobiz_auth_token)
+    elif voice_provider == "exotel":
+        voice_enabled = bool(exotel_api_key and exotel_account_sid)
+    else:
+        voice_enabled = False
 
     return AppSettings(
         database_url=os.getenv("DATABASE_URL", AppSettings.database_url),
@@ -180,6 +200,13 @@ def load_settings() -> AppSettings:
         exotel_webhook_secret=os.getenv("EXOTEL_WEBHOOK_SECRET") or None,
         exotel_agentstream_enabled=os.getenv("EXOTEL_AGENTSTREAM_ENABLED", "false").casefold() in {"1", "true", "yes"},
         exotel_stream_url=exotel_stream_url,
+        vobiz_auth_id=vobiz_auth_id,
+        vobiz_auth_token=vobiz_auth_token,
+        vobiz_caller_id=vobiz_caller_id,
+        vobiz_api_base_url=os.getenv("VOBIZ_API_BASE_URL", "https://api.vobiz.ai").rstrip("/"),
+        vobiz_stream_url=vobiz_stream_url,
+        groq_api_key=os.getenv("GROQ_API_KEY") or None,
+        groq_model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
         sarvam_enabled=sarvam_enabled,
         sarvam_api_key=sarvam_api_key,
         sarvam_base_url=os.getenv("SARVAM_BASE_URL", "https://api.sarvam.ai"),

@@ -373,7 +373,7 @@ SARVAM_STT_MODE=codemix
 SARVAM_TTS_MODEL=bulbul:v3
 SARVAM_TTS_SPEAKER=shubh
 PIPECAT_SARVAM_LLM_MODEL=sarvam-105b
-PIPECAT_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001
+PIPECAT_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:3002,http://127.0.0.1:3003
 NEXT_PUBLIC_API_WS_BASE_URL=ws://localhost:8000/api/v1
 ```
 

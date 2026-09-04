@@ -464,3 +464,18 @@ export type RecoveryIntelligence = {
   explanation: { explanation_source: string; provider: string; model_name: string; generated_at: string; fallback_reason: string | null; summary: string } | null;
   insights: { type: string; message: string }[];
 };
+
+export type VoiceTurn = {
+  id: string;
+  speaker: string;
+  text: string;
+  intent: string | null;
+  confidence?: number;
+  timestamp: string;
+};
+
+export type VoiceHistoryResponse = {
+  call: JourneyVoiceCall;
+  turns: VoiceTurn[];
+  events: JourneyEvent[];
+};

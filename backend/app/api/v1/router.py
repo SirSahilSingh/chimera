@@ -44,6 +44,9 @@ from backend.app.interventions.errors import (
 from backend.app.interventions.service import InterventionService
 from backend.chimera_voice.errors import VoiceDomainError, VoiceNotFoundError, VoiceProviderFailure
 from backend.chimera_voice.provider import ExotelVoiceProvider
+from backend.chimera_voice.vobiz_provider import VobizVoiceProvider
+from backend.chimera_voice.vobiz_stream import VobizStreamSession
+from backend.chimera_voice.groq_provider import GroqVoiceAgent
 from backend.chimera_voice.schemas import (
     VoiceCallResponse,
     VoiceDemoRequest,
@@ -1043,6 +1046,108 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
             await websocket.close(code=1011, reason="Sarvam speech provider is not configured")
             return
         await ExotelStreamSession(websocket, voice_service=service, speech_provider=speech, intervention_id=intervention_id).run()
+
+    @router.api_route("/voice/vobiz/answer", methods=["GET", "POST"], response_class=PlainTextResponse)
+    async def vobiz_answer(
+        request: Request,
+        intervention_id: str | None = None,
+        service: VoiceService = Depends(voice_service),
+    ):
+        """Return VobizXML instructions connecting the answered call to Chimera's WebSocket."""
+        provider = service.provider
+        stream_base = None
+        if isinstance(provider, VobizVoiceProvider) and provider.public_base_url:
+            wss_base = provider.public_base_url.replace("https://", "wss://").replace("http://", "ws://").rstrip("/")
+            stream_base = f"{wss_base}/api/v1/voice/vobiz/stream"
+        elif hasattr(provider, "public_base_url") and getattr(provider, "public_base_url", None):
+            wss_base = getattr(provider, "public_base_url").replace("https://", "wss://").replace("http://", "ws://").rstrip("/")
+            stream_base = f"{wss_base}/api/v1/voice/vobiz/stream"
+        else:
+            host = request.headers.get("host", "localhost:8000")
+            scheme = "wss" if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https" else "ws"
+            stream_base = f"{scheme}://{host}/api/v1/voice/vobiz/stream"
+
+        target_intervention_id = intervention_id or request.query_params.get("intervention_id")
+        if not target_intervention_id:
+            latest = service.get_latest_active_call()
+            if latest:
+                target_intervention_id = latest.intervention_id
+
+        stream_url = f"{stream_base}?{urlencode({'intervention_id': target_intervention_id})}" if target_intervention_id else stream_base
+
+        xml_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Stream bidirectional="true" keepCallAlive="true" contentType="audio/x-l16;rate=16000">
+    {stream_url}
+  </Stream>
+</Response>"""
+        return PlainTextResponse(xml_content, media_type="application/xml")
+
+    @router.websocket("/voice/vobiz/stream")
+    async def vobiz_stream(
+        websocket: WebSocket,
+        intervention_id: str | None = None,
+        service: VoiceService = Depends(voice_service),
+    ):
+        """Receive Vobiz bidirectional audio and run the Sarvam Saaras/Bulbul + Groq Hinglish loop."""
+        speech = service.speech_provider
+        if speech is not None and speech.api_key and not speech.enabled:
+            speech.enabled = True
+
+        if speech is None or not speech.enabled or not speech.api_key:
+            await asyncio.to_thread(
+                service.vobiz_stream_failed,
+                intervention_id,
+                stage="configuration",
+                code="provider_not_configured",
+                message="Sarvam speech credentials are not configured for Vobiz voice stream.",
+            )
+            await websocket.close(code=1011, reason="Sarvam speech provider is not configured")
+            return
+
+        groq_agent = GroqVoiceAgent()
+        await VobizStreamSession(
+            websocket,
+            voice_service=service,
+            speech_provider=speech,
+            intervention_id=intervention_id,
+            groq_agent=groq_agent,
+        ).run()
+
+    @router.post("/voice/outbound/call", response_model=VoiceCallResponse)
+    def start_outbound_call(
+        payload: dict[str, Any] = Body(...),
+        service: VoiceService = Depends(voice_service),
+        interventions: InterventionService = Depends(intervention_service),
+    ):
+        """Initiate an outbound voice call, optionally updating customer_phone for demo testing."""
+        intervention_id = payload.get("intervention_id")
+        if not intervention_id:
+            raise HTTPException(status_code=400, detail="intervention_id is required")
+
+        phone_override = payload.get("customer_phone")
+        if phone_override and isinstance(phone_override, str) and phone_override.strip():
+            clean_phone = phone_override.strip()
+            try:
+                intervention = interventions.get_intervention(intervention_id)
+                if intervention.recovery_case:
+                    intervention.recovery_case.customer_phone = clean_phone
+                    service.session.commit()
+            except Exception:
+                pass
+
+        try:
+            call, _ = service.start(
+                intervention_id,
+                VoiceScenario.CUSTOMER_AGREES_TO_PAY,
+                allow_secondary=True,
+                source="operator",
+            )
+            return as_voice_call(call)
+        except VoiceNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except VoiceDomainError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     @router.websocket("/voice/pipecat/{intervention_id}")
     async def pipecat_voice_demo(websocket: WebSocket, intervention_id: str, interventions: InterventionService = Depends(intervention_service)):

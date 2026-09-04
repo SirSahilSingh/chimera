@@ -68,13 +68,9 @@ class SarvamSpeechProvider:
             raise SarvamSpeechError("provider_invalid_response")
         return transcript.strip()
 
-    def synthesize(self, text: str) -> bytes:
+    def synthesize(self, text: str, *, sample_rate: int = 8000) -> bytes:
         self._require_configuration()
-        # Exotel's Voicebot applet ultimately expects raw 16-bit little-endian
-        # mono PCM at 8 kHz. Request Linear16 at that rate, normalize the
-        # response, and return a WAV container from this shared provider method
-        # so the existing Twilio audio endpoint remains valid. The Exotel
-        # stream adapter strips the WAV container immediately before sending.
+        # Linear16 PCM at the requested rate (8 kHz for Exotel/Twilio, 16 kHz for Vobiz).
         primary_body = {
             "text": text,
             "inputs": [text],
@@ -82,7 +78,7 @@ class SarvamSpeechProvider:
             "speaker": self.tts_speaker,
             "language_code": self.language_code,
             "target_language_code": self.language_code,
-            "speech_sample_rate": 8000,
+            "speech_sample_rate": sample_rate,
             "output_audio_codec": "linear16",
             "pace": 1.0,
             "temperature": 0.4,
@@ -135,9 +131,10 @@ class SarvamSpeechProvider:
         except (TypeError, ValueError) as exc:
             raise SarvamSpeechError("provider_invalid_response", "Sarvam returned invalid base64 audio.") from exc
 
-        pcm, sample_rate = self._pcm_from_audio(audio, fallback_rate=8000)
-        pcm = self._resample_pcm16(pcm, sample_rate, 8000)
-        return self._wav(pcm, 8000)
+        target_rate = sample_rate
+        pcm, actual_rate = self._pcm_from_audio(audio, fallback_rate=target_rate)
+        pcm = self._resample_pcm16(pcm, actual_rate, target_rate)
+        return self._wav(pcm, target_rate)
 
     def audio_token(self, text: str) -> str:
         audio = self.synthesize(text)

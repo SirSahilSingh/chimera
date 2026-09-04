@@ -561,6 +561,18 @@ def sign_webhook_event(event: VoiceWebhookEvent) -> str:
 
 def provider_from_settings(settings) -> VoiceProvider:
     provider_name = getattr(settings, "voice_provider", os.getenv("VOICE_PROVIDER", "local")).casefold()
+    if provider_name == "vobiz":
+        from .vobiz_provider import VobizVoiceProvider
+        return VobizVoiceProvider(
+            getattr(settings, "vobiz_auth_id", None),
+            getattr(settings, "vobiz_auth_token", None),
+            getattr(settings, "vobiz_caller_id", None),
+            getattr(settings, "voice_public_base_url", None),
+            api_base_url=getattr(settings, "vobiz_api_base_url", "https://api.vobiz.ai"),
+            enabled=getattr(settings, "voice_enabled", False),
+            timeout_seconds=getattr(settings, "voice_timeout_seconds", 10.0),
+            mode=getattr(settings, "voice_mode", None),
+        )
     if provider_name == "exotel":
         return ExotelVoiceProvider(
             getattr(settings, "exotel_api_key", None),
