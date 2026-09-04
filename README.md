@@ -20,7 +20,7 @@ Best of all, CHIMERA does not let a black-box model run wild with business funds
 - [System Architecture](#system-architecture)
 - [Supported Recovery Actions](#supported-recovery-actions)
 - [Standout Capabilities](#standout-capabilities)
-  - [India-First Hinglish Voice Recovery](#india-first-hinglish-voice-recovery-exotel--sarvam-ai)
+  - [India-First Hinglish Voice Recovery](#india-first-hinglish-voice-recovery-pipecat--sarvam-with-exotel-fallback)
   - [Razorpay Test Checkout and Dynamic Payment Links](#razorpay-test-checkout-and-dynamic-payment-links)
   - [The Expected Value Decision Engine](#the-expected-value-decision-engine)
   - [Intelligent Retry Sequencer](#intelligent-retry-sequencer)
@@ -198,15 +198,16 @@ CHIMERA evaluates 7 distinct actions for every single recovery case:
 
 ## Standout Capabilities
 
-### India-First Hinglish Voice Recovery (Exotel + Sarvam AI)
+### India-First Hinglish Voice Recovery (Pipecat + Sarvam, with Exotel fallback)
 
 Many Indian customers do not click SMS links from unknown senders. A polite, natural phone call in Hinglish dramatically improves trust and recovery rates.
 
-CHIMERA features a dedicated streaming voice engine:
-- **Telephony:** Integrates with Exotel using bi-directional WebSockets (`AgentStream`) to stream audio with low latency.
-- **Speech Intelligence:** Uses Sarvam AI for fast Indian-accent speech-to-text (STT) and natural Hindi/Hinglish text-to-speech (TTS).
-- **Safe State Machine:** The conversation is strictly bounded. The agent introduces the merchant, explains the payment failure, listens to the customer response, and asks if they want a payment link sent to WhatsApp or SMS.
-- **Intent to Payment:** If the customer says "Haan, link bhej do" (Yes, send the link), the agent captures the intent, calls the payment service to create a dynamic Razorpay link, dispatches it via messaging, and politely ends the call.
+CHIMERA has two voice surfaces with a shared case context:
+- **Browser demo:** Pipecat streams microphone audio over a local WebSocket, Sarvam Saaras transcribes code-mixed Hindi/English, Sarvam LLM keeps the conversation grounded in the failed payment, and Sarvam Bulbul speaks the answer back. This path is intentionally read-only for demos: it cannot create a link, collect credentials, or mark recovery complete.
+- **Telephony:** Exotel AgentStream remains the phone transport for a real call, with the existing controlled voice policy and Sarvam speech adapter behind it. The browser demo does not depend on Exotel connectivity.
+- **Safe conversation boundary:** The agent can explain the abandoned payment, answer questions, and discuss next steps. A real payment link or recovered state must come from the existing provider and reconciliation boundaries, not from a generated reply.
+
+To run the browser demo, set `SARVAM_API_KEY`, install the optional backend dependency from `requirements.txt`, start the API and frontend, then open **Demo Scenarios → Voice-Assisted Recovery → Run scenario**. The **Talk through the abandoned payment** panel appears below the persisted run. The microphone is the primary input; the panel also has a typed-turn fallback for a live presentation when browser microphone permission is unavailable.
 
 ### Razorpay Test Checkout and Dynamic Payment Links
 
@@ -361,6 +362,26 @@ EXOTEL_API_TOKEN=your_exotel_token
 EXOTEL_SUBDOMAIN=your_subdomain
 SARVAM_API_KEY=your_sarvam_key
 ```
+
+### Browser voice demo (Pipecat + Sarvam)
+
+```dotenv
+SARVAM_API_KEY=your_sarvam_key
+SARVAM_LANGUAGE_CODE=hi-IN
+SARVAM_STT_MODEL=saaras:v3
+SARVAM_STT_MODE=codemix
+SARVAM_TTS_MODEL=bulbul:v3
+SARVAM_TTS_SPEAKER=shubh
+PIPECAT_SARVAM_LLM_MODEL=sarvam-105b
+PIPECAT_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://127.0.0.1:3000,http://127.0.0.1:3001
+NEXT_PUBLIC_API_WS_BASE_URL=ws://localhost:8000/api/v1
+```
+
+The browser transport is a local/prototype surface. `NEXT_PUBLIC_API_WS_BASE_URL`
+must be the browser-reachable FastAPI WebSocket base (`wss://<api-host>/api/v1`
+when the site is served over HTTPS); the normal Next rewrite only proxies HTTP.
+Pipecat recommends WebRTC for a production web app; use the existing Exotel
+AgentStream path when the demo needs to be reached by phone.
 
 ### Twilio Messaging (SMS & WhatsApp)
 

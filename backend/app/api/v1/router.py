@@ -57,6 +57,8 @@ from backend.chimera_voice.schemas import (
 from backend.chimera_voice.service import VoiceService
 from backend.chimera_voice.sarvam_provider import SarvamSpeechProvider
 from backend.chimera_voice.exotel_stream import ExotelStreamSession
+from backend.chimera_voice.context import build_voice_context
+from backend.chimera_voice.pipecat_agent import PipecatVoiceError, run_browser_pipecat_agent
 from backend.chimera_payments.errors import PaymentError, PaymentNotFoundError, PaymentProviderError, PaymentWebhookError
 from backend.chimera_payments.schemas import PaymentDemoRequest, PaymentDemoScenario, PaymentEventResponse, PaymentAttemptResponse, PaymentLinkResponse, PaymentListResponse, PaymentOrderCreate, PaymentOrderResponse
 from backend.chimera_payments.order_service import PaymentOrderService
@@ -1034,6 +1036,34 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
             await websocket.close(code=1011, reason="Sarvam speech provider is not configured")
             return
         await ExotelStreamSession(websocket, voice_service=service, speech_provider=speech, intervention_id=intervention_id).run()
+
+    @router.websocket("/voice/pipecat/{intervention_id}")
+    async def pipecat_voice_demo(websocket: WebSocket, intervention_id: str, interventions: InterventionService = Depends(intervention_service)):
+        """Run the read-only browser voice demo for a VOICE_RECOVERY intervention."""
+        try:
+            intervention = interventions.get_intervention(intervention_id)
+            if intervention.action != "VOICE_RECOVERY":
+                raise DomainError("browser voice demo requires a VOICE_RECOVERY intervention")
+            context = build_voice_context(intervention)
+        except (DomainError, ValueError) as exc:
+            await websocket.close(code=1008, reason=str(exc)[:120])
+            return
+
+        await websocket.accept()
+        try:
+            await run_browser_pipecat_agent(websocket, context)
+        except PipecatVoiceError as exc:
+            try:
+                await websocket.close(code=1011, reason=str(exc)[:120])
+            except RuntimeError:
+                pass
+        except Exception:
+            # Do not leak provider credentials, prompts, or implementation
+            # details through the browser close reason.
+            try:
+                await websocket.close(code=1011, reason="voice demo unavailable")
+            except RuntimeError:
+                pass
 
     @router.api_route("/voice/twilio/twiml", methods=["GET", "POST"], response_class=PlainTextResponse)
     def twilio_twiml(intervention_id: str, service: VoiceService = Depends(voice_service)):

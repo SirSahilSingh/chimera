@@ -27,3 +27,5 @@ export const SettingsIcon = (props: IconProps) => <Icon {...props}><path d="M12 
 export const TuneIcon = (props: IconProps) => <Icon {...props}><path d="M4 7h16M4 17h16" /><circle cx="9" cy="7" r="2" fill="currentColor" stroke="none" /><circle cx="15" cy="17" r="2" fill="currentColor" stroke="none" /></Icon>;
 export const CopyIcon = (props: IconProps) => <Icon {...props}><rect x="8" y="8" width="11" height="11" rx="1.5" /><path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4h-9A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8" /></Icon>;
 export const InfoIcon = (props: IconProps) => <Icon {...props}><circle cx="12" cy="12" r="8.5" /><path d="M12 10.5v5M12 7.5h.01" strokeWidth="2" /></Icon>;
+export const MicIcon = (props: IconProps) => <Icon {...props}><rect x="8.5" y="3" width="7" height="11" rx="3.5" /><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M8.5 21h7" /></Icon>;
+export const MicOffIcon = (props: IconProps) => <Icon {...props}><path d="M8.5 8.5V6.5a3.5 3.5 0 0 1 6.7-1.5M15.5 10v4a3.5 3.5 0 0 1-6.1 2.4M5.5 11.5a6.5 6.5 0 0 0 11.2 4.5M12 18v3M8.5 21h7M4 4l16 16" /></Icon>;

@@ -17,6 +17,11 @@ free or trial services for a buildathon demonstration:
   destinations and are subject to Twilio's trial limits. The call uses CHIMERA
   TwiML endpoints and the existing controlled intent classifier; no LLM key is
   required.
+- The browser voice demo is a separate Pipecat + Sarvam path for presentations
+  when Exotel is unavailable. It streams microphone audio over a FastAPI
+  WebSocket, uses Sarvam Saaras v3, a grounded Sarvam LLM, and Sarvam Bulbul
+  v3, and remains read-only: it cannot create a payment link or mutate case
+  state.
 - Escalation uses the free Telegram Bot API as an optional operator
   notification. The internal CHIMERA escalation queue remains the source of
   truth when Telegram is disabled or unavailable.
@@ -54,3 +59,26 @@ Credentials are never stored in CHIMERA records or returned to the frontend.
 5. CHIMERA records the intent, creates a Razorpay link when allowed, and speaks the next response with Sarvam Bulbul.
 
 Prompts use native Hindi script mixed with English payment terms because Sarvam's TTS guidance recommends native Indic script over Romanized Indic text.
+
+## Browser Pipecat loop
+
+1. Run **Demo Scenarios → Voice-Assisted Recovery** in the local frontend.
+2. The frontend creates a Pipecat `WebSocketTransport` session against
+   `/api/v1/voice/pipecat/{intervention_id}` and sends 16 kHz microphone audio
+   with the protobuf frame serializer.
+3. The API loads the persisted `VoiceContext` and builds a Pipecat pipeline:
+   transport input → Sarvam Saaras STT → user context aggregator → Sarvam LLM
+   → Sarvam Bulbul TTS → transport output.
+4. The agent explains the abandoned payment and offers safe next-step guidance.
+   A request for a payment link is acknowledged as a demo request only; use the
+   secure test checkout or the existing provider workflow for an actual link.
+
+Install the optional backend dependency with `pip install -r requirements.txt`.
+Configure `SARVAM_API_KEY`, `SARVAM_ENABLED=true`,
+`PIPECAT_SARVAM_LLM_MODEL=sarvam-105b`, and the local frontend origins in
+`PIPECAT_ALLOWED_ORIGINS`. Set the browser-visible
+`NEXT_PUBLIC_API_WS_BASE_URL` to `ws://localhost:8000/api/v1` locally or
+`wss://<api-host>/api/v1` when the frontend is served over HTTPS. The normal
+Next HTTP rewrite does not carry this WebSocket connection. The browser
+WebSocket is suitable for a local prototype; use WebRTC for a production web
+client.

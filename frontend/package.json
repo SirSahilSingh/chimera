@@ -9,6 +9,8 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@pipecat-ai/client-js": "1.11.0",
+    "@pipecat-ai/websocket-transport": "1.6.7",
     "geist": "^1.7.2",
     "next": "14.2.31",
     "react": "18.3.1",

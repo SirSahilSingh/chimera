@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowRightIcon, CheckIcon, FlaskIcon, RefreshIcon, ShieldIcon } from "../../components/icons";
+import { InitialCheckout } from "../../components/initial-checkout";
+import { BrowserVoiceAgent } from "../../components/browser-voice-agent";
 import { ErrorState, LoadingState, StatusBadge } from "../../components/shell";
 import { IntelligenceMetric, IntelligencePanel, IntelligenceTitle } from "../../components/intelligence-workspace";
 import { api, ApiError } from "../../lib/api";
@@ -11,7 +13,7 @@ import type { DemoRunResponse, RecoveryJourney } from "../../lib/types";
 
 const scenarios = [
   { value: "payment_recovery", label: "Payment Recovery", summary: "Expired method → synthetic payment link", setup: "An observable payment failure with an expired payment method.", evidence: "Payment link, provider receipt, and outcome state", icon: ShieldIcon },
-  { value: "voice_recovery", label: "Voice-Assisted Recovery", summary: "Customer requests a link through Demo Voice Agent", setup: "A payment failure routed through a deterministic local voice flow.", evidence: "Transcript turns, detected intent, and resulting payment link", icon: FlaskIcon },
+  { value: "voice_recovery", label: "Voice-Assisted Recovery", summary: "Talk to a grounded browser voice agent", setup: "An abandoned payment explained through a live Pipecat + Sarvam conversation.", evidence: "Live transcript, payment context, and persisted recovery evidence", icon: FlaskIcon },
 ] as const;
 
 type ScenarioValue = (typeof scenarios)[number]["value"];
@@ -48,7 +50,8 @@ export default function DemoScenariosPage() {
 
     <section className="scenario-grid" aria-label="Demo scenarios">{scenarios.map((scenario) => { const Icon = scenario.icon; return <button type="button" className={`scenario-card ${selected === scenario.value ? "selected" : ""}`} onClick={() => setSelected(scenario.value)} key={scenario.value}><div className="scenario-card-head"><span className="scenario-icon"><Icon size={17} /></span>{selected === scenario.value && <span className="scenario-selected"><CheckIcon size={13} />Selected</span>}</div><strong>{scenario.label}</strong><span>{scenario.summary}</span><small>{scenario.setup}</small><em>{scenario.evidence}</em></button>; })}</section>
 
-    <section className="scenario-setup"><div><h2>{selectedScenario.label}</h2><p>{selectedScenario.setup}</p></div><div className="scenario-setup-actions"><Link className="demo-checkout-link" href="/checkout">Use a real Razorpay checkout <ArrowRightIcon size={14} /></Link><button className="button button-primary" type="button" onClick={launch} disabled={busy}>{busy ? "Running scenario…" : "Run scenario"}<ArrowRightIcon size={15} /></button></div></section>
+    <section className="scenario-setup"><div><h2>{selectedScenario.label}</h2><p>{selectedScenario.setup}</p></div><div className="scenario-setup-actions"><button className="button button-primary" type="button" onClick={launch} disabled={busy}>{busy ? "Running scenario…" : "Run scenario"}<ArrowRightIcon size={15} /></button></div></section>
+    <details className="demo-checkout-module"><summary><span><strong>Run a real Razorpay test</strong><small>Create an initial order in Razorpay TEST and let the signed provider outcome open recovery.</small></span><span className="demo-checkout-summary-action">Open test checkout <ArrowRightIcon size={14} /></span></summary><div className="demo-checkout-body"><InitialCheckout embedded /></div></details>
     {error && <ErrorState message={error} onRetry={launch} />}
     {busy && <div className="demo-monitor-loading"><LoadingState label="Waiting for persisted recovery evidence" /></div>}
     {notice && !busy && <div className="queue-notice" role="status"><CheckIcon size={15} /><span>{notice}</span></div>}
@@ -66,7 +69,7 @@ function RunMonitor({ run, journey }: { run: DemoRunResponse; journey: RecoveryJ
     { label: "Provider action", complete: hasProviderAction, detail: hasProviderAction ? `${run.provider_mode_label} · persisted receipt available` : "No provider action recorded" },
     { label: "Outcome", complete: recovered || journey.case.status === "UNRECOVERED", detail: recovered ? "Recovered outcome is persisted" : journey.case.status === "UNRECOVERED" ? "Unresolved outcome is persisted" : "Outcome remains pending" },
   ];
-  return <section className="run-monitor"><div className="run-monitor-head"><div><h2>Persisted run</h2><p>{run.scenario.replaceAll("_", " ")} · case {shortId(run.case_id)}</p></div><div className="run-monitor-actions"><StatusBadge status={run.current_status} /><Link className="button button-secondary" href={`/cases/${run.case_id}`}>Open Decision Room <ArrowRightIcon size={14} /></Link></div></div><div className="run-stage-list">{stages.map((stage) => <div className={`run-stage ${stage.complete ? "complete" : "pending"}`} key={stage.label}><span className="run-stage-mark">{stage.complete ? <CheckIcon size={14} /> : <span />}</span><div><strong>{stage.label}</strong><span>{stage.detail}</span></div></div>)}</div><div className="run-proof-grid"><RunProof run={run} journey={journey} /><RunEvidence journey={journey} /></div></section>;
+  return <section className="run-monitor"><div className="run-monitor-head"><div><h2>Persisted run</h2><p>{run.scenario.replaceAll("_", " ")} · case {shortId(run.case_id)}</p></div><div className="run-monitor-actions"><StatusBadge status={run.current_status} /><Link className="button button-secondary" href={`/cases/${run.case_id}`}>Open Decision Room <ArrowRightIcon size={14} /></Link></div></div><div className="run-stage-list">{stages.map((stage) => <div className={`run-stage ${stage.complete ? "complete" : "pending"}`} key={stage.label}><span className="run-stage-mark">{stage.complete ? <CheckIcon size={14} /> : <span />}</span><div><strong>{stage.label}</strong><span>{stage.detail}</span></div></div>)}</div><div className="run-proof-grid"><RunProof run={run} journey={journey} /><RunEvidence journey={journey} /></div>{run.scenario === "voice_recovery" && <BrowserVoiceAgent interventionId={run.intervention_id} amountPaise={journey.case.amount_paise} failureReason={journey.case.failure_reason} paymentMethod={journey.case.payment_method} />}</section>;
 }
 
 function RunProof({ run, journey }: { run: DemoRunResponse; journey: RecoveryJourney }) {

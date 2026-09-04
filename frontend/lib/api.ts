@@ -4,6 +4,18 @@ import type { ArenaResponse, Decision, DemoRecoveryResponse, DemoRunResponse, Es
 // separate CORS policy. An explicit public base remains available for a
 // separately hosted API that already has the appropriate CORS configuration.
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/v1";
+// Next rewrites proxy HTTP requests, but a browser WebSocket should connect
+// directly to the FastAPI server. Set this when the API is not on localhost.
+const API_WS_BASE = process.env.NEXT_PUBLIC_API_WS_BASE_URL ?? (
+  API_BASE.startsWith("http") ? API_BASE : "http://localhost:8000/api/v1"
+);
+
+export function pipecatVoiceUrl(interventionId: string): string {
+  const path = `${API_WS_BASE.replace(/\/$/, "")}/voice/pipecat/${encodeURIComponent(interventionId)}`;
+  const url = new URL(path, typeof window === "undefined" ? "http://localhost" : window.location.origin);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  return url.toString();
+}
 
 export class ApiError extends Error {
   status: number;
@@ -71,4 +83,5 @@ export const api = {
   listScheduledRetries: () => request<ScheduledRetry[]>("/retries/scheduled"),
   executeScheduledRetry: (retryId: string) => request<Execution>(`/retries/${encodeURIComponent(retryId)}/execute`, { method: "POST" }),
   runArena: (payload: { seeds?: number[]; count_per_seed?: number } = {}) => request<ArenaResponse>("/arena/run", { method: "POST", body: JSON.stringify({ seeds: payload.seeds ?? [400000], count_per_seed: payload.count_per_seed ?? 25 }) }),
+  pipecatVoiceUrl,
 };
