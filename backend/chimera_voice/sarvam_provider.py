@@ -29,9 +29,9 @@ class SarvamSpeechProvider:
     _audio_cache: dict[str, bytes] = {}
     _audio_lock = Lock()
 
-    def __init__(self, api_key: str | None, *, enabled: bool, timeout_seconds: float = 20.0, base_url: str = "https://api.sarvam.ai", language_code: str = "hi-IN", stt_model: str = "saaras:v3", stt_mode: str = "codemix", tts_model: str = "bulbul:v3", tts_speaker: str = "shubh", mode: str | None = None) -> None:
+    def __init__(self, api_key: str | None, *, enabled: bool = False, timeout_seconds: float = 20.0, base_url: str = "https://api.sarvam.ai", language_code: str = "hi-IN", stt_model: str = "saaras:v3", stt_mode: str = "codemix", tts_model: str = "bulbul:v3", tts_speaker: str = "shubh", mode: str | None = None) -> None:
         self.api_key = api_key
-        self.enabled = enabled
+        self.enabled = bool(enabled) or bool(api_key and str(api_key).strip())
         self.timeout_seconds = timeout_seconds
         self.base_url = base_url.rstrip("/")
         self.language_code = language_code
@@ -75,13 +75,66 @@ class SarvamSpeechProvider:
         # response, and return a WAV container from this shared provider method
         # so the existing Twilio audio endpoint remains valid. The Exotel
         # stream adapter strips the WAV container immediately before sending.
-        body = json.dumps({"text": text, "model": self.tts_model, "speaker": self.tts_speaker, "language_code": self.language_code, "speech_sample_rate": 8000, "output_audio_codec": "linear16", "pace": 1.0, "temperature": 0.4}).encode("utf-8")
-        request = Request(f"{self.base_url}/text-to-speech", data=body, headers={"api-subscription-key": self.api_key, "Content-Type": "application/json", "Accept": "application/json"}, method="POST")
-        payload = self._request(request)
+        primary_body = {
+            "text": text,
+            "inputs": [text],
+            "model": self.tts_model,
+            "speaker": self.tts_speaker,
+            "language_code": self.language_code,
+            "target_language_code": self.language_code,
+            "speech_sample_rate": 8000,
+            "output_audio_codec": "linear16",
+            "pace": 1.0,
+            "temperature": 0.4,
+        }
+        request = Request(
+            f"{self.base_url}/text-to-speech",
+            data=json.dumps(primary_body).encode("utf-8"),
+            headers={"api-subscription-key": self.api_key, "Content-Type": "application/json", "Accept": "application/json"},
+            method="POST",
+        )
         try:
-            audio = base64.b64decode(payload["audios"][0])
-        except (KeyError, IndexError, TypeError, ValueError) as exc:
-            raise SarvamSpeechError("provider_invalid_response", "Sarvam returned no audio payload.") from exc
+            payload = self._request(request)
+        except SarvamSpeechError as error:
+            # If rejected due to schema/field incompatibility (e.g. 400/422), fallback to minimal bulbul schema
+            if error.status in {400, 422}:
+                fallback_body = {
+                    "inputs": [text],
+                    "target_language_code": self.language_code,
+                    "speaker": self.tts_speaker,
+                    "model": self.tts_model,
+                }
+                fallback_request = Request(
+                    f"{self.base_url}/text-to-speech",
+                    data=json.dumps(fallback_body).encode("utf-8"),
+                    headers={"api-subscription-key": self.api_key, "Content-Type": "application/json", "Accept": "application/json"},
+                    method="POST",
+                )
+                try:
+                    payload = self._request(fallback_request)
+                except SarvamSpeechError:
+                    raise error from None
+            else:
+                raise
+
+        raw_b64 = None
+        if isinstance(payload, dict):
+            audios = payload.get("audios")
+            if isinstance(audios, list) and audios:
+                raw_b64 = audios[0]
+            elif isinstance(audios, str):
+                raw_b64 = audios
+            else:
+                raw_b64 = payload.get("audio") or payload.get("audio_content")
+
+        if not raw_b64 or not isinstance(raw_b64, str):
+            raise SarvamSpeechError("provider_invalid_response", "Sarvam returned no audio payload.")
+
+        try:
+            audio = base64.b64decode(raw_b64)
+        except (TypeError, ValueError) as exc:
+            raise SarvamSpeechError("provider_invalid_response", "Sarvam returned invalid base64 audio.") from exc
+
         pcm, sample_rate = self._pcm_from_audio(audio, fallback_rate=8000)
         pcm = self._resample_pcm16(pcm, sample_rate, 8000)
         return self._wav(pcm, 8000)

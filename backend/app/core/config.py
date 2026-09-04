@@ -92,7 +92,55 @@ class AppSettings:
     allow_live_execution: bool = False
 
 
+def _load_env_file() -> None:
+    """Lightweight .env loader without third-party dependencies."""
+    for env_path in (REPOSITORY_ROOT / ".env", REPOSITORY_ROOT / "backend/.env"):
+        if env_path.is_file():
+            try:
+                for line in env_path.read_text(encoding="utf-8").splitlines():
+                    trimmed = line.strip()
+                    if not trimmed or trimmed.startswith("#") or "=" not in trimmed:
+                        continue
+                    key, _, value = trimmed.partition("=")
+                    key = key.strip()
+                    value = value.strip().strip('"').strip("'")
+                    if key and key not in os.environ:
+                        os.environ[key] = value
+            except Exception:
+                pass
+
+
 def load_settings() -> AppSettings:
+    _load_env_file()
+    voice_public_base_url = os.getenv("VOICE_PUBLIC_BASE_URL") or None
+    exotel_stream_url = os.getenv("EXOTEL_STREAM_URL")
+    if not exotel_stream_url and voice_public_base_url:
+        wss_base = voice_public_base_url.replace("https://", "wss://").replace("http://", "ws://").rstrip("/")
+        exotel_stream_url = f"{wss_base}/api/v1/voice/exotel/stream"
+
+    sarvam_api_key = os.getenv("SARVAM_API_KEY") or None
+    sarvam_enabled_raw = os.getenv("SARVAM_ENABLED")
+    sarvam_enabled = (
+        sarvam_enabled_raw.casefold() in {"1", "true", "yes"}
+        if sarvam_enabled_raw is not None
+        else bool(sarvam_api_key)
+    )
+
+    exotel_api_key = os.getenv("EXOTEL_API_KEY") or None
+    exotel_account_sid = os.getenv("EXOTEL_ACCOUNT_SID") or None
+    voice_provider = os.getenv("VOICE_PROVIDER")
+    if not voice_provider and exotel_api_key and exotel_account_sid:
+        voice_provider = "exotel"
+    elif not voice_provider:
+        voice_provider = "local"
+
+    voice_enabled_raw = os.getenv("VOICE_ENABLED")
+    voice_enabled = (
+        voice_enabled_raw.casefold() in {"1", "true", "yes"}
+        if voice_enabled_raw is not None
+        else (bool(exotel_api_key and exotel_account_sid) if voice_provider == "exotel" else False)
+    )
+
     return AppSettings(
         database_url=os.getenv("DATABASE_URL", AppSettings.database_url),
         api_environment=os.getenv("API_ENVIRONMENT", "development"),
@@ -103,26 +151,26 @@ def load_settings() -> AppSettings:
         llm_api_key=os.getenv("LLM_API_KEY") or None,
         llm_model=os.getenv("LLM_MODEL", "gpt-4o-mini"),
         llm_timeout_seconds=float(os.getenv("LLM_TIMEOUT_SECONDS", "10")),
-        voice_provider=os.getenv("VOICE_PROVIDER", "local"),
-        voice_enabled=os.getenv("VOICE_ENABLED", "false").casefold() in {"1", "true", "yes"},
+        voice_provider=voice_provider,
+        voice_enabled=voice_enabled,
         voice_base_url=os.getenv("VOICE_BASE_URL") or None,
         voice_api_key=os.getenv("VOICE_API_KEY") or None,
         voice_agent_id=os.getenv("VOICE_AGENT_ID") or None,
         voice_phone_number=os.getenv("VOICE_PHONE_NUMBER") or None,
         voice_timeout_seconds=float(os.getenv("VOICE_TIMEOUT_SECONDS", "10")),
         voice_mode=os.getenv("VOICE_MODE") or None,
-        voice_public_base_url=os.getenv("VOICE_PUBLIC_BASE_URL") or None,
+        voice_public_base_url=voice_public_base_url,
         voice_language=os.getenv("VOICE_LANGUAGE", "hi-IN"),
-        exotel_api_key=os.getenv("EXOTEL_API_KEY") or None,
+        exotel_api_key=exotel_api_key,
         exotel_api_token=os.getenv("EXOTEL_API_TOKEN") or None,
-        exotel_account_sid=os.getenv("EXOTEL_ACCOUNT_SID") or None,
+        exotel_account_sid=exotel_account_sid,
         exotel_app_id=os.getenv("EXOTEL_APP_ID") or None,
         exotel_flow_url=(
             os.getenv("EXOTEL_FLOW_URL")
             or (
                 f"{os.getenv('EXOTEL_PORTAL_BASE_URL', 'https://my.exotel.com').rstrip('/')}/"
-                f"{os.getenv('EXOTEL_ACCOUNT_SID')}/exoml/start_voice/{os.getenv('EXOTEL_APP_ID')}"
-                if os.getenv("EXOTEL_ACCOUNT_SID") and os.getenv("EXOTEL_APP_ID")
+                f"{exotel_account_sid}/exoml/start_voice/{os.getenv('EXOTEL_APP_ID')}"
+                if exotel_account_sid and os.getenv("EXOTEL_APP_ID")
                 else None
             )
         ),
@@ -131,9 +179,9 @@ def load_settings() -> AppSettings:
         exotel_portal_base_url=os.getenv("EXOTEL_PORTAL_BASE_URL", "https://my.exotel.com").rstrip("/"),
         exotel_webhook_secret=os.getenv("EXOTEL_WEBHOOK_SECRET") or None,
         exotel_agentstream_enabled=os.getenv("EXOTEL_AGENTSTREAM_ENABLED", "false").casefold() in {"1", "true", "yes"},
-        exotel_stream_url=os.getenv("EXOTEL_STREAM_URL") or None,
-        sarvam_enabled=os.getenv("SARVAM_ENABLED", "false").casefold() in {"1", "true", "yes"},
-        sarvam_api_key=os.getenv("SARVAM_API_KEY") or None,
+        exotel_stream_url=exotel_stream_url,
+        sarvam_enabled=sarvam_enabled,
+        sarvam_api_key=sarvam_api_key,
         sarvam_base_url=os.getenv("SARVAM_BASE_URL", "https://api.sarvam.ai"),
         sarvam_language_code=os.getenv("SARVAM_LANGUAGE_CODE", "hi-IN"),
         sarvam_stt_model=os.getenv("SARVAM_STT_MODEL", "saaras:v3"),

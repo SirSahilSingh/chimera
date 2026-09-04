@@ -30,7 +30,7 @@ TERMINAL_VOICE_STATUSES = frozenset({
 
 VALID_VOICE_TRANSITIONS: dict[VoiceCallStatus, frozenset[VoiceCallStatus]] = {
     VoiceCallStatus.CALL_QUEUED: frozenset({VoiceCallStatus.CALL_INITIATED, VoiceCallStatus.FAILED, VoiceCallStatus.CANCELLED}),
-    VoiceCallStatus.CALL_INITIATED: frozenset({VoiceCallStatus.RINGING, VoiceCallStatus.FAILED, VoiceCallStatus.CANCELLED}),
+    VoiceCallStatus.CALL_INITIATED: frozenset({VoiceCallStatus.RINGING, VoiceCallStatus.CONNECTED, VoiceCallStatus.FAILED, VoiceCallStatus.CANCELLED}),
     VoiceCallStatus.RINGING: frozenset({VoiceCallStatus.CONNECTED, VoiceCallStatus.NO_ANSWER, VoiceCallStatus.FAILED, VoiceCallStatus.CANCELLED}),
     VoiceCallStatus.CONNECTED: frozenset({VoiceCallStatus.CONVERSATION, VoiceCallStatus.FAILED}),
     VoiceCallStatus.CONVERSATION: frozenset({VoiceCallStatus.AWAITING_RESOLUTION, VoiceCallStatus.FAILED}),

@@ -80,8 +80,9 @@ export function DecisionRoom({ initialCase }: { initialCase: RecoveryCase }) {
   };
 
   const activeIntervention = journey?.interventions.find((item) => item.decision_id === decision?.id) ?? journey?.interventions.at(-1) ?? null;
-  const callAlreadyStarted = Boolean(activeIntervention && journey?.voice_calls.some((call) => call.intervention_id === activeIntervention.id));
-  const canCall = Boolean(activeIntervention && caseData.customer_phone && !["RECOVERED", "CLOSED"].includes(caseData.status) && !callAlreadyStarted);
+  const latestCall = journey?.voice_calls.filter((call) => call.intervention_id === activeIntervention?.id).at(-1) ?? null;
+  const callInProgress = Boolean(latestCall && !["COMPLETED", "FAILED", "DECLINED", "NO_ANSWER", "CANCELLED"].includes(latestCall.status));
+  const canCall = Boolean(activeIntervention && caseData.customer_phone && !["RECOVERED", "CLOSED"].includes(caseData.status) && !callInProgress);
   const canExecute = caseData.status === "DECIDED" && Boolean(decision);
   const stageContent = activeStage === "Detect" ? <FailureDiagnosis caseData={caseData} decision={decision} />
     : activeStage === "Diagnose" ? <DiagnosisTab caseData={caseData} intelligence={intelligence} />
@@ -95,7 +96,7 @@ export function DecisionRoom({ initialCase }: { initialCase: RecoveryCase }) {
       <div>
       <div className="detail-title"><div><span className="detail-overline">Case id</span><h1>{caseDisplayId(caseData)}</h1><p>{caseData.id} · {caseData.customer_id}<span className="last-sync">Last sync: {lastSyncedAt ? formatDate(lastSyncedAt) : "Connecting"}</span></p></div><StatusBadge status={caseData.status} /><span className="live-sync"><span className="agent-pulse" />{syncing ? "Syncing" : "Live"}</span></div>
       </div>
-      <div className="detail-actions">{!decision && <Button onClick={() => run("decide")} disabled={busy !== null}><ShieldIcon size={16} />{busy === "decide" ? "Generating…" : "Generate decision"}</Button>}{canExecute && <Button kind="secondary" onClick={() => setConfirmOpen(true)} disabled={busy !== null}><ArrowRightIcon size={16} />Execute action</Button>}{canCall && <Button kind="secondary" onClick={() => setCallConfirmOpen(true)} disabled={busy !== null}><ExternalIcon size={16} />{busy === "call" ? "Calling…" : "Call customer"}</Button>}<Button kind="quiet" onClick={refresh} disabled={busy !== null} aria-label="Refresh case"><RefreshIcon size={16} /></Button></div>
+      <div className="detail-actions">{!decision && <Button onClick={() => run("decide")} disabled={busy !== null}><ShieldIcon size={16} />{busy === "decide" ? "Generating…" : "Generate decision"}</Button>}{canExecute && <Button kind="secondary" onClick={() => setConfirmOpen(true)} disabled={busy !== null}><ArrowRightIcon size={16} />Execute action</Button>}{canCall && <Button kind="secondary" onClick={() => setCallConfirmOpen(true)} disabled={busy !== null}><ExternalIcon size={16} />{busy === "call" ? "Calling…" : latestCall ? "Retry call" : "Call customer"}</Button>}<Button kind="quiet" onClick={refresh} disabled={busy !== null} aria-label="Refresh case"><RefreshIcon size={16} /></Button></div>
     </div>
     {error && <ErrorState message={error} onRetry={() => setError(null)} />}
     <section className="decision-tabs" aria-label="Decision lifecycle"><div className="decision-tab-list" role="tablist">{stages.map((stage) => <button key={stage} role="tab" aria-selected={activeStage === stage} className={`decision-tab ${activeStage === stage ? "active" : ""}`} onClick={() => setActiveStage(stage)}><span>{stages.indexOf(stage) + 1}</span>{stage}</button>)}</div><div className="decision-tab-content">{stageContent}</div></section>

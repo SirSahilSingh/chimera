@@ -89,6 +89,16 @@ class ExotelStreamSession:
             or start.get("streamSid")
             or start.get("stream sid")
         )
+        call_sid = (
+            message.get("call_sid")
+            or message.get("callSid")
+            or message.get("CallSid")
+            or start.get("call_sid")
+            or start.get("callSid")
+            or start.get("CallSid")
+            or start.get("sid")
+            or start.get("Sid")
+        )
         if not self.intervention_id:
             custom = (
                 start.get("custom_parameters")
@@ -102,11 +112,29 @@ class ExotelStreamSession:
                     or custom.get("interventionId")
                     or custom.get("intervention id")
                 )
+
+        if not self.intervention_id and call_sid:
+            try:
+                call = await asyncio.to_thread(self.voice_service.get_call_for_provider_reference, str(call_sid).strip())
+                self.intervention_id = call.intervention_id
+            except Exception:
+                pass
+
+        if not self.intervention_id:
+            try:
+                latest_call = await asyncio.to_thread(self.voice_service.get_latest_active_call)
+                if latest_call is not None:
+                    self.intervention_id = latest_call.intervention_id
+            except Exception:
+                pass
+
         if not self.intervention_id:
             raise ValueError("Exotel stream is missing intervention_id")
+
         await asyncio.to_thread(self.voice_service.exotel_stream_opened, self.intervention_id, self.stream_sid)
         opening = await asyncio.to_thread(self.voice_service.exotel_opening, self.intervention_id)
-        await self._send_audio(await asyncio.to_thread(self.speech_provider.synthesize, opening))
+        audio = await asyncio.to_thread(self.speech_provider.synthesize, opening)
+        await self._send_audio(audio)
 
     async def _handle_dtmf(self, message: dict[str, Any]) -> None:
         dtmf = message.get("dtmf") if isinstance(message.get("dtmf"), dict) else {}
@@ -163,31 +191,40 @@ class ExotelStreamSession:
         pcm = self._pcm_from_wav(audio)
         if not pcm or not self.stream_sid:
             return
-        for offset in range(0, len(pcm), self._CHUNK_BYTES):
-            chunk = pcm[offset : offset + self._CHUNK_BYTES]
+        chunk_size = 1600  # 100 ms of 8 kHz, 16-bit mono PCM
+        for offset in range(0, len(pcm), chunk_size):
+            chunk = pcm[offset : offset + chunk_size]
             if len(chunk) % 320:
                 chunk += b"\x00" * (320 - (len(chunk) % 320))
             if not chunk:
                 continue
             self.sequence_number += 1
-            await self.websocket.send_json({
-                "event": "media",
-                "stream_sid": self.stream_sid,
-                "sequence_number": str(self.sequence_number),
-                "media": {
-                    "chunk": str(self.sequence_number),
-                    "timestamp": str(self.output_timestamp_ms),
-                    "payload": base64.b64encode(chunk).decode("ascii"),
-                },
-            })
+            try:
+                await self.websocket.send_json({
+                    "event": "media",
+                    "stream_sid": self.stream_sid,
+                    "sequence_number": self.sequence_number,
+                    "media": {
+                        "chunk": self.sequence_number,
+                        "timestamp": str(self.output_timestamp_ms),
+                        "payload": base64.b64encode(chunk).decode("ascii"),
+                    },
+                })
+            except Exception:
+                return
             self.output_timestamp_ms += len(chunk) // 16
+            if offset >= chunk_size * 2:
+                await asyncio.sleep(0.08)
         self.sequence_number += 1
-        await self.websocket.send_json({
-            "event": "mark",
-            "stream_sid": self.stream_sid,
-            "sequence_number": str(self.sequence_number),
-            "mark": {"name": f"chimera-audio-{self.sequence_number}"},
-        })
+        try:
+            await self.websocket.send_json({
+                "event": "mark",
+                "stream_sid": self.stream_sid,
+                "sequence_number": self.sequence_number,
+                "mark": {"name": f"chimera-audio-{self.sequence_number}"},
+            })
+        except Exception:
+            return
 
     async def _close_with_error(self) -> None:
         try:

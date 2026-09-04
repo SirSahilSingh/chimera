@@ -88,11 +88,59 @@ class VoiceService:
             raise VoiceNotFoundError("voice call not found")
         return call
 
+    def get_latest_active_call(self) -> VoiceCall | None:
+        """Find the most recent in-flight voice call for session fallback."""
+        active_statuses = (
+            VoiceCallStatus.CALL_QUEUED.value,
+            VoiceCallStatus.CALL_INITIATED.value,
+            VoiceCallStatus.RINGING.value,
+            VoiceCallStatus.CONNECTED.value,
+            VoiceCallStatus.CONVERSATION.value,
+            VoiceCallStatus.AWAITING_RESOLUTION.value,
+        )
+        return self.session.scalar(
+            select(VoiceCall)
+            .options(
+                joinedload(VoiceCall.intervention).joinedload(Intervention.decision),
+                joinedload(VoiceCall.intervention).joinedload(Intervention.recovery_case),
+                selectinload(VoiceCall.turns),
+                selectinload(VoiceCall.events),
+            )
+            .where(VoiceCall.status.in_(active_statuses))
+            .order_by(VoiceCall.created_at.desc())
+        )
+
     def start(self, intervention_id: str, scenario: VoiceScenario, *, allow_secondary: bool = False, source: str = "decision") -> tuple[VoiceCall, bool]:
         intervention = self.interventions.get_intervention(intervention_id)
         self._assert_voice_intervention(intervention, allow_secondary=allow_secondary)
+        context = build_voice_context(intervention, allow_secondary=allow_secondary)
         existing = self.session.scalar(select(VoiceCall).where(VoiceCall.intervention_id == intervention_id))
         if existing is not None:
+            if existing.status in TERMINAL_VOICE_STATUSES and source == "operator":
+                # Operator retry: reset call for a fresh attempt
+                key = self._idempotency_key(intervention_id, scenario, f"{self.provider.name}-{self._now().isoformat()}")
+                existing.idempotency_key = key
+                existing.status = VoiceCallStatus.CALL_QUEUED.value
+                existing.provider = self.provider.name
+                existing.provider_mode = self.provider.mode
+                existing.failure_code = None
+                existing.completed_at = None
+                self.session.flush()
+                try:
+                    started = self.provider.start_call(context, idempotency_key=key, scenario=scenario)
+                    existing.provider_call_reference = started.provider_call_reference
+                    existing.provider = started.provider
+                    existing.started_at = self._now()
+                    self._transition(existing, VoiceCallStatus.CALL_INITIATED)
+                    self._event(existing, "CALL_REINITIATED", "operator", {"provider": started.provider})
+                    self.session.commit()
+                    return self.get_call(existing.id), True
+                except VoiceProviderError as exc:
+                    existing.failure_code = safe_failure_code(exc.code)
+                    existing.completed_at = self._now()
+                    self._transition(existing, VoiceCallStatus.FAILED)
+                    self.session.commit()
+                    raise VoiceProviderFailure(existing.failure_code) from None
             if existing.scenario != scenario.value:
                 raise VoiceDuplicateError("intervention already has a voice call with a different scenario")
             return self.get_call(existing.id), False

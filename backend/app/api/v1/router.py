@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
+import json
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, Response, WebSocket
 from fastapi.responses import PlainTextResponse
@@ -865,7 +866,7 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
         except VoiceDomainError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
-    @router.post("/voice/exotel/status", response_model=VoiceCallResponse)
+    @router.api_route("/voice/exotel/status", methods=["GET", "POST"], response_model=VoiceCallResponse)
     async def exotel_status(request: Request, service: VoiceService = Depends(voice_service)):
         """Translate Exotel's form-encoded status callback into CHIMERA's voice events."""
         provider = service.provider
@@ -876,9 +877,29 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
             raise HTTPException(status_code=403, detail="invalid Exotel callback token")
 
         raw_body = (await request.body()).decode("utf-8", errors="replace")
-        fields = dict(parse_qsl(raw_body, keep_blank_values=True))
-        call_reference = fields.get("CallSid") or fields.get("CallSID") or fields.get("callsid")
-        raw_status = (fields.get("Status") or fields.get("status") or "").strip().casefold()
+        fields: dict[str, str] = {}
+        if raw_body.strip().startswith("{"):
+            try:
+                parsed = json.loads(raw_body)
+                if isinstance(parsed, dict):
+                    fields = {str(k): str(v) for k, v in parsed.items()}
+            except Exception:
+                pass
+        if not fields:
+            fields = dict(parse_qsl(raw_body, keep_blank_values=True))
+
+        def get_param(*keys: str) -> str | None:
+            normalized_keys = {k.casefold() for k in keys}
+            for k, v in fields.items():
+                if k.casefold() in normalized_keys and str(v).strip():
+                    return str(v).strip()
+            for k, v in request.query_params.items():
+                if k.casefold() in normalized_keys and str(v).strip():
+                    return str(v).strip()
+            return None
+
+        call_reference = get_param("CallSid", "CallSID", "callsid", "call_sid", "sid")
+        raw_status = (get_param("Status", "status", "CallStatus", "call_status") or "").strip().casefold()
         event_type = {
             "initiated": "call_initiated",
             "ringing": "ringing",
@@ -896,7 +917,7 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
         if not call_reference or not event_type:
             raise HTTPException(status_code=400, detail="Exotel callback is missing CallSid or has an unsupported Status")
 
-        raw_timestamp = fields.get("DateUpdated") or fields.get("dateupdated")
+        raw_timestamp = get_param("DateUpdated", "dateupdated", "DateCreated", "datecreated")
         event_timestamp = datetime.now(timezone.utc)
         if raw_timestamp:
             try:
@@ -919,30 +940,90 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
         except VoiceDomainError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 
-    @router.get("/voice/exotel/stream-resolver")
-    def exotel_stream_resolver(request: Request, service: VoiceService = Depends(voice_service)):
+    @router.api_route("/voice/exotel/stream-resolver", methods=["GET", "POST"])
+    async def exotel_stream_resolver(request: Request, service: VoiceService = Depends(voice_service)):
         """Resolve a flow call SID to its CHIMERA websocket session."""
         provider = service.provider
-        if not isinstance(provider, ExotelVoiceProvider) or not provider.stream_url:
-            raise HTTPException(status_code=404, detail="Exotel stream resolver is not configured")
-        call_reference = request.query_params.get("callsid") or request.query_params.get("call_sid")
-        if not call_reference:
-            raise HTTPException(status_code=400, detail="callsid is required")
-        try:
-            call = service.get_call_for_provider_reference(call_reference)
-        except VoiceNotFoundError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-        stream_url = f"{provider.stream_url}?{urlencode({'intervention_id': call.intervention_id})}"
-        return {"url": stream_url}
+        if not isinstance(provider, ExotelVoiceProvider):
+            raise HTTPException(status_code=404, detail="Exotel is not the configured voice provider")
+
+        stream_base = provider.stream_url
+        if not stream_base:
+            if provider.public_base_url:
+                wss = provider.public_base_url.replace("https://", "wss://").replace("http://", "ws://").rstrip("/")
+                stream_base = f"{wss}/api/v1/voice/exotel/stream"
+            else:
+                host = request.headers.get("host", "localhost:8000")
+                scheme = "wss" if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https" else "ws"
+                stream_base = f"{scheme}://{host}/api/v1/voice/exotel/stream"
+
+        raw_body = (await request.body()).decode("utf-8", errors="replace")
+        fields: dict[str, str] = {}
+        if raw_body.strip().startswith("{"):
+            try:
+                parsed = json.loads(raw_body)
+                if isinstance(parsed, dict):
+                    fields = {str(k): str(v) for k, v in parsed.items()}
+            except Exception:
+                pass
+        if not fields:
+            fields = dict(parse_qsl(raw_body, keep_blank_values=True))
+
+        def get_param(*keys: str) -> str | None:
+            normalized = {k.casefold() for k in keys}
+            for k, v in fields.items():
+                if k.casefold() in normalized and str(v).strip():
+                    return str(v).strip()
+            for k, v in request.query_params.items():
+                if k.casefold() in normalized and str(v).strip():
+                    return str(v).strip()
+            return None
+
+        call_reference = get_param("CallSid", "CallSID", "callsid", "call_sid", "sid", "Sid")
+        call = None
+        if call_reference:
+            try:
+                call = service.get_call_for_provider_reference(call_reference)
+            except VoiceNotFoundError:
+                pass
+
+        if call is None:
+            custom = get_param("CustomField", "customfield", "custom_field")
+            if custom and "|" in custom:
+                int_id = custom.split("|", 1)[0]
+                try:
+                    call = service.get_call_for_intervention(int_id)
+                except Exception:
+                    pass
+
+        if call is None:
+            call = service.get_latest_active_call()
+
+        if call is None:
+            if not call_reference:
+                raise HTTPException(status_code=400, detail="callsid is required")
+            raise HTTPException(status_code=404, detail=f"voice call not found for reference: {call_reference}")
+
+        stream_url = f"{stream_base}?{urlencode({'intervention_id': call.intervention_id})}"
+        return {
+            "url": stream_url,
+            "websocket_url": stream_url,
+            "stream_url": stream_url,
+        }
 
     @router.websocket("/voice/exotel/stream")
     async def exotel_stream(websocket: WebSocket, intervention_id: str | None = None, service: VoiceService = Depends(voice_service)):
         """Receive Exotel bidirectional audio and run the Sarvam Hinglish loop."""
         provider = service.provider
-        if not isinstance(provider, ExotelVoiceProvider) or not provider.stream_url:
+        if not isinstance(provider, ExotelVoiceProvider):
             await websocket.close(code=1008)
             return
-        if service.speech_provider is None or not service.speech_provider.enabled or not service.speech_provider.api_key:
+
+        speech = service.speech_provider
+        if speech is not None and speech.api_key and not speech.enabled:
+            speech.enabled = True
+
+        if speech is None or not speech.enabled or not speech.api_key:
             await asyncio.to_thread(
                 service.exotel_stream_failed,
                 intervention_id,
@@ -952,7 +1033,7 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
             )
             await websocket.close(code=1011, reason="Sarvam speech provider is not configured")
             return
-        await ExotelStreamSession(websocket, voice_service=service, speech_provider=service.speech_provider, intervention_id=intervention_id).run()
+        await ExotelStreamSession(websocket, voice_service=service, speech_provider=speech, intervention_id=intervention_id).run()
 
     @router.api_route("/voice/twilio/twiml", methods=["GET", "POST"], response_class=PlainTextResponse)
     def twilio_twiml(intervention_id: str, service: VoiceService = Depends(voice_service)):
