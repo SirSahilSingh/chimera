@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { api, ApiError } from "../../lib/api";
 import type { JourneyEvent } from "../../lib/types";
 import { formatDate } from "../../lib/formatters";
@@ -11,6 +12,7 @@ import { IntelligenceTitle, IntelEmpty } from "../../components/intelligence-wor
 type AuditRow = JourneyEvent & { caseRef: string; caseId: string; caseStatus: string };
 
 export default function AuditPage() {
+  const router = useRouter();
   const [events, setEvents] = useState<AuditRow[]>([]);
   const [eventType, setEventType] = useState("");
   const [source, setSource] = useState("");
@@ -44,7 +46,7 @@ export default function AuditPage() {
   const sources = useMemo(() => Array.from(new Set(events.map((event) => event.source))).sort(), [events]);
   const providerModes = useMemo(() => Array.from(new Set(events.map((event) => event.provider_mode).filter((item): item is string => Boolean(item)))).sort(), [events]);
   const visibleEvents = events.filter((event) => (!eventType || event.event_type === eventType) && (!source || event.source === source) && (!providerMode || event.provider_mode === providerMode));
-  const auditContent = visibleEvents.length ? <div className="audit-table"><div className="audit-row audit-row-header"><span>Timestamp</span><span>Event</span><span>Source</span><span>Case</span><span>Provider mode</span><span>Status</span><span /></div>{visibleEvents.map((event) => <div className="audit-row" key={event.id}><span className="audit-time">{event.timestamp ? formatDate(event.timestamp) : "Timestamp unavailable"}</span><strong>{event.event_type.replaceAll("_", " ")}</strong><span>{event.source}</span><a href={`/cases/${event.caseId}`}>{event.caseRef}</a><span className="mode-label">{event.provider_mode ?? "—"}</span><StatusBadge status={event.caseStatus} /><a className="audit-open" href={`/cases/${event.caseId}`} aria-label={`Open ${event.caseRef}`}><ArrowRightIcon size={14} /></a></div>)}</div> : <IntelEmpty label={events.length ? "No events match the current filters." : "No persisted audit events are available yet."} />;
+  const auditContent = visibleEvents.length ? <div className="audit-table"><div className="audit-row audit-row-header"><span>Timestamp</span><span>Event</span><span>Source</span><span>Case</span><span>Provider mode</span><span>Status</span><span /></div>{visibleEvents.map((event) => { const href = `/cases/${event.caseId}`; const open = () => router.push(href); return <div className="audit-row audit-row-link" key={event.id} role="link" tabIndex={0} onClick={open} onKeyDown={(keyboardEvent) => { if (keyboardEvent.key === "Enter" || keyboardEvent.key === " ") { keyboardEvent.preventDefault(); open(); } }}><span className="audit-time">{event.timestamp ? formatDate(event.timestamp) : "Timestamp unavailable"}</span><strong>{event.event_type.replaceAll("_", " ")}</strong><span>{event.source}</span><a href={href} onClick={(clickEvent) => clickEvent.stopPropagation()}>{event.caseRef}</a><span className="mode-label">{event.provider_mode ?? "—"}</span><StatusBadge status={event.caseStatus} /><a className="audit-open" href={href} onClick={(clickEvent) => clickEvent.stopPropagation()} aria-label={`Open ${event.caseRef}`}><ArrowRightIcon size={14} /></a></div>; })}</div> : <IntelEmpty label={events.length ? "No events match the current filters." : "No persisted audit events are available yet."} />;
 
   if (loading) return <div className="system-page"><IntelligenceTitle title="Audit Trail" /><LoadingState label="Loading audit trail" /></div>;
   if (error) return <div className="system-page"><IntelligenceTitle title="Audit Trail" /><ErrorState message={error} onRetry={load} /></div>;

@@ -16,6 +16,7 @@ export const ArrowRightIcon = (props: IconProps) => <Icon {...props}><path d="M5
 export const ChevronDownIcon = (props: IconProps) => <Icon {...props}><path d="m6 9 6 6 6-6" /></Icon>;
 export const CheckIcon = (props: IconProps) => <Icon {...props}><path d="m5 12 4.3 4.3L19 7" /></Icon>;
 export const AlertIcon = (props: IconProps) => <Icon {...props}><path d="M12 3 22 20H2L12 3Z" /><path d="M12 9v5M12 17h.01" strokeWidth="2" /></Icon>;
+export const AlertCircleIcon = (props: IconProps) => <Icon {...props}><circle cx="12" cy="12" r="9" /><path d="M12 8v5M12 16h.01" strokeWidth="2" /></Icon>;
 export const ClockIcon = (props: IconProps) => <Icon {...props}><circle cx="12" cy="12" r="8.5" /><path d="M12 7v5l3 2" /></Icon>;
 export const RefreshIcon = (props: IconProps) => <Icon {...props}><path d="M20 11a8 8 0 0 0-14.8-3L3 11" /><path d="M3 5v6h6M4 13a8 8 0 0 0 14.8 3L21 13" /><path d="M21 19v-6h-6" /></Icon>;
 export const ExternalIcon = (props: IconProps) => <Icon {...props}><path d="M14 5h5v5M19 5l-8 8" /><path d="M18 13v5H5V6h5" /></Icon>;

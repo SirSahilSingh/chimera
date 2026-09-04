@@ -16,12 +16,12 @@ function modeLabel(mode: string | null | undefined) {
 
 export function PersistedJourneyTimeline({ journey }: { journey: RecoveryJourney }) {
   return <section className="journey-panel" aria-label="Persisted recovery audit trail">
-    <div className="panel-heading"><div><span className="section-overline">Audit trail</span><h2>The complete recovery story</h2></div><span className="panel-note">Persisted events · chronological</span></div>
+    <div className="panel-heading"><div><h2>Audit Log</h2></div><span className="panel-note">Persisted events · chronological</span></div>
     {journey.audit_trail.length ? <div className="journey-timeline">{journey.audit_trail.map((event, index) => <div className="journey-event" key={`${event.id}-${index}`}><div className="journey-spine"><span className={`journey-marker ${index === journey.audit_trail.length - 1 ? "latest" : ""}`} />{index < journey.audit_trail.length - 1 && <i />}</div><div className="journey-event-body"><div className="journey-event-head"><strong>{eventLabel(event)}</strong><time>{event.timestamp ? formatDate(event.timestamp) : "Timestamp unavailable"}</time></div><p>{event.source}{event.provider_mode ? ` · ${modeLabel(event.provider_mode)}` : ""}</p></div></div>)}</div> : <div className="inline-empty"><ExternalIcon size={16} /><span>No persisted audit events are available for this case.</span></div>}
   </section>;
 }
 
-export function ProviderJourney({ journey }: { journey: RecoveryJourney }) {
+export function ProviderJourney({ journey, customerPhone }: { journey: RecoveryJourney; customerPhone?: string | null }) {
   const payments = journey.payments;
   const messages = journey.messages;
   const retries = journey.retries;
@@ -34,13 +34,19 @@ export function ProviderJourney({ journey }: { journey: RecoveryJourney }) {
     <div className="panel-heading"><div><span className="section-overline">Intervention evidence</span><h2>What happened after the decision</h2></div><span className="panel-note">Provider records only</span></div>
     <div className="provider-grid">
       {payments.map((payment) => <PaymentOperation key={payment.id} payment={payment} />)}
+      {messages.map((message) => <OperationRow key={message.id} title="Message sent" provider={message.provider} mode={message.provider_mode} status={message.delivery_state} detail={`${customerPhone ? `Sent to ${maskPhone(customerPhone)}` : "Sent to stored customer number."}${message.failure_reason ? ` · ${message.failure_reason}` : ""}`} />)}
       {calls.map((call) => <VoiceOperation key={call.id} call={call} />)}
-      {messages.map((message) => <OperationRow key={message.id} title="Message delivery" provider={message.provider} mode={message.provider_mode} status={message.delivery_state} detail={message.failure_reason ?? message.provider_message_id ?? "Provider reference not returned"} />)}
       {schedules.map((schedule) => <OperationRow key={schedule.id} title="Retry scheduled" provider="Retry scheduler" mode={schedule.provider_mode} status={schedule.execution_status} detail={`Scheduled for ${formatDate(schedule.scheduled_at)}`} />)}
       {retries.map((retry) => <OperationRow key={retry.id} title={formatAction(retry.action)} provider={retry.provider} mode={retry.provider_mode} status={retry.status} detail={retry.provider_reference ?? "Outcome pending"} />)}
       {escalations.map((escalation) => <OperationRow key={escalation.id} title="Human escalation" provider="Escalation workflow" mode={escalation.provider_mode} status={escalation.status} detail={escalation.reason} />)}
     </div>
   </section>;
+}
+
+function maskPhone(value: string) {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length <= 4) return value;
+  return `${digits.slice(0, 2)}${"•".repeat(Math.max(2, digits.length - 4))}${digits.slice(-2)}`;
 }
 
 function OperationRow({ title, provider, mode, status, detail }: { title: string; provider: string; mode: string; status: string; detail: string }) {

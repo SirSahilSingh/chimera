@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ExternalIcon } from "./icons";
-import { formatAction, formatDate, formatFailureReason, formatPaise, formatTime } from "../lib/formatters";
+import { formatAction, formatDay, formatFailureReason, formatPaise, formatTime } from "../lib/formatters";
 import { caseDisplayId, isRecovered } from "../lib/operations";
 import type { RecoveryCase } from "../lib/types";
 import { StatusBadge } from "./shell";
@@ -15,7 +15,7 @@ export function CaseTable({ cases, compact = false, queueMode = false }: { cases
     <td className="money-cell">{formatPaise(item.amount_paise, item.currency)}</td>
     <td>{item.latest_decision ? <span className="action-cell"><span className="action-dot" />{formatAction(item.latest_decision.selected_action)}</span> : <span className="muted-text">Awaiting decision</span>}</td>
     <td><StatusBadge status={item.status} /></td>
-    <td><Link className={`next-action ${queueMode && item.status === "DECIDED" ? "emphasis" : ""}`} href={`/cases/${item.id}`}><strong>{formatDate(item.updated_at)}</strong><span>{formatTime(item.updated_at)}</span></Link></td>
+    <td><Link className={`next-action ${queueMode && item.status === "DECIDED" ? "emphasis" : ""}`} href={`/cases/${item.id}`}><strong>{formatDay(item.updated_at)}</strong><span>{formatTime(item.updated_at)}</span></Link></td>
   </tr>)}</tbody></table>{cases.length === 0 && <div className="empty-state"><div className="empty-mark"><ExternalIcon size={18} /></div><h3>No cases match this view</h3><p>Change the filters or wait for the next stored payment failure.</p></div>}</div>;
 }
 

@@ -40,7 +40,7 @@ const navSections: NavSection[] = [
   { label: "Evaluation Lab", items: [
     { href: "/checkout", label: "Initial Checkout", icon: ShieldIcon },
     { href: "/demo", label: "Demo Scenarios", icon: FlaskIcon },
-    { href: "/arena", label: "Recovery Arena", icon: GridIcon },
+    { href: "/arena", label: "Policy Lab", icon: GridIcon },
     { href: "/methodology", label: "Methodology & Guardrails", icon: ShieldIcon },
   ] },
 ];
@@ -81,7 +81,7 @@ function pageName(pathname: string, search: string) {
   if (pathname === "/cases") return "Case Queue";
   if (pathname.startsWith("/escalations")) return "Escalations";
   if (pathname.startsWith("/retries/scheduled")) return "Scheduled Retries";
-  if (pathname.startsWith("/arena")) return "Recovery Arena";
+  if (pathname.startsWith("/arena")) return "Policy Lab";
   if (pathname.startsWith("/methodology")) return "Methodology & Guardrails";
   if (pathname.startsWith("/demo")) return "Demo Scenarios";
   if (pathname.startsWith("/checkout")) return "Initial Checkout";
