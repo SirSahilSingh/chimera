@@ -2,7 +2,8 @@
 
 Built for the **Razorpay AI Buildathon 2026: Track 3 (AI Revenue Recovery)**.
 
-> 🚀 **Live Interactive Demo:** Try the payment link and voice recovery demo yourself at **[https://chimera-recovery.vercel.app/demo](https://chimera-recovery.vercel.app/demo)**.
+> 🚀 **Live Interactive Demo:** Try the payment link and voice recovery demo yourself at **[https://chimera-recovery.vercel.app/demo](https://chimera-recovery.vercel.app/demo)**.  
+> ⏳ *Note: Since the backend is deployed on a free instance of Render, it may take ~50 seconds to spin up and load the data on the initial request.*
 
 Track 3 asks builders to answer a clear challenge: **Find revenue that is slipping away and win it back.**
 

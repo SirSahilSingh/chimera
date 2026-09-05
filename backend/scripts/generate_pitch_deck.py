@@ -738,11 +738,11 @@ def create_deck(output_path: str = "CHIMERA_Pitch_Deck.pptx") -> str:
     p_d2 = tf_d.add_paragraph()
     p_d2.text = (
         "• Test live Razorpay checkout failures\n"
-        "• Experience dynamic payment links\n"
-        "• Test the conversational Hinglish voice recovery agent\n"
-        "• Inspect the decision room and real-time audit ledger"
+        "• Experience dynamic payment links & Hinglish voice AI\n"
+        "• Inspect the decision room and real-time audit ledger\n"
+        "• Note: Hosted on Render free tier; allow ~50s for initial wake-up"
     )
-    p_d2.font.size = Pt(10.5)
+    p_d2.font.size = Pt(10.0)
     p_d2.font.color.rgb = COLOR_MUTED
 
     # Right Bottom Card: Open Source Repository & Tech Stack
