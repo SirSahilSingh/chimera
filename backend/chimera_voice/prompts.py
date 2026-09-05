@@ -21,7 +21,7 @@ def response_for_intent(intent: VoiceIntent, *, payment_link: str | None = None)
     if intent == VoiceIntent.SEND_PAYMENT_LINK:
         return f"Payment link के लिए आपकी request record कर ली है। यह link है: {payment_link}" if payment_link else "Payment link के लिए आपकी request record कर ली है। Approved channel से link share किया जाएगा।"
     if intent == VoiceIntent.RETRY_LATER:
-        return "आप बाद में try करना चाहते हैं, यह request record कर ली है। अभी payment recovered mark नहीं हुआ है।"
+        return "बाद में try करने की request record हो गई है। अभी payment recovered mark नहीं हुआ है। chimera se baat karne ke liye dhanyawad."
     if intent == VoiceIntent.ALREADY_PAID:
         return "धन्यवाद। आपने payment कर दिया है, यह record कर लिया है। Payment team verify करेगी; सिर्फ इस call से recovery mark नहीं होगी।"
     if intent == VoiceIntent.CALLBACK_REQUEST:

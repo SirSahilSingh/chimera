@@ -263,12 +263,14 @@ class VobizStreamSession:
 
         # If customer said yes or requested link, immediately trigger Razorpay payment link delivery
         norm = transcript.lower().strip()
+        retry_later_words = ("later", "baad me", "baad mein", "kal", "retry", "phir", "बाद में", "कल")
+        is_retry_later = any(w in norm for w in retry_later_words)
         affirmative_words = (
             "yes", "haan", "han", "ji haan", "sahi hai", "theek hai", "accha",
             "hmm", "ok", "okay", "sure", "bhej", "send", "link", "kardo", "kar do",
             "kar dunga", "kar dungi", "abhi", "pay", "payment", "हाँ", "सही है", "ठीक है", "भेज", "लिंक"
         )
-        if any(w in norm for w in affirmative_words) and self.intervention_id:
+        if not is_retry_later and any(w in norm for w in affirmative_words) and self.intervention_id:
             try:
                 payment_url = await asyncio.to_thread(self.voice_service.ensure_payment_link_sent, self.intervention_id)
                 if payment_url:
@@ -288,7 +290,13 @@ class VobizStreamSession:
                 self.voice_service.handle_vobiz_transcript, self.intervention_id, transcript
             )
 
-        if response_text and ("dhanyawaad" in response_text.lower() or "payment link ready" in response_text.lower()):
+        if response_text and (
+            "dhanyawaad" in response_text.lower()
+            or "dhanyawad" in response_text.lower()
+            or "chimera se baat" in response_text.lower()
+            or "payment link ready" in response_text.lower()
+            or "बाद में try करने" in response_text.lower()
+        ):
             should_end = True
 
         logger.info("Agent reply: %s (close_after_playback=%s)", response_text, should_end)

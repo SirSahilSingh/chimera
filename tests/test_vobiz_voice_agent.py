@@ -163,3 +163,78 @@ class VobizVoiceAgentTests(unittest.TestCase):
         self.assertNotEqual(voice["readiness_status"], "UNAVAILABLE")
         self.assertEqual(voice["readiness_status"], "TEST_READY")
 
+    def test_vobiz_retry_later_utterance_and_call_completion(self):
+        case, decision, intervention = self._setup_intervention()
+        with patch("backend.chimera_voice.vobiz_provider.urlopen") as mock_urlopen:
+            mock_resp = MagicMock()
+            mock_resp.read.return_value = json.dumps({"call_uuid": "vobiz-call-uuid-retry-1"}).encode("utf-8")
+            mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+            start_resp = self.client.post(
+                "/api/v1/voice/outbound/call",
+                json={"intervention_id": intervention["id"], "customer_phone": "+919876543210"},
+            )
+            self.assertEqual(start_resp.status_code, 200)
+
+        session = self.app.state.session_factory()
+        try:
+            from backend.chimera_voice.service import VoiceService
+            voice_svc = VoiceService(session=session, provider=self.vobiz_provider)
+            reply_text, should_end = voice_svc.handle_vobiz_transcript(intervention["id"], "बाद में try करेंगे")
+            self.assertIn("बाद में try करने की request record हो गई है। अभी payment recovered mark नहीं हुआ है। chimera se baat karne ke liye dhanyawad.", reply_text)
+            self.assertTrue(should_end)
+
+            call = voice_svc.get_call_for_intervention(intervention["id"])
+            self.assertEqual(call.status, "COMPLETED")
+            self.assertEqual(call.outcome_intent, "RETRY_LATER")
+            self.assertIsNone(call.payment_link)
+        finally:
+            session.close()
+
+    def test_vobiz_record_vobiz_turn_retry_later_ends_call(self):
+        case, decision, intervention = self._setup_intervention()
+        with patch("backend.chimera_voice.vobiz_provider.urlopen") as mock_urlopen:
+            mock_resp = MagicMock()
+            mock_resp.read.return_value = json.dumps({"call_uuid": "vobiz-call-uuid-retry-2"}).encode("utf-8")
+            mock_urlopen.return_value.__enter__.return_value = mock_resp
+
+            start_resp = self.client.post(
+                "/api/v1/voice/outbound/call",
+                json={"intervention_id": intervention["id"], "customer_phone": "+919876543210"},
+            )
+            self.assertEqual(start_resp.status_code, 200)
+
+        session = self.app.state.session_factory()
+        try:
+            from backend.chimera_voice.service import VoiceService
+            voice_svc = VoiceService(session=session, provider=self.vobiz_provider)
+            reply = "बाद में try करने की request record हो गई है। अभी payment recovered mark नहीं हुआ है। chimera se baat karne ke liye dhanyawad."
+            should_end = voice_svc.record_vobiz_turn(intervention["id"], "kal karunga", reply)
+            self.assertTrue(should_end)
+
+            call = voice_svc.get_call_for_intervention(intervention["id"])
+            self.assertEqual(call.status, "COMPLETED")
+            self.assertEqual(call.outcome_intent, "RETRY_LATER")
+        finally:
+            session.close()
+
+    def test_groq_agent_prompt_has_retry_later_rule(self):
+        agent = GroqVoiceAgent(api_key="gsk-mock-key")
+        context = VoiceContext(
+            intervention_id="int-1",
+            recovery_case_id="case-1",
+            decision_id="dec-1",
+            customer_phone="+919876543210",
+            selected_action="VOICE_RECOVERY",
+            payment_amount_paise=149900,
+            currency="INR",
+            failure_reason="insufficient_funds",
+            payment_method="upi",
+            incident_flag=False,
+            allowed_recovery_options=("PAY_NOW", "SEND_PAYMENT_LINK", "RETRY_LATER"),
+        )
+        prompt = agent._build_system_prompt(context)
+        self.assertIn("chimera se baat karne ke liye dhanyawad", prompt)
+        self.assertIn("बाद में try करने की request record हो गई है", prompt)
+
+

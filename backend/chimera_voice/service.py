@@ -468,23 +468,30 @@ class VoiceService:
         agent_turn = ConversationTurn(
             speaker="agent",
             text=response_text,
-            intent=intent,
+            intent=None,
             confidence=0.95,
+            requires_confirmation=False,
             timestamp=self._now(),
             validated=True,
         )
         self._record_turn(call, agent_turn, context)
 
         should_end = (
-            intent in {VoiceIntent.DECLINE, VoiceIntent.WRONG_PERSON, VoiceIntent.PAY_NOW, VoiceIntent.SEND_PAYMENT_LINK}
-            or "chimera se baat krne k liye dhanyawaad" in response_text.lower()
+            intent in {VoiceIntent.DECLINE, VoiceIntent.WRONG_PERSON, VoiceIntent.PAY_NOW, VoiceIntent.SEND_PAYMENT_LINK, VoiceIntent.RETRY_LATER}
+            or "chimera se baat" in response_text.lower()
+            or "dhanyawad" in response_text.lower()
+            or "dhanyawaad" in response_text.lower()
             or "payment link ready" in response_text.lower()
+            or "बाद में try करने" in response_text.lower()
         )
         if intent in {VoiceIntent.DECLINE, VoiceIntent.WRONG_PERSON}:
             self._complete(call, VoiceCallStatus.DECLINED, "CALL_DECLINED", {"intent": intent.value})
         elif should_end:
-            self.ensure_payment_link_sent(call.intervention_id)
-            self._complete(call, VoiceCallStatus.COMPLETED, "CALL_COMPLETED", {"intent": intent.value, "payment_link_attached": True})
+            if intent in {VoiceIntent.PAY_NOW, VoiceIntent.SEND_PAYMENT_LINK} or "payment link ready" in response_text.lower():
+                self.ensure_payment_link_sent(call.intervention_id)
+                self._complete(call, VoiceCallStatus.COMPLETED, "CALL_COMPLETED", {"intent": intent.value, "payment_link_attached": True})
+            else:
+                self._complete(call, VoiceCallStatus.COMPLETED, "CALL_COMPLETED", {"intent": intent.value, "payment_link_attached": False})
         self.session.commit()
         return should_end
 
@@ -589,7 +596,7 @@ class VoiceService:
         response_text = {
             VoiceIntent.PAY_NOW: "Payment link ready है। कृपया अभी complete कीजिए। chimera se baat karne ke liye dhanyawaad.",
             VoiceIntent.SEND_PAYMENT_LINK: "Payment link ready है। कृपया अभी complete कीजिए। chimera se baat karne ke liye dhanyawaad.",
-            VoiceIntent.RETRY_LATER: "बाद में try करने की request record हो गई है। अभी payment recovered mark नहीं हुआ है।",
+            VoiceIntent.RETRY_LATER: "बाद में try करने की request record हो गई है। अभी payment recovered mark नहीं हुआ है। chimera se baat karne ke liye dhanyawad.",
             VoiceIntent.ALREADY_PAID: "आपकी payment claim record हो गई है। Recovery से पहले payment team verify करेगी।",
             VoiceIntent.DECLINE: "समझ गया। आप continue नहीं करना चाहते, यह record कर लिया है।",
             VoiceIntent.WRONG_PERSON: "समझ गया। यह गलत number है, मैं call end कर रहा हूँ।",
@@ -601,10 +608,10 @@ class VoiceService:
             if complete:
                 self._complete(call, VoiceCallStatus.DECLINED, "CALL_DECLINED", {"intent": intent.value})
                 self.interventions.record_outcome(call.intervention_id, InterventionOutcomeCreate(status="NOT_RECOVERED", recovered_amount_paise=0, currency=call.intervention.recovery_case.currency, occurred_at=self._now(), source="voice_agent"))
-        elif complete or intent in {VoiceIntent.PAY_NOW, VoiceIntent.SEND_PAYMENT_LINK}:
+        elif complete or intent in {VoiceIntent.PAY_NOW, VoiceIntent.SEND_PAYMENT_LINK, VoiceIntent.RETRY_LATER}:
             self._complete(call, VoiceCallStatus.COMPLETED, "CALL_COMPLETED", {"intent": intent.value, "payment_link_attached": payment_link is not None})
         self.session.commit()
-        should_end = complete or intent in {VoiceIntent.DECLINE, VoiceIntent.WRONG_PERSON, VoiceIntent.PAY_NOW, VoiceIntent.SEND_PAYMENT_LINK}
+        should_end = complete or intent in {VoiceIntent.DECLINE, VoiceIntent.WRONG_PERSON, VoiceIntent.PAY_NOW, VoiceIntent.SEND_PAYMENT_LINK, VoiceIntent.RETRY_LATER}
         return response_text, should_end
 
     def handle_twilio_gather(self, intervention_id: str, speech: str | None, digits: str | None) -> str:
