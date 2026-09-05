@@ -702,9 +702,9 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
         return [ScheduledRetryResponse.model_validate(item) for item in service.list_scheduled()]
 
     @router.post("/retries/{retry_id}/execute", response_model=RetryAttemptResponse)
-    def execute_scheduled_retry(retry_id: str, service: RetryService = Depends(retry_service)):
+    def execute_scheduled_retry(retry_id: str, force: bool = Query(default=False), service: RetryService = Depends(retry_service)):
         try:
-            return RetryAttemptResponse.model_validate(service.execute_scheduled(retry_id))
+            return RetryAttemptResponse.model_validate(service.execute_scheduled(retry_id, force=force))
         except ValueError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
 

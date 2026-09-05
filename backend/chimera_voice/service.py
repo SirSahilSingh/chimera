@@ -475,11 +475,16 @@ class VoiceService:
         )
         self._record_turn(call, agent_turn, context)
 
-        should_end = intent in {VoiceIntent.DECLINE, VoiceIntent.WRONG_PERSON}
-        if should_end:
+        should_end = (
+            intent in {VoiceIntent.DECLINE, VoiceIntent.WRONG_PERSON, VoiceIntent.PAY_NOW, VoiceIntent.SEND_PAYMENT_LINK}
+            or "chimera se baat krne k liye dhanyawaad" in response_text.lower()
+            or "payment link ready" in response_text.lower()
+        )
+        if intent in {VoiceIntent.DECLINE, VoiceIntent.WRONG_PERSON}:
             self._complete(call, VoiceCallStatus.DECLINED, "CALL_DECLINED", {"intent": intent.value})
-        elif intent in {VoiceIntent.PAY_NOW, VoiceIntent.SEND_PAYMENT_LINK}:
+        elif should_end:
             self.ensure_payment_link_sent(call.intervention_id)
+            self._complete(call, VoiceCallStatus.COMPLETED, "CALL_COMPLETED", {"intent": intent.value, "payment_link_attached": True})
         self.session.commit()
         return should_end
 
@@ -582,8 +587,8 @@ class VoiceService:
             default_text = "मैं incorrect information नहीं देना चाहता। आपका response record कर लिया है और team follow up करेगी।"
 
         response_text = {
-            VoiceIntent.PAY_NOW: "Payment link ready है। कृपया अभी complete कीजिए। Razorpay success confirm करेगा, तभी recovery mark होगी।",
-            VoiceIntent.SEND_PAYMENT_LINK: "Payment link ready है और approved message channel के लिए request record हो गई है। Payment confirm होने के बाद ही recovery mark होगी।",
+            VoiceIntent.PAY_NOW: "Payment link ready है। कृपया अभी complete कीजिए। chimera se baat karne ke liye dhanyawaad.",
+            VoiceIntent.SEND_PAYMENT_LINK: "Payment link ready है। कृपया अभी complete कीजिए। chimera se baat karne ke liye dhanyawaad.",
             VoiceIntent.RETRY_LATER: "बाद में try करने की request record हो गई है। अभी payment recovered mark नहीं हुआ है।",
             VoiceIntent.ALREADY_PAID: "आपकी payment claim record हो गई है। Recovery से पहले payment team verify करेगी।",
             VoiceIntent.DECLINE: "समझ गया। आप continue नहीं करना चाहते, यह record कर लिया है।",
@@ -596,10 +601,10 @@ class VoiceService:
             if complete:
                 self._complete(call, VoiceCallStatus.DECLINED, "CALL_DECLINED", {"intent": intent.value})
                 self.interventions.record_outcome(call.intervention_id, InterventionOutcomeCreate(status="NOT_RECOVERED", recovered_amount_paise=0, currency=call.intervention.recovery_case.currency, occurred_at=self._now(), source="voice_agent"))
-        elif complete:
+        elif complete or intent in {VoiceIntent.PAY_NOW, VoiceIntent.SEND_PAYMENT_LINK}:
             self._complete(call, VoiceCallStatus.COMPLETED, "CALL_COMPLETED", {"intent": intent.value, "payment_link_attached": payment_link is not None})
         self.session.commit()
-        should_end = complete or intent in {VoiceIntent.DECLINE, VoiceIntent.WRONG_PERSON}
+        should_end = complete or intent in {VoiceIntent.DECLINE, VoiceIntent.WRONG_PERSON, VoiceIntent.PAY_NOW, VoiceIntent.SEND_PAYMENT_LINK}
         return response_text, should_end
 
     def handle_twilio_gather(self, intervention_id: str, speech: str | None, digits: str | None) -> str:

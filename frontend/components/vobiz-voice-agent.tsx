@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { ArrowRightIcon, CheckIcon, CopyIcon, PhoneCallIcon, RefreshIcon, ShieldIcon } from "./icons";
+import { ArrowRightIcon, CheckIcon, CopyIcon, PhoneCallIcon, RefreshIcon } from "./icons";
 import { api, ApiError } from "../lib/api";
 import { formatFailureReason, formatPaise } from "../lib/formatters";
 import type { VoiceTurn } from "../lib/types";
@@ -185,45 +185,43 @@ export function VobizVoiceAgent({
 
       <div className="voice-agent-body">
         <div className="voice-agent-conversation">
-          <div className="voice-agent-section-head">
-            <div>
+          <div className="voice-telephony-trigger-card">
+            <div className="voice-trigger-head">
               <span className="section-overline">TELEPHONY TRIGGER</span>
-              <strong>Destination Phone</strong>
+              <h3>Destination Phone</h3>
+              <p>Enter your mobile number to receive the live demo call</p>
             </div>
-            <small>Enter your mobile number to receive the live demo call</small>
-          </div>
 
-          <form className="voice-agent-text-form" onSubmit={handleStartCall} style={{ marginTop: 0 }}>
-            <div className="voice-phone-row">
-              <div className="voice-phone-field">
+            <form className="voice-trigger-form" onSubmit={handleStartCall}>
+              <div className="voice-phone-input-wrap">
                 <span className="phone-prefix">+91</span>
-              <input
-                id="target-phone-input"
-                type="tel"
-                value={phoneDigits}
-                onChange={(e) => setPhoneDigits(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                placeholder="9876543210"
-                inputMode="numeric"
-                minLength={10}
-                maxLength={10}
-                pattern="[0-9]{10}"
-                aria-label="10-digit Indian mobile number"
-                disabled={isCalling}
-              />
+                <input
+                  id="target-phone-input"
+                  type="tel"
+                  value={phoneDigits}
+                  onChange={(e) => setPhoneDigits(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  placeholder="9876543210"
+                  inputMode="numeric"
+                  minLength={10}
+                  maxLength={10}
+                  pattern="[0-9]{10}"
+                  aria-label="10-digit Indian mobile number"
+                  disabled={isCalling}
+                />
               </div>
               <button
-                className="button button-primary"
+                className="button button-primary voice-call-action-btn"
                 type="submit"
                 disabled={isCalling}
               >
-                <PhoneCallIcon size={16} />
-                {isCalling ? "Call in Progress..." : "Call My Phone"}
+                <PhoneCallIcon size={15} />
+                <span>{isCalling ? "Calling Your Phone…" : "Call My Phone"}</span>
               </button>
-            </div>
-          </form>
+            </form>
+          </div>
 
           {errorMessage && (
-            <div className="voice-agent-error" role="alert" style={{ marginTop: "1rem" }}>
+            <div className="voice-agent-error" role="alert">
               <span>
                 <strong>Call Dispatch Notice: </strong>
                 {errorMessage}
@@ -234,7 +232,7 @@ export function VobizVoiceAgent({
             </div>
           )}
 
-          <div className="voice-agent-section-head" style={{ marginTop: "1.5rem" }}>
+          <div className="voice-agent-section-head">
             <div>
               <span className="section-overline">LIVE CALL TRANSCRIPT</span>
               <strong>Conversation Turns</strong>
@@ -306,34 +304,6 @@ export function VobizVoiceAgent({
             </div>
           )}
         </div>
-
-        <aside className="voice-agent-guardrail">
-          <div className="voice-agent-guardrail-head">
-            <ShieldIcon size={17} />
-            <span>Telephony Stack</span>
-          </div>
-          <h3>Direct Outbound PSTN</h3>
-          <p>
-            Unlike browser microphone demos, this dials a real phone on Indian telecom networks and passes the conversation through CHIMERA's voice bridge.
-          </p>
-          <div className="voice-agent-guardrail-list">
-            <span>
-              <CheckIcon size={13} /> Indian cloud telephony
-            </span>
-            <span>
-              <CheckIcon size={13} /> Hinglish speech recognition
-            </span>
-            <span>
-              <CheckIcon size={13} /> Low-latency response generation
-            </span>
-            <span>
-              <CheckIcon size={13} /> Natural speech response
-            </span>
-            <span>
-              <CheckIcon size={13} /> Zero credential leakage
-            </span>
-          </div>
-        </aside>
       </div>
     </section>
   );

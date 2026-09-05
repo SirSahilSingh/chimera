@@ -102,8 +102,8 @@ export function InitialCheckout({ embedded = false }: InitialCheckoutProps) {
         <div className="checkout-card-icon"><ShieldIcon size={19} /></div>
       </div>
       <form className="checkout-form" onSubmit={startCheckout}>
-        <label>Amount in INR <span className="required-mark" aria-hidden="true">*</span><input inputMode="decimal" min="1" step="1" value={amount} onChange={(event) => setAmount(event.target.value)} required /><small>The amount sent to Razorpay TEST.</small></label>
-        <label>Customer phone <span className="required-mark" aria-hidden="true">*</span><div className="phone-field"><span className="phone-prefix">+91</span><input aria-label="10-digit Indian mobile number" inputMode="numeric" type="tel" placeholder="9876543210" value={phoneDigits} onChange={(event) => setPhoneDigits(event.target.value.replace(/\D/g, "").slice(0, 10))} minLength={10} maxLength={10} pattern="[0-9]{10}" required /></div><small>Enter exactly 10 digits.</small></label>
+        <label><span className="field-label">Amount in INR <span className="required-mark" aria-hidden="true">*</span></span><input inputMode="decimal" min="1" step="1" value={amount} onChange={(event) => setAmount(event.target.value)} required /><small>The amount sent to Razorpay TEST.</small></label>
+        <label><span className="field-label">Customer phone <span className="required-mark" aria-hidden="true">*</span></span><div className="phone-field"><span className="phone-prefix">+91</span><input aria-label="10-digit Indian mobile number" inputMode="numeric" type="tel" placeholder="9876543210" value={phoneDigits} onChange={(event) => setPhoneDigits(event.target.value.replace(/\D/g, "").slice(0, 10))} minLength={10} maxLength={10} pattern="[0-9]{10}" required /></div><small>Enter exactly 10 digits.</small></label>
         <button className="button button-primary checkout-submit" type="submit" disabled={busy}>{busy ? "Creating order…" : "Open Razorpay Checkout"}<ArrowRightIcon size={15} /></button>
       </form>
       {message && <div className="checkout-message" role="status"><CheckIcon size={15} /><span>{message}</span></div>}

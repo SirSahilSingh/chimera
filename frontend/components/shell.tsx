@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertIcon, ArrowLeftIcon, AuditIcon, CheckIcon, ChevronDownIcon, FlaskIcon, GridIcon, ListIcon, SearchIcon, ShieldIcon, TuneIcon } from "./icons";
+import { ActivityIcon, AlertIcon, ArrowLeftIcon, AuditIcon, BarChartIcon, BrainIcon, CheckIcon, ChevronDownIcon, ClockIcon, CpuIcon, FlaskIcon, GridIcon, ListIcon, SearchIcon, ServerIcon, ShieldIcon, SlidersIcon, TuneIcon, ZapIcon } from "./icons";
 import logo from "../chimera-logo.png";
 
 type NavItem = {
@@ -15,18 +15,18 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { href: "/cases", label: "Case Queue", icon: ListIcon },
-  { href: "/cases?status=DECIDED", label: "Action Queue", icon: AlertIcon },
-  { href: "/retries/scheduled", label: "Scheduled Retries", icon: ShieldIcon },
-  { href: "/intelligence/failures", label: "Failure Patterns", icon: SearchIcon },
-  { href: "/intelligence/performance", label: "Recovery Outcomes", icon: GridIcon },
-  { href: "/learn", label: "Outcome Learning", icon: SearchIcon },
-  { href: "/system/health", label: "System Health", icon: ShieldIcon },
-  { href: "/system/decision-engine", label: "Decision Engine", icon: ShieldIcon },
-  { href: "/audit", label: "Audit Trail", icon: AuditIcon },
-  { href: "/providers", label: "Provider Readiness", icon: ShieldIcon },
   { href: "/demo", label: "Demo Scenarios", icon: FlaskIcon },
-  { href: "/arena", label: "Policy Lab", icon: GridIcon },
+  { href: "/cases", label: "Case Queue", icon: ListIcon },
+  { href: "/cases?status=DECIDED", label: "Action Queue", icon: ZapIcon },
+  { href: "/retries/scheduled", label: "Scheduled Retries", icon: ClockIcon },
+  { href: "/intelligence/failures", label: "Failure Patterns", icon: SearchIcon },
+  { href: "/intelligence/performance", label: "Recovery Outcomes", icon: BarChartIcon },
+  { href: "/learn", label: "Outcome Learning", icon: BrainIcon },
+  { href: "/system/health", label: "System Health", icon: ActivityIcon },
+  { href: "/system/decision-engine", label: "Decision Engine", icon: CpuIcon },
+  { href: "/audit", label: "Audit Trail", icon: AuditIcon },
+  { href: "/providers", label: "Provider Readiness", icon: ServerIcon },
+  { href: "/arena", label: "Policy Lab", icon: SlidersIcon },
   { href: "/methodology", label: "Methodology & Guardrails", icon: ShieldIcon },
 ];
 
@@ -42,7 +42,6 @@ const settingsItems = [
 const searchItems = [
   { href: "/", label: "Overview", detail: "Command Center", icon: GridIcon },
   ...navItems.map((item) => ({ href: item.href!, label: item.label, detail: "Workspace", icon: item.icon })),
-  ...settingsItems.map((item) => ({ href: item.href, label: item.label, detail: "Settings", icon: TuneIcon })),
 ];
 
 function isItemActive(pathname: string, search: string, href?: string) {
@@ -133,7 +132,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <div className="nav-rule" />
         {navItems.map((item) => <Link href={item.href!} className={`nav-item nav-child ${isItemActive(pathname, search, item.href) ? "active" : ""}`} key={item.label}><item.icon size={15} /><span>{item.label}</span></Link>)}
         <div className="nav-rule settings-rule" />
-        <Link href="/settings/general" className={`nav-item nav-settings ${settingsMode ? "active" : ""}`}><TuneIcon size={16} /><span>Settings</span></Link>
+        <div className="nav-item nav-settings nav-item-disabled" title="Settings disabled from dashboard" aria-disabled="true"><TuneIcon size={16} /><span>Settings</span><span className="nav-disabled-tag">Disabled</span></div>
       </nav>}
 
     </aside>
@@ -191,7 +190,27 @@ export function Button({ children, kind = "primary", onClick, disabled, type = "
 
 export type DropdownOption = { value: string; label: string; tone?: "neutral" | "blue" | "mint" | "amber" | "red" | "violet" };
 
-export function DropdownField({ label, value, onChange, options, className = "", disabled = false, required = false }: { label: string; value: string; onChange: (value: string) => void; options: DropdownOption[]; className?: string; disabled?: boolean; required?: boolean }) {
+export function DropdownField({
+  label,
+  value,
+  onChange,
+  options,
+  className = "",
+  disabled = false,
+  required = false,
+  labelAbove = false,
+  helperText,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: DropdownOption[];
+  className?: string;
+  disabled?: boolean;
+  required?: boolean;
+  labelAbove?: boolean;
+  helperText?: string;
+}) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const selected = options.find((option) => option.value === value) ?? options[0];
@@ -207,10 +226,14 @@ export function DropdownField({ label, value, onChange, options, className = "",
     return () => { document.removeEventListener("pointerdown", closeOnOutside); document.removeEventListener("keydown", closeOnEscape); };
   }, [open]);
 
-  return <div className={`dropdown-field ${open ? "open" : ""} ${className}`} ref={rootRef}>
+  return <div className={`dropdown-field ${labelAbove ? "dropdown-field-stacked" : ""} ${open ? "open" : ""} ${className}`} ref={rootRef}>
+    {labelAbove && <span className="field-label">{label}{required && <span className="required-mark" aria-hidden="true">*</span>}</span>}
     <button className="dropdown-trigger" type="button" aria-haspopup="listbox" aria-expanded={open} disabled={disabled} onClick={() => setOpen((current) => !current)}>
-      <span className="dropdown-trigger-label">{label}{required && <span className="required-mark" aria-hidden="true"> *</span>}</span><span className="dropdown-trigger-value">{selected?.label ?? "Select"}</span><ChevronDownIcon size={13} />
+      {!labelAbove && <span className="dropdown-trigger-label">{label}{required && <span className="required-mark" aria-hidden="true"> *</span>}</span>}
+      <span className="dropdown-trigger-value">{selected?.label ?? "Select"}</span>
+      <ChevronDownIcon size={13} />
     </button>
+    {helperText && <small>{helperText}</small>}
     {open && <div className="dropdown-menu" role="listbox" aria-label={label}>
       {options.map((option) => <button className={`dropdown-option ${option.value === value ? "selected" : ""}`} type="button" role="option" aria-selected={option.value === value} key={option.value} onClick={() => { onChange(option.value); setOpen(false); }}>
         <span className={`dropdown-dot ${option.tone ?? "neutral"}`} /><span className="dropdown-option-label">{option.label}</span>{option.value === value && <CheckIcon size={13} />}

@@ -58,13 +58,13 @@ class RetryService:
             raise ValueError("immediate retry requires stored RETRY_NOW intervention")
         return self._execute(intervention)
 
-    def execute_scheduled(self, retry_id: str) -> RetryAttempt:
+    def execute_scheduled(self, retry_id: str, force: bool = False) -> RetryAttempt:
         schedule = self.get_schedule(retry_id)
         if schedule.execution_status == "EXECUTED":
             return self._latest_attempt(schedule.intervention_id)
         now = self._now()
         scheduled_at = schedule.scheduled_at if schedule.scheduled_at.tzinfo else schedule.scheduled_at.replace(tzinfo=timezone.utc)
-        if scheduled_at > now:
+        if scheduled_at > now and not force:
             raise ValueError("retry is not yet eligible")
         intervention = self.interventions.get_intervention(schedule.intervention_id)
         result = self._execute(intervention)

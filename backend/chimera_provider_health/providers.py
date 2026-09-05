@@ -52,8 +52,17 @@ def build_provider_specs(settings, *, voice_provider, payment_provider, messagin
         getattr(settings, "exotel_stream_url", None) if exotel_agentstream else (getattr(settings, "exotel_app_id", None) or getattr(settings, "exotel_flow_url", None)),
         (getattr(settings, "sarvam_enabled", False) and getattr(settings, "sarvam_api_key", None)) if exotel_voicebot_bridge else True,
     ))
+    vobiz_configured = all((
+        settings.voice_enabled,
+        getattr(settings, "vobiz_auth_id", None),
+        getattr(settings, "vobiz_auth_token", None),
+        getattr(settings, "vobiz_caller_id", None),
+        settings.voice_public_base_url,
+    ))
     voice_configured = (not voice_live) or (
-        all((settings.voice_enabled, settings.twilio_account_sid, settings.twilio_auth_token, settings.voice_phone_number, settings.voice_public_base_url, getattr(settings, "sarvam_enabled", False), getattr(settings, "sarvam_api_key", None)))
+        vobiz_configured
+        if voice_provider.name == "vobiz"
+        else all((settings.voice_enabled, settings.twilio_account_sid, settings.twilio_auth_token, settings.voice_phone_number, settings.voice_public_base_url, getattr(settings, "sarvam_enabled", False), getattr(settings, "sarvam_api_key", None)))
         if voice_provider.name == "twilio"
         else exotel_transport_configured
         if voice_provider.name == "exotel"
@@ -69,23 +78,37 @@ def build_provider_specs(settings, *, voice_provider, payment_provider, messagin
     escalation_configured = (not escalation_live) or all((settings.escalation_enabled, settings.telegram_bot_token, settings.telegram_chat_id))
     messaging_health_name = "whatsapp" if messaging_provider.name == "whatsapp" else "twilio"
     messaging_implementation = f"{messaging_provider.name}/{getattr(settings, 'messaging_channel', 'sms')}" if messaging_provider.name == "twilio" else messaging_provider.name
-    voice_implementation = f"{voice_provider.name}+{speech_provider.name}" if speech_provider is not None and (voice_provider.name == "twilio" or (voice_provider.name == "exotel" and exotel_voicebot_bridge)) else voice_provider.name
-    voice_capabilities = ("call_initiation", "call_status_updates", "conversation_events", "webhook_signature_verification")
-    if voice_provider.name == "twilio":
-        voice_capabilities += ("sarvam_hinglish_stt", "sarvam_hinglish_tts")
-    if voice_provider.name == "exotel":
-        voice_capabilities += ("exotel_call_flow", "exotel_status_callbacks")
+    
+    if voice_provider.name == "vobiz":
+        voice_implementation = "vobiz+sarvam+groq"
+        voice_capabilities = (
+            "vobiz_outbound_calling",
+            "bidirectional_stream_16khz",
+            "sarvam_saaras_stt",
+            "sarvam_bulbul_tts",
+            "groq_llama_dialogue",
+            "realtime_transcript",
+        )
+        voice_limitations = "Vobiz cloud telephony handles carrier dialing; Sarvam AI powers Hindi/Hinglish speech (Saaras STT & Bulbul TTS); Groq handles low-latency LLM dialogue."
+    elif voice_provider.name == "exotel":
+        voice_implementation = f"{voice_provider.name}+{speech_provider.name}" if speech_provider is not None and exotel_voicebot_bridge else voice_provider.name
+        voice_capabilities = ("call_initiation", "call_status_updates", "conversation_events", "webhook_signature_verification", "exotel_call_flow", "exotel_status_callbacks")
         if exotel_voicebot_bridge:
             voice_capabilities += ("exotel_bidirectional_audio", "sarvam_hinglish_stt", "sarvam_hinglish_tts")
-    if voice_provider.name == "exotel":
         if exotel_agentstream:
             voice_limitations = "Exotel provides phone transport; direct AgentStream streams bidirectional call audio to CHIMERA, where Sarvam handles Hinglish speech. An AgentStream-enabled account, verified destination, Sarvam key, and public WSS URL are required."
         elif exotel_flow_bridge:
             voice_limitations = "Exotel provides phone transport; the published Flow's Voicebot applet streams bidirectional call audio to CHIMERA, where Sarvam handles Hinglish speech. The applet must use CHIMERA's HTTPS resolver, which returns the per-call public WSS URL; a verified destination, Sarvam key, and Exotel Voicebot access are required."
         else:
             voice_limitations = "Exotel provides phone transport and call-flow execution; CHIMERA receives status callbacks. A verified trial destination, Exotel flow, credentials, and public callback URL are required for real calls."
-    else:
+    elif voice_provider.name == "twilio":
+        voice_implementation = f"{voice_provider.name}+{speech_provider.name}" if speech_provider is not None else voice_provider.name
+        voice_capabilities = ("call_initiation", "call_status_updates", "conversation_events", "webhook_signature_verification", "sarvam_hinglish_stt", "sarvam_hinglish_tts")
         voice_limitations = "Twilio provides phone transport; Sarvam Saaras/Bulbul provide the Hinglish speech loop. Both credentials and a public callback URL are required for real calls."
+    else:
+        voice_implementation = voice_provider.name
+        voice_capabilities = ("call_initiation", "call_status_updates", "conversation_events", "webhook_signature_verification")
+        voice_limitations = "Local deterministic phone mock provider. No external network request is made."
     specs = (
         ProviderSpec(
             "voice", ProviderType.VOICE, voice_implementation, str(voice_provider.mode).upper(), voice_configured, not voice_live,

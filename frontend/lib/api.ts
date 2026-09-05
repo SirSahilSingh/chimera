@@ -81,7 +81,7 @@ export const api = {
   acknowledgeEscalation: (escalationId: string) => request<Escalation>(`/escalations/${encodeURIComponent(escalationId)}/acknowledge`, { method: "POST" }),
   resolveEscalation: (escalationId: string) => request<Escalation>(`/escalations/${encodeURIComponent(escalationId)}/resolve`, { method: "POST" }),
   listScheduledRetries: () => request<ScheduledRetry[]>("/retries/scheduled"),
-  executeScheduledRetry: (retryId: string) => request<Execution>(`/retries/${encodeURIComponent(retryId)}/execute`, { method: "POST" }),
+  executeScheduledRetry: (retryId: string, force = true) => request<Execution>(`/retries/${encodeURIComponent(retryId)}/execute${force ? "?force=true" : ""}`, { method: "POST" }),
   runArena: (payload: { seeds?: number[]; count_per_seed?: number } = {}) => request<ArenaResponse>("/arena/run", { method: "POST", body: JSON.stringify({ seeds: payload.seeds ?? [400000], count_per_seed: payload.count_per_seed ?? 25 }) }),
   startOutboundCall: (payload: { intervention_id: string; customer_phone?: string }) =>
     request<JourneyVoiceCall>("/voice/outbound/call", {

@@ -80,6 +80,10 @@ class VobizStreamSession:
                                 await asyncio.to_thread(self.voice_service.vobiz_call_completed, self.intervention_id, reason="playback_resolution_complete")
                             except Exception as exc:
                                 logger.warning("Failed to mark call complete after playback: %s", exc)
+                        try:
+                            await self.websocket.close()
+                        except Exception:
+                            pass
                         return
                 elif event in {"stop", "hangup", "disconnect", "close"}:
                     logger.info("Vobiz stream terminated by carrier: event=%s", event)
@@ -284,6 +288,9 @@ class VobizStreamSession:
                 self.voice_service.handle_vobiz_transcript, self.intervention_id, transcript
             )
 
+        if response_text and ("dhanyawaad" in response_text.lower() or "payment link ready" in response_text.lower()):
+            should_end = True
+
         logger.info("Agent reply: %s (close_after_playback=%s)", response_text, should_end)
         self.close_after_playback = should_end
 
@@ -353,6 +360,18 @@ class VobizStreamSession:
         if self.is_playing:
             logger.info("Playback safety timer expired (%.2fs), resetting is_playing", delay)
             self.is_playing = False
+        if self.close_after_playback:
+            logger.info("Ending call after resolution playback safety timer (%.2fs)", delay)
+            await asyncio.sleep(0.5)
+            if self.intervention_id:
+                try:
+                    await asyncio.to_thread(self.voice_service.vobiz_call_completed, self.intervention_id, reason="safety_timer_resolution_complete")
+                except Exception as exc:
+                    logger.warning("Failed to mark call complete on safety timer: %s", exc)
+            try:
+                await self.websocket.close()
+            except Exception:
+                pass
 
     def _has_voice(self, pcm: bytes) -> bool:
         """Measure RMS energy of 16-bit mono PCM."""
