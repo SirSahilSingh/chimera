@@ -60,8 +60,12 @@ class RecoveryJourneyService:
         if case is None:
             raise DomainError("recovery case not found")
 
-        decisions = sorted(case.decisions, key=lambda row: (row.created_at, row.id), reverse=True)
-        decision = decisions[0] if decisions else None
+        decisions = sorted(
+            enumerate(case.decisions),
+            key=lambda item: (item[1].created_at, item[1].decision_timestamp, item[0]),
+            reverse=True,
+        )
+        decision = decisions[0][1] if decisions else None
         interventions = sorted(case.interventions, key=lambda row: (row.created_at, row.id))
         latest_explanation = max(case.explanations, key=lambda row: (row.generated_at, row.id), default=None)
         audit = self._audit(case)

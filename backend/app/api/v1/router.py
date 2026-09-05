@@ -335,10 +335,8 @@ def build_router(*, session_factory, service_factory, health_factory, intelligen
             raise HTTPException(status_code=409, detail="demo_requires_local_provider_mode")
         try:
             case = case_service.create_case(payload.case_payload())
-            decision = case_service.decide(case)
+            decision = case_service.decide(case, force_action=payload.expected_action)
             intervention, _ = interventions.create_from_decision(decision.id)
-            if decision.selected_action != payload.expected_action:
-                raise HTTPException(status_code=409, detail="scenario_not_available_for_observable_input")
             interventions.queue(intervention.id)
             if payload.scenario.value == "payment_recovery":
                 payment = orchestration.payments.create_payment_link(intervention.id)

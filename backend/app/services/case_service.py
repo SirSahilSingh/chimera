@@ -23,6 +23,7 @@ from backend.chimera_model.benchmark import (
 )
 from backend.chimera_model.features import build_feature_builder
 from backend.chimera_simulator.config import SimulatorConfig
+from backend.chimera_simulator.models import ACTIONS
 
 from backend.app.db.models import ActionExecution, AuditLog, Decision, DecisionCandidate, RecoveryCase
 
@@ -91,20 +92,24 @@ class CaseService:
         count_query = count_query.where(*filters)
         return list(self.session.scalars(query)), int(self.session.scalar(count_query) or 0)
 
-    def decide(self, case: RecoveryCase) -> Decision:
+    def decide(self, case: RecoveryCase, *, force_action: str | None = None) -> Decision:
         if case.status not in {CaseStatus.NEW.value, CaseStatus.DECIDED.value}:
             raise DomainError(f"case status {case.status} cannot be decided")
         event = build_event(case, self.simulator_config)
         result = self.engine().decide(event)
         decision_run_id = uuid4().hex
-        selected = result.candidate(result.selected_action)
+        action = force_action if force_action and force_action in ACTIONS else result.selected_action
+        selected = result.candidate(action)
         trace = result.to_dict()
         trace["application_model_version"] = INTERACTION_MODEL_VERSION
         trace["application_feature_schema_version"] = INTERACTION_FEATURE_SCHEMA_VERSION
+        if force_action and force_action != result.selected_action:
+            trace["operator_override"] = True
+            trace["model_selected_action"] = result.selected_action
         decision = Decision(
             recovery_case_id=case.id,
             decision_run_id=decision_run_id,
-            selected_action=result.selected_action,
+            selected_action=action,
             predicted_probability=selected.predicted_probability,
             expected_gross_recovery_paise=selected.expected_gross_recovery_paise,
             expected_net_value_paise=selected.expected_net_value_paise,
@@ -123,7 +128,7 @@ class CaseService:
             transition(case.status, CaseStatus.DECIDED)
             case.status = CaseStatus.DECIDED.value
         case.updated_at = datetime.now(case.decision_timestamp.tzinfo)
-        self._audit(case, "DECISION_COMPLETED", {"decision_run_id": decision_run_id, "selected_action": result.selected_action}, decision=decision)
+        self._audit(case, "DECISION_COMPLETED", {"decision_run_id": decision_run_id, "selected_action": action}, decision=decision)
         self.session.commit()
         self.session.refresh(decision)
         return decision

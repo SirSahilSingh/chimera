@@ -234,7 +234,7 @@ class VoiceService:
         if self.provider.name != "local":
             raise VoiceProviderFailure("demo_requires_local_provider")
         try:
-            call, _ = self.start(intervention_id, scenario)
+            call, _ = self.start(intervention_id, scenario, allow_secondary=True)
         except VoiceProviderFailure:
             if scenario == VoiceScenario.PROVIDER_FAILURE:
                 return self.get_call_for_intervention(intervention_id)

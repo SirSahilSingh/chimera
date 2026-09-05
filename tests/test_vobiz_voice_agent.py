@@ -117,3 +117,22 @@ class VobizVoiceAgentTests(unittest.TestCase):
         history = history_resp.json()
         self.assertEqual(history["call"]["status"], "COMPLETED")
         self.assertIsNotNone(history["call"]["completed_at"])
+
+    def test_demo_run_supports_custom_failure_reasons_and_amounts(self):
+        for reason in ["issuer_decline", "abandonment", "expired_method", "technical_degradation"]:
+            resp = self.client.post(
+                "/api/v1/demo/run",
+                json={
+                    "scenario": "voice_recovery",
+                    "failure_reason": reason,
+                    "payment_method": "card",
+                    "amount_paise": 50000,
+                    "customer_phone": "+919999988888",
+                },
+            )
+            self.assertEqual(resp.status_code, 201, f"Failed for {reason}: {resp.text}")
+            data = resp.json()
+            self.assertEqual(data["selected_action"], "VOICE_RECOVERY")
+            self.assertEqual(data["scenario"], "voice_recovery")
+            self.assertIsNotNone(data["intervention_id"])
+
