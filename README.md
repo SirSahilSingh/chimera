@@ -6,7 +6,7 @@ Track 3 asks builders to answer a clear challenge: **Find revenue that is slippi
 
 When an online payment fails, most businesses either do nothing, spam the customer with generic "payment failed" messages, or hammer the payment gateway with blind auto-retries. These naive approaches waste money, annoy customers, degrade gateway health, and fail to recover lost revenue.
 
-CHIMERA is an auditable revenue-recovery control room. It detects observable payment failures in real time, diagnoses the operational root cause, uses machine learning to predict which recovery action has the highest probability of success, balances that against costs and customer fatigue, and executes bounded recovery workflows through trusted providers like Razorpay, Exotel, Sarvam AI, and Twilio.
+CHIMERA is an auditable revenue-recovery control room. It detects observable payment failures in real time, diagnoses the operational root cause, uses machine learning to predict which recovery action has the highest probability of success, balances that against costs and customer fatigue, and executes bounded recovery workflows through trusted providers like Razorpay, Vobiz, Sarvam AI, and Groq.
 
 Best of all, CHIMERA does not let a black-box model run wild with business funds. Every recovery action is bounded by strict stopping rules, governed by a deterministic decision engine, and permanently recorded in an append-only audit trail.
 
@@ -20,14 +20,14 @@ Best of all, CHIMERA does not let a black-box model run wild with business funds
 - [System Architecture](#system-architecture)
 - [Supported Recovery Actions](#supported-recovery-actions)
 - [Standout Capabilities](#standout-capabilities)
-  - [India-First Hinglish Voice Recovery](#india-first-hinglish-voice-recovery-pipecat--sarvam-with-exotel-fallback)
+  - [Hinglish Voice Recovery (Vobiz + Sarvam AI + Groq)](#hinglish-voice-recovery-vobiz--sarvam-ai--groq)
   - [Razorpay Test Checkout and Dynamic Payment Links](#razorpay-test-checkout-and-dynamic-payment-links)
   - [The Expected Value Decision Engine](#the-expected-value-decision-engine)
   - [Intelligent Retry Sequencer](#intelligent-retry-sequencer)
   - [The Arena: Batch Recovery Measurement](#the-arena-batch-recovery-measurement)
   - [Next.js Operator Command Center](#nextjs-operator-command-center)
 - [Quick Start: Run Locally in 2 Minutes](#quick-start-run-locally-in-2-minutes)
-- [Live Provider Setup (Razorpay, Exotel, Sarvam, Twilio)](#live-provider-setup)
+- [Live Provider Setup (Razorpay, Vobiz, Sarvam AI, Groq)](#live-provider-setup)
 - [Machine Learning Pipeline and Benchmark Results](#machine-learning-pipeline-and-benchmark-results)
 - [Safety, Privacy, and RBI-Aligned Guardrails](#safety-privacy-and-rbi-aligned-guardrails)
 - [Repository Tour](#repository-tour)
@@ -73,7 +73,7 @@ Here is how CHIMERA directly answers each requirement:
 | --- | --- |
 | **Detect Revenue at Risk** | Ingests verified webhooks from Razorpay Checkout and local payment engines, categorizing failures into actionable operational buckets (issuer decline, technical degradation, expired method, insufficient funds). |
 | **Right Intervention & Bounded Workflow** | Evaluates 7 discrete candidate actions (`PAYMENT_LINK`, `SEND_MESSAGE`, `VOICE_RECOVERY`, `RETRY_NOW`, `RETRY_LATER`, `ESCALATE`, `DO_NOTHING`) using calibrated ML probabilities and an expected-value calculation. |
-| **Hinglish Voice Recovery** | Implements real-time telephony recovery via Exotel AgentStream WebSockets coupled with Sarvam AI speech models. The agent speaks natural Hinglish, understands customer intent, and dispatches a payment link upon request. |
+| **Hinglish Voice Recovery** | Implements real-time telephony recovery via Vobiz cloud telephony WebSockets coupled with Sarvam AI speech models (Saaras STT & Bulbul TTS) and Groq LLM. The agent speaks natural Hinglish, understands customer intent, and dispatches a payment link upon request. |
 | **Stopping Rules & Restraint** | Enforces hard limits: max 2 contacts per week, 7-day fatigue penalties, quiet-hours contact windows, and automatic circuit breakers when a provider is degraded. `DO_NOTHING` is selected whenever net recovery value is negative. |
 | **Compliant Escalation** | Routes complex, high-value, or repeated failures to an operator-review queue (`ESCALATE`) with complete context, so human teams can step in safely. |
 | **Show Measured Money Recovered Across a Batch** | Built-in **Arena Simulator** tests policies against batches of 5,000+ synthetic failure cases across disjoint random seeds, reporting total recovered rupees, recovery rates, action costs, and net revenue lift. |
@@ -188,7 +188,7 @@ CHIMERA evaluates 7 distinct actions for every single recovery case:
 | --- | --- | --- |
 | `PAYMENT_LINK` | Generates a dynamic Razorpay payment link and tracks completion. | Customer abandoned checkout or wants an alternate payment mode. |
 | `SEND_MESSAGE` | Dispatches an SMS or WhatsApp message with recovery details and payment link. | Low-friction drop-offs where an immediate reminder is enough. |
-| `VOICE_RECOVERY` | Initiates an interactive Hinglish voice call via Exotel and Sarvam AI. | High-value payments, subscription renewals, or older payment failures needing personal clarification. |
+| `VOICE_RECOVERY` | Initiates an interactive Hinglish voice call via Vobiz, Sarvam AI, and Groq. | High-value payments, subscription renewals, or older payment failures needing personal clarification. |
 | `RETRY_NOW` | Executes a single, bounded payment retry immediately. | Transient network blips or momentary gateway connection drops. |
 | `RETRY_LATER` | Schedules a retry for an optimal future window. | Insufficient funds near month-end or known scheduled bank maintenance windows. |
 | `ESCALATE` | Routes the case to human operations with full historical notes. | High-value VIP transactions, suspicious activity, or repeated failures. |
@@ -198,16 +198,18 @@ CHIMERA evaluates 7 distinct actions for every single recovery case:
 
 ## Standout Capabilities
 
-### India-First Hinglish Voice Recovery (Pipecat + Sarvam, with Exotel fallback)
+### Hinglish Voice Recovery (Vobiz + Sarvam AI + Groq)
 
-Many Indian customers do not click SMS links from unknown senders. A polite, natural phone call in Hinglish dramatically improves trust and recovery rates.
+Many customers ignore generic automated SMS notifications. A polite, natural phone call in conversational Hinglish dramatically improves trust and recovery rates.
 
-CHIMERA has two voice surfaces with a shared case context:
-- **Browser demo:** Pipecat streams microphone audio over a local WebSocket, Sarvam Saaras transcribes code-mixed Hindi/English, Sarvam LLM keeps the conversation grounded in the failed payment, and Sarvam Bulbul speaks the answer back. This path is intentionally read-only for demos: it cannot create a link, collect credentials, or mark recovery complete.
-- **Telephony:** Exotel AgentStream remains the phone transport for a real call, with the existing controlled voice policy and Sarvam speech adapter behind it. The browser demo does not depend on Exotel connectivity.
-- **Safe conversation boundary:** The agent can explain the abandoned payment, answer questions, and discuss next steps. A real payment link or recovered state must come from the existing provider and reconciliation boundaries, not from a generated reply.
+CHIMERA integrates a production-grade conversational voice recovery pipeline:
+- **Telephony Carrier:** Vobiz programmable cloud telephony initiates carrier-grade outbound phone calls to customer numbers and streams bidirectional 16 kHz audio over secure WebSockets (`/api/v1/voice/vobiz/stream`).
+- **Speech Recognition (STT):** Sarvam AI Saaras v3 transcribes code-mixed Hindi/English speech in real time with high accuracy across Indian accents.
+- **Conversational Intelligence (LLM):** Groq (Llama 3.3 70B) powers ultra-fast (<150ms TTFT) contextual Hinglish dialogue reasoning, grounded specifically in the customer's failed payment context.
+- **Speech Synthesis (TTS):** Sarvam AI Bulbul v3 synthesizes expressive, human-quality Hinglish audio spoken back to the customer on the call.
+- **Strict Recovery Boundaries:** The agent explains why the payment failed, answers questions, handles objections or requests to retry later, and upon customer agreement dispatches an official Razorpay payment link. Calls conclude politely with standard acknowledgements ("chimera se baat karne ke liye dhanyawad"). Conversational promises never mark recovery complete; only an authoritative Razorpay webhook confirms recovered revenue.
 
-To run the browser demo, set `SARVAM_API_KEY`, install the optional backend dependency from `requirements.txt`, start the API and frontend, then open **Demo Scenarios → Voice-Assisted Recovery → Run scenario**. The setup creates the case and intervention without requiring the configured phone provider to be local, so Exotel/Twilio can remain configured for telephony work. The **Talk through the abandoned payment** panel appears below the persisted run. The microphone is the primary input; the panel also has a typed-turn fallback for a live presentation when browser microphone permission is unavailable.
+Operators can initiate and inspect voice recovery interactions directly from the **Voice Recovery** workspace in the Next.js dashboard or test simulated flows via **Evaluation Lab → Demo Scenarios**.
 
 ### Razorpay Test Checkout and Dynamic Payment Links
 
@@ -250,7 +252,7 @@ A high-density desktop interface built for financial operations teams:
 - **Command Center:** Live metrics showing revenue at risk, recovery rates, active cases, and gateway health.
 - **Case Queue:** Search and filter failed payments by amount, failure reason, and customer segment.
 - **Decision Room:** Step into any case to inspect the timeline, candidate scores, policy rule checks, and voice call transcripts.
-- **Provider Health:** Real-time visibility into Razorpay, Exotel, Sarvam, Twilio, and database connections.
+- **Provider Health:** Real-time visibility into Razorpay, Vobiz, Sarvam AI, Groq, WhatsApp, and database connections.
 
 ---
 
@@ -353,43 +355,39 @@ RAZORPAY_MODE=TEST
 
 Webhooks should point to: `POST /api/v1/payments/webhook/razorpay`
 
-### Exotel and Sarvam AI (Hinglish Voice)
+### Vobiz, Sarvam AI & Groq (Hinglish Voice Telephony)
 
 ```dotenv
-VOICE_PROVIDER=exotel
-EXOTEL_API_KEY=your_exotel_key
-EXOTEL_API_TOKEN=your_exotel_token
-EXOTEL_SUBDOMAIN=your_subdomain
-SARVAM_API_KEY=your_sarvam_key
-```
+VOICE_PROVIDER=vobiz
+VOICE_ENABLED=true
+VOBIZ_AUTH_ID=your_vobiz_auth_id
+VOBIZ_AUTH_TOKEN=your_vobiz_auth_token
+VOBIZ_CALLER_ID=+91your_caller_id
+VOICE_PUBLIC_BASE_URL=https://your-public-url.ngrok-free.app
 
-### Browser voice demo (Pipecat + Sarvam)
+# Groq ultra-low-latency conversational reasoning (LPU)
+GROQ_API_KEY=your_groq_api_key
+GROQ_MODEL=llama-3.3-70b-versatile
 
-```dotenv
+# Sarvam AI speech models (Saaras STT & Bulbul TTS)
+SARVAM_ENABLED=true
 SARVAM_API_KEY=your_sarvam_key
 SARVAM_LANGUAGE_CODE=hi-IN
 SARVAM_STT_MODEL=saaras:v3
 SARVAM_STT_MODE=codemix
 SARVAM_TTS_MODEL=bulbul:v3
 SARVAM_TTS_SPEAKER=shubh
-PIPECAT_SARVAM_LLM_MODEL=sarvam-105b
-PIPECAT_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,http://127.0.0.1:3000,http://127.0.0.1:3001,http://127.0.0.1:3002,http://127.0.0.1:3003
-NEXT_PUBLIC_API_WS_BASE_URL=ws://localhost:8000/api/v1
 ```
 
-The browser transport is a local/prototype surface. `NEXT_PUBLIC_API_WS_BASE_URL`
-must be the browser-reachable FastAPI WebSocket base (`wss://<api-host>/api/v1`
-when the site is served over HTTPS); the normal Next rewrite only proxies HTTP.
-Pipecat recommends WebRTC for a production web app; use the existing Exotel
-AgentStream path when the demo needs to be reached by phone.
+When an outbound recovery call connects, Vobiz streams 16 kHz audio bidirectionally over WebSockets (`/api/v1/voice/vobiz/stream`). Sarvam Saaras transcribes the customer's spoken Hinglish, Groq generates contextual dialogue responses in under 150 ms, and Sarvam Bulbul converts the response into natural speech streamed back to the customer.
 
-### Twilio Messaging (SMS & WhatsApp)
+### Meta WhatsApp Messaging
 
 ```dotenv
-MESSAGING_PROVIDER=twilio
-TWILIO_ACCOUNT_SID=your_account_sid
-TWILIO_AUTH_TOKEN=your_auth_token
-TWILIO_FROM_NUMBER=+1234567890
+MESSAGING_PROVIDER=whatsapp
+MESSAGING_ENABLED=true
+WHATSAPP_ACCESS_TOKEN=your_access_token
+WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
 ```
 
 > **Safety Gate:** Real external side-effects are blocked unless `CHIMERA_ALLOW_LIVE_EXECUTION=true` is set. This prevents accidental messages or real bank calls during development.
@@ -468,7 +466,7 @@ CHIMERA/
 │   ├── chimera_provider_health/ Health checks and connectivity probes
 │   ├── chimera_retry/          Immediate and scheduled retry boundary
 │   ├── chimera_simulator/      Synthetic failure generator and Arena engine
-│   ├── chimera_voice/          Exotel streaming WebSockets and Sarvam AI Hinglish agent
+│   ├── chimera_voice/          Vobiz streaming WebSockets, Groq reasoning, and Sarvam AI Hinglish agent
 │   └── scripts/                CLI runners for demos, training, and benchmarks
 ├── frontend/
 │   ├── app/                    Next.js App Router pages (Command Center, Cases, Arena)
@@ -496,8 +494,8 @@ CHIMERA/
 | **Database** | SQLAlchemy 2.0, SQLite (Local), PostgreSQL (Prod) | Structured operational data and immutable audit logs |
 | **Machine Learning** | NumPy, Scikit-learn, Platt Scaling | 170-feature calibrated recovery probability models |
 | **Payments** | Razorpay Checkout, Razorpay Payment Links API | Order creation, test checkout, and payment reconciliation |
-| **Voice & Speech** | Exotel AgentStream WebSockets, Sarvam AI | Low-latency telephony and natural Hinglish conversational AI |
-| **Messaging** | Twilio SMS/WhatsApp, Meta WhatsApp API | Multi-channel recovery notifications |
+| **Voice & Speech** | Vobiz Cloud Telephony, Sarvam AI (Saaras & Bulbul), Groq LPU | Low-latency telephony and natural Hinglish conversational AI |
+| **Messaging** | Meta WhatsApp API, Local Adapters | Multi-channel recovery notifications |
 | **Simulation** | Custom Monte Carlo Event Simulator | Batch policy evaluation and counterfactual testing |
 
 ---

@@ -11,7 +11,7 @@ free or trial services for a buildathon demonstration:
 - WhatsApp remains an optional Twilio Sandbox integration. The recipient must
   join the Sandbox and be verified; proactive messages use a Twilio-approved
   template.
-- Voice uses Vobiz (or Twilio/Exotel) as the phone carrier. Sarvam is the India-first speech
+- Voice uses Vobiz as the phone carrier. Sarvam is the speech
   layer: Saaras v3 transcribes code-mixed Hindi/English recordings and Bulbul
   v3 speaks the next response. Vobiz provides self-serve signup credits for outbound testing
   directly to Indian mobile destinations over a bidirectional 16 kHz WebSocket stream.
