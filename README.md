@@ -2,6 +2,8 @@
 
 Built for the **Razorpay AI Buildathon 2026: Track 3 (AI Revenue Recovery)**.
 
+> 🚀 **Live Interactive Demo:** Try the payment link and voice recovery demo yourself at **[https://chimera-recovery.vercel.app/demo](https://chimera-recovery.vercel.app/demo)**.
+
 Track 3 asks builders to answer a clear challenge: **Find revenue that is slipping away and win it back.**
 
 When an online payment fails, most businesses either do nothing, spam the customer with generic "payment failed" messages, or hammer the payment gateway with blind auto-retries. These naive approaches waste money, annoy customers, degrade gateway health, and fail to recover lost revenue.
