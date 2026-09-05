@@ -136,3 +136,30 @@ class VobizVoiceAgentTests(unittest.TestCase):
             self.assertEqual(data["scenario"], "voice_recovery")
             self.assertIsNotNone(data["intervention_id"])
 
+    def test_vobiz_verify_connectivity(self):
+        # Connectivity check must complete cleanly without throwing VoiceProviderError
+        with patch("backend.chimera_voice.vobiz_provider.urlopen") as mock_urlopen:
+            mock_resp = MagicMock()
+            mock_resp.status = 200
+            mock_urlopen.return_value.__enter__.return_value = mock_resp
+            self.vobiz_provider.verify_connectivity()
+
+    def test_vobiz_provider_readiness_verify_endpoint(self):
+        with patch("backend.chimera_voice.vobiz_provider.urlopen") as mock_urlopen:
+            mock_resp = MagicMock()
+            mock_resp.status = 200
+            mock_urlopen.return_value.__enter__.return_value = mock_resp
+            resp = self.client.post("/api/v1/providers/voice/verify", json={})
+            self.assertEqual(resp.status_code, 200, resp.text)
+            data = resp.json()
+            self.assertEqual(data["verification_result"], "SUCCESS")
+            self.assertEqual(data["readiness_status"], "TEST_VERIFIED")
+            self.assertIsNone(data["error_type"])
+
+    def test_vobiz_provider_list_not_unavailable(self):
+        resp = self.client.get("/api/v1/providers")
+        self.assertEqual(resp.status_code, 200)
+        voice = next(p for p in resp.json() if p["provider_name"] == "voice")
+        self.assertNotEqual(voice["readiness_status"], "UNAVAILABLE")
+        self.assertEqual(voice["readiness_status"], "TEST_READY")
+

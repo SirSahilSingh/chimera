@@ -54,8 +54,8 @@ export default function CommandCenter() {
     const resolved = recovered.length + cases.filter((item) => item.status === "UNRECOVERED").length;
     const attention = cases.filter((item) => !isRecovered(item) && item.status !== "CLOSED" && item.latest_decision?.selected_action !== "DO_NOTHING");
     const newCases = cases.filter((item) => item.status === "NEW" && !seenCaseIds.includes(item.id));
-    const readyProviders = providers.filter((item) => item.readiness_status.endsWith("_VERIFIED") || item.readiness_status === "READY" || item.readiness_status === "CONFIGURED").length;
-    const providerIssues = providers.filter((item) => ["FAILED", "UNAVAILABLE", "NOT_CONFIGURED"].includes(item.readiness_status)).length;
+    const readyProviders = providers.filter((item) => item.readiness_status.endsWith("_VERIFIED") || item.readiness_status === "READY" || item.readiness_status === "CONFIGURED" || item.readiness_status === "TEST_READY").length;
+    const providerIssues = providers.filter((item) => ["FAILED", "UNAVAILABLE", "NOT_CONFIGURED"].includes(item.readiness_status) && item.readiness_status !== "TEST_READY").length;
     return {
       atRisk: unresolved.reduce((sum, item) => sum + item.amount_paise, 0),
       recoveredValue: recovered.reduce((sum, item) => sum + item.amount_paise, 0),

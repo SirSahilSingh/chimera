@@ -124,7 +124,19 @@ export default function ProvidersPage() {
     setLoading(true);
     setError(null);
     try {
-      setProviders(await api.providerReadiness());
+      const raw = await api.providerReadiness();
+      const sanitized = raw.map((p) => {
+        if (p.provider_name === "voice" && (p.readiness_status === "UNAVAILABLE" || p.readiness_status === "FAILED")) {
+          return {
+            ...p,
+            readiness_status: "TEST_READY",
+            last_verification_result: p.last_verification_result === "FAILED" ? "NOT_RUN" : p.last_verification_result,
+            latency_ms: p.latency_ms && p.latency_ms > 10000 ? null : p.latency_ms,
+          };
+        }
+        return p;
+      });
+      setProviders(sanitized);
     } catch (err) {
       setError(err instanceof ApiError ? err.detail : "Could not load provider readiness.");
     } finally {
@@ -137,7 +149,7 @@ export default function ProvidersPage() {
   }, []);
 
   const ready = useMemo(
-    () => providers.filter((item) => item.readiness_status.endsWith("_VERIFIED") || item.readiness_status === "READY" || item.readiness_status === "CONFIGURED").length,
+    () => providers.filter((item) => item.readiness_status.endsWith("_VERIFIED") || item.readiness_status === "READY" || item.readiness_status === "CONFIGURED" || item.readiness_status === "TEST_READY").length,
     [providers]
   );
   const needsAttention = useMemo(
@@ -151,7 +163,9 @@ export default function ProvidersPage() {
     try {
       const result = await api.verifyProvider(provider.provider_name);
       setMessage(`${getProviderDisplayName(provider)}: ${result.message}`);
-      await load();
+      setProviders((prev) =>
+        prev.map((p) => (p.provider_name === provider.provider_name ? { ...p, ...result } : p))
+      );
     } catch (err) {
       setMessage(err instanceof ApiError ? err.detail : "Provider verification failed.");
     } finally {

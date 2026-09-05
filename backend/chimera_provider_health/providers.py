@@ -53,11 +53,11 @@ def build_provider_specs(settings, *, voice_provider, payment_provider, messagin
         (getattr(settings, "sarvam_enabled", False) and getattr(settings, "sarvam_api_key", None)) if exotel_voicebot_bridge else True,
     ))
     vobiz_configured = all((
-        settings.voice_enabled,
-        getattr(settings, "vobiz_auth_id", None),
-        getattr(settings, "vobiz_auth_token", None),
-        getattr(settings, "vobiz_caller_id", None),
-        settings.voice_public_base_url,
+        (settings.voice_enabled or getattr(voice_provider, "enabled", False)),
+        (getattr(settings, "vobiz_auth_id", None) or getattr(voice_provider, "auth_id", None)),
+        (getattr(settings, "vobiz_auth_token", None) or getattr(voice_provider, "auth_token", None)),
+        (getattr(settings, "vobiz_caller_id", None) or getattr(voice_provider, "caller_id", None)),
+        (settings.voice_public_base_url or getattr(voice_provider, "public_base_url", None)),
     ))
     voice_configured = (not voice_live) or (
         vobiz_configured
